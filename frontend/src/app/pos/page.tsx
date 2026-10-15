@@ -46,6 +46,7 @@ interface CartItem {
   stockMaximo?: number;
   cantidad: number;
   precioUnitarioBs: number;
+  precioSugeridoOriginal?: number;
 }
 
 export default function PosPage() {
@@ -76,6 +77,7 @@ export default function PosPage() {
   const [comprobanteRef, setComprobanteRef] = useState('');
   const [isSubmittingSale, setIsSubmittingSale] = useState(false);
   const [saleError, setSaleError] = useState<string | null>(null);
+  const [priceWarning, setPriceWarning] = useState<string | null>(null);
   const [completedSale, setCompletedSale] = useState<any | null>(null);
 
   // Modal QR Oficial
@@ -113,8 +115,11 @@ export default function PosPage() {
     // Si ya está en carrito, evitar duplicarlo
     if (cart.some((item) => item.dispositivoId === disp.id)) return;
 
-    // Sugerir precio de venta (si no tiene precio específico, costo + margen típico)
-    const precioSugerido = Math.round(Number(disp.costoBs) * 1.15);
+    // Sugerir precio de venta oficial (US09 / Fase 2)
+    const precioSugerido =
+      Number(disp.precioVentaSugeridoBs) > 0
+        ? Number(disp.precioVentaSugeridoBs)
+        : Math.round(Number(disp.costoBs || 0) * 1.15);
 
     const newItem: CartItem = {
       cartId: `tel-${disp.id}`,
@@ -126,6 +131,7 @@ export default function PosPage() {
       serie: disp.numeroSerie,
       cantidad: 1,
       precioUnitarioBs: precioSugerido,
+      precioSugeridoOriginal: precioSugerido,
     };
 
     setCart([...cart, newItem]);
@@ -153,6 +159,7 @@ export default function PosPage() {
         stockMaximo: lote.stockActual,
         cantidad: 1,
         precioUnitarioBs: Number(lote.precioVentaBs),
+        precioSugeridoOriginal: Number(lote.precioVentaBs),
       };
       setCart([...cart, newItem]);
     }
@@ -175,6 +182,21 @@ export default function PosPage() {
   };
 
   const handleUpdatePrice = (cartId: string, newPrice: number) => {
+    setPriceWarning(null);
+    const item = cart.find((i) => i.cartId === cartId);
+    if (!item) return;
+
+    // Regla de negocio: si no es ADMIN, no puede reducir más del 10% del precio sugerido original
+    if (user?.rol !== 'ADMIN' && item.precioSugeridoOriginal && item.precioSugeridoOriginal > 0) {
+      const pisoMinimo = item.precioSugeridoOriginal * 0.9;
+      if (newPrice < pisoMinimo) {
+        setPriceWarning(
+          `Política Comercial: Como vendedor no puedes reducir el precio por debajo de Bs ${pisoMinimo.toFixed(2)} (máx 10% de descuento). Requiere autorización de un Administrador.`
+        );
+        return;
+      }
+    }
+
     setCart(
       cart.map((item) =>
         item.cartId === cartId ? { ...item, precioUnitarioBs: newPrice } : item
@@ -540,11 +562,25 @@ export default function PosPage() {
                         </span>
                       )}
 
-                      {/* Precio */}
+                      {/* Precio Unitario Editable */}
                       <div className="text-right">
-                        <span className="font-mono font-bold text-slate-900 block">
-                          Bs {(item.cantidad * item.precioUnitarioBs).toFixed(2)}
-                        </span>
+                        <div className="flex items-center gap-1 justify-end">
+                          <span className="text-[10px] text-slate-400">Bs</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.precioUnitarioBs || ''}
+                            onChange={(e) => handleUpdatePrice(item.cartId, parseFloat(e.target.value) || 0)}
+                            className="w-20 text-right font-mono font-bold text-slate-900 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
+                            title="Ajustar precio acordado"
+                          />
+                        </div>
+                        {item.cantidad > 1 && (
+                          <span className="font-mono text-[10px] text-slate-400 block mt-0.5">
+                            Total: Bs {(item.cantidad * item.precioUnitarioBs).toFixed(2)}
+                          </span>
+                        )}
                       </div>
 
                       <button
@@ -556,6 +592,13 @@ export default function PosPage() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {priceWarning && (
+                <div className="p-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>{priceWarning}</span>
                 </div>
               )}
 

@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolUsuario } from '@prisma/client';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('modelos')
 @UseGuards(JwtAuthGuard)
@@ -32,11 +33,13 @@ export class ModelosController {
     @Query('sucursalId') sucursalId?: string,
     @Query('estado') estado?: string,
     @Query('busqueda') busqueda?: string,
+    @CurrentUser('rol') userRole?: string,
   ) {
     return this.modelosService.findDispositivos(
       sucursalId ? parseInt(sucursalId, 10) : undefined,
       estado,
       busqueda,
+      userRole,
     );
   }
 

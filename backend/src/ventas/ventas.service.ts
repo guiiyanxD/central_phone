@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { EstadoCaja, EstadoInventario, TipoItemVenta } from '@prisma/client';
+import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
 export class VentasService {
@@ -140,22 +141,32 @@ export class VentasService {
           );
         }
 
+        const precioUnitarioBs = roundMoney(item.precioVentaBs);
+        const costoUnitarioBs = roundMoney(disp.costoBs);
+
+        // Invariante Financiero (Fase 2): Precio de venta no puede ser inferior al costo real de adquisición
+        if (precioUnitarioBs < costoUnitarioBs) {
+          throw new BadRequestException(
+            `El precio de venta pactado (Bs ${precioUnitarioBs.toFixed(2)}) para el equipo '${disp.variante.modelo.nombreModelo}' no puede ser inferior a su costo de adquisición real (Bs ${costoUnitarioBs.toFixed(2)}).`
+          );
+        }
+
         // Marcar dispositivo como VENDIDO
         await tx.dispositivo.update({
           where: { id: disp.id },
           data: { estadoInventario: EstadoInventario.VENDIDO },
         });
 
-        const subtotal = Number(item.precioVentaBs);
-        totalVentaBs += subtotal;
+        const subtotal = roundMoney(precioUnitarioBs);
+        totalVentaBs = roundMoney(totalVentaBs + subtotal);
 
         // Regla Inmutable 6: Snapshot de costo y precio al momento exacto de la venta
         detallesParaCrear.push({
           tipoItem: TipoItemVenta.DISPOSITIVO,
           dispositivoId: disp.id,
           cantidad: 1,
-          costoUnitarioBs: Number(disp.costoBs),
-          precioUnitarioBs: Number(item.precioVentaBs),
+          costoUnitarioBs,
+          precioUnitarioBs,
           subtotalBs: subtotal,
         });
       }
@@ -179,6 +190,16 @@ export class VentasService {
           );
         }
 
+        const precioUnitarioBs = roundMoney(item.precioVentaBs);
+        const costoUnitarioBs = roundMoney(lote.costoUnitarioBs);
+
+        // Invariante Financiero (Fase 2): Precio de venta no puede ser inferior al costo unitario
+        if (precioUnitarioBs < costoUnitarioBs) {
+          throw new BadRequestException(
+            `El precio de venta pactado (Bs ${precioUnitarioBs.toFixed(2)}) para el accesorio '${lote.accesorio.nombre}' [${lote.nombreDiferenciador}] no puede ser inferior a su costo de adquisición (Bs ${costoUnitarioBs.toFixed(2)}).`
+          );
+        }
+
         // Descontar inventario del lote
         await tx.loteAccesorio.update({
           where: { id: lote.id },
@@ -187,16 +208,16 @@ export class VentasService {
           },
         });
 
-        const subtotal = Number(item.precioVentaBs) * item.cantidad;
-        totalVentaBs += subtotal;
+        const subtotal = roundMoney(precioUnitarioBs * item.cantidad);
+        totalVentaBs = roundMoney(totalVentaBs + subtotal);
 
         // Regla Inmutable 6: Snapshot de costo y precio
         detallesParaCrear.push({
           tipoItem: TipoItemVenta.ACCESORIO,
           loteAccesorioId: lote.id,
           cantidad: item.cantidad,
-          costoUnitarioBs: Number(lote.costoUnitarioBs),
-          precioUnitarioBs: Number(item.precioVentaBs),
+          costoUnitarioBs,
+          precioUnitarioBs,
           subtotalBs: subtotal,
         });
       }
@@ -210,7 +231,7 @@ export class VentasService {
           usuarioId,
           clienteId,
           metodoPagoId: metodoPago.id,
-          totalVentaBs,
+          totalVentaBs: roundMoney(totalVentaBs),
           comprobanteReferencia: dto.comprobanteReferencia?.trim() || ticketRef,
           comprobanteImagenUrl: dto.comprobanteImagenUrl?.trim() || null,
         },
@@ -307,8 +328,8 @@ export class VentasService {
 
       return {
         ...v,
-        costoTotalBs,
-        gananciaNetaBs,
+        costoTotalBs: roundMoney(costoTotalBs),
+        gananciaNetaBs: roundMoney(gananciaNetaBs),
       };
     });
   }
@@ -353,8 +374,8 @@ export class VentasService {
 
     return {
       ...venta,
-      costoTotalBs,
-      gananciaNetaBs,
+      costoTotalBs: roundMoney(costoTotalBs),
+      gananciaNetaBs: roundMoney(gananciaNetaBs),
     };
   }
 

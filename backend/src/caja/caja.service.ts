@@ -10,6 +10,7 @@ import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { CerrarCajaDto } from './dto/cerrar-caja.dto';
 import { RegistrarGastoDto } from './dto/registrar-gasto.dto';
 import { EstadoCaja } from '@prisma/client';
+import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
 export class CajaService {
@@ -67,7 +68,7 @@ export class CajaService {
     }
 
     // Cálculos financieros dinámicos de la sesión activa
-    const montoInicial = Number(caja.montoInicialEfectivo) || 0;
+    const montoInicial = roundMoney(caja.montoInicialEfectivo);
 
     let totalVentasEfectivo = 0;
     let totalVentasDigitales = 0;
@@ -75,9 +76,9 @@ export class CajaService {
     for (const v of caja.ventas) {
       const monto = Number(v.totalVentaBs) || 0;
       if (v.metodoPago.codigo === 'EFECTIVO') {
-        totalVentasEfectivo += monto;
+        totalVentasEfectivo = roundMoney(totalVentasEfectivo + monto);
       } else {
-        totalVentasDigitales += monto;
+        totalVentasDigitales = roundMoney(totalVentasDigitales + monto);
       }
     }
 
@@ -87,14 +88,14 @@ export class CajaService {
     for (const g of caja.gastosOperativos) {
       const monto = Number(g.montoBs) || 0;
       if (g.metodoPago.codigo === 'EFECTIVO') {
-        totalGastosEfectivo += monto;
+        totalGastosEfectivo = roundMoney(totalGastosEfectivo + monto);
       } else {
-        totalGastosOtros += monto;
+        totalGastosOtros = roundMoney(totalGastosOtros + monto);
       }
     }
 
-    const saldoEfectivoEnCaja = montoInicial + totalVentasEfectivo - totalGastosEfectivo;
-    const totalRecaudadoTotal = totalVentasEfectivo + totalVentasDigitales;
+    const saldoEfectivoEnCaja = roundMoney(montoInicial + totalVentasEfectivo - totalGastosEfectivo);
+    const totalRecaudadoTotal = roundMoney(totalVentasEfectivo + totalVentasDigitales);
 
     return {
       caja,
@@ -169,18 +170,22 @@ export class CajaService {
     }
 
     // Calcular balance teórico en efectivo
-    const montoInicial = Number(caja.montoInicialEfectivo) || 0;
-    const ventasEfectivo = caja.ventas
-      .filter((v) => v.metodoPago.codigo === 'EFECTIVO')
-      .reduce((sum, v) => sum + Number(v.totalVentaBs), 0);
+    const montoInicial = roundMoney(caja.montoInicialEfectivo);
+    const ventasEfectivo = roundMoney(
+      caja.ventas
+        .filter((v) => v.metodoPago.codigo === 'EFECTIVO')
+        .reduce((sum, v) => sum + Number(v.totalVentaBs), 0)
+    );
 
-    const gastosEfectivo = caja.gastosOperativos
-      .filter((g) => g.metodoPago.codigo === 'EFECTIVO')
-      .reduce((sum, g) => sum + Number(g.montoBs), 0);
+    const gastosEfectivo = roundMoney(
+      caja.gastosOperativos
+        .filter((g) => g.metodoPago.codigo === 'EFECTIVO')
+        .reduce((sum, g) => sum + Number(g.montoBs), 0)
+    );
 
-    const balanceTeorico = montoInicial + ventasEfectivo - gastosEfectivo;
-    const montoFisicoContado = Number(dto.montoFinalEfectivo);
-    const diferencia = montoFisicoContado - balanceTeorico;
+    const balanceTeorico = roundMoney(montoInicial + ventasEfectivo - gastosEfectivo);
+    const montoFisicoContado = roundMoney(dto.montoFinalEfectivo);
+    const diferencia = roundMoney(montoFisicoContado - balanceTeorico);
 
     // Regla de Negocio US12: Si hay diferencia (sobrante o faltante), justificación obligatoria
     if (Math.abs(diferencia) > 0.01) {

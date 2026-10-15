@@ -82,7 +82,12 @@ export class ModelosService {
     });
   }
 
-  async findDispositivos(sucursalId?: number, estado?: string, busqueda?: string) {
+  async findDispositivos(
+    sucursalId?: number,
+    estado?: string,
+    busqueda?: string,
+    userRole?: string,
+  ) {
     const whereClause: any = {};
     if (sucursalId) {
       whereClause.sucursalId = sucursalId;
@@ -106,7 +111,7 @@ export class ModelosService {
       ];
     }
 
-    return this.prisma.dispositivo.findMany({
+    const dispositivos = await this.prisma.dispositivo.findMany({
       where: whereClause,
       include: {
         variante: {
@@ -123,6 +128,16 @@ export class ModelosService {
       },
       orderBy: { id: 'desc' },
     });
+
+    // Confidencialidad de costos mayoristas (Regla Inmutable RBAC Financiero)
+    if (userRole && userRole !== 'ADMIN') {
+      return dispositivos.map((d) => {
+        const { costoBs, costoUsd, ...safeData } = d;
+        return safeData;
+      });
+    }
+
+    return dispositivos;
   }
 
   async findOne(id: number) {

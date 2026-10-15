@@ -82,21 +82,24 @@ export class RecepcionService {
           throw new ConflictException(`El número de serie '${d.numeroSerie}' ya se encuentra registrado en el sistema.`);
         }
 
-        const imei1Existente = await tx.dispositivo.findUnique({
-          where: { imei1: d.imei1.trim() },
+        const imei1Existente = await tx.dispositivo.findFirst({
+          where: {
+            OR: [{ imei1: d.imei1.trim() }, { imei2: d.imei1.trim() }],
+          },
         });
         if (imei1Existente) {
-          throw new ConflictException(`El IMEI 1 '${d.imei1}' ya está registrado en el sistema.`);
+          throw new ConflictException(`El IMEI 1 '${d.imei1}' ya se encuentra registrado en el sistema.`);
         }
 
         if (d.imei2 && d.imei2.trim().length > 0) {
+          const imei2Clean = d.imei2.trim();
           const imei2Existente = await tx.dispositivo.findFirst({
             where: {
-              OR: [{ imei1: d.imei2.trim() }, { imei2: d.imei2.trim() }],
+              OR: [{ imei1: imei2Clean }, { imei2: imei2Clean }],
             },
           });
           if (imei2Existente) {
-            throw new ConflictException(`El IMEI 2 '${d.imei2}' ya está registrado en el sistema.`);
+            throw new ConflictException(`El IMEI 2 '${d.imei2}' ya se encuentra registrado en el sistema.`);
           }
         }
       }
@@ -106,10 +109,11 @@ export class RecepcionService {
         varianteId: number;
         numeroSerie: string;
         imei1: string;
-        imei2?: string;
+        imei2?: string | null;
         condicion: CondicionDispositivo;
         costoBs: number;
         costoUsd: number;
+        precioVentaSugeridoBs: number;
       }> = [];
 
       for (const d of dispositivos) {
@@ -146,6 +150,11 @@ export class RecepcionService {
           throw new BadRequestException('Cada dispositivo debe especificar un varianteId o una nuevaVariante.');
         }
 
+        const precioSugerido =
+          d.precioVentaSugeridoBs !== undefined && d.precioVentaSugeridoBs !== null
+            ? Number(d.precioVentaSugeridoBs)
+            : Math.round(Number(d.costoBs) * 1.15);
+
         dispositivosParaCrear.push({
           varianteId: resolvedVarianteId,
           numeroSerie: d.numeroSerie.trim(),
@@ -154,6 +163,7 @@ export class RecepcionService {
           condicion: d.condicion || CondicionDispositivo.NUEVO,
           costoBs: d.costoBs,
           costoUsd: d.costoUsd,
+          precioVentaSugeridoBs: precioSugerido,
         });
       }
 
@@ -191,6 +201,7 @@ export class RecepcionService {
             condicion: disp.condicion,
             costoBs: disp.costoBs,
             costoUsd: disp.costoUsd,
+            precioVentaSugeridoBs: disp.precioVentaSugeridoBs,
             estadoInventario: EstadoInventario.DISPONIBLE,
           },
         });

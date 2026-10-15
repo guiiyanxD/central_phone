@@ -34,7 +34,7 @@ test.describe('Flujos de Usuario Autenticado (Vendedor)', () => {
     await expect(page.locator('text=Punto de Venta (POS)')).toBeVisible();
     await expect(page.locator('text=Recepción de Mercadería')).toBeVisible();
     await expect(page.locator('text=Control de Inventario')).toBeVisible();
-    await expect(page.locator('text=Caja Diaria')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Caja Diaria' })).toBeVisible();
   });
 
   test('Barra de navegación no contiene conmutador de roles (Seguridad Fase 1)', async ({ page }) => {

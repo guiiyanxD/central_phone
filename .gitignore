@@ -10,6 +10,7 @@ dist/
 build/
 .next/
 out/
+*.tsbuildinfo
 
 # Variables de entorno (REGLA INMUTABLE: NUNCA SUBIR AL CONTROL DE VERSIONES)
 .env

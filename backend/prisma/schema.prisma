@@ -179,9 +179,10 @@ model Dispositivo {
   imei1            String               @unique @map("imei_1") @db.VarChar(20)
   imei2            String?              @unique @map("imei_2") @db.VarChar(20)
   condicion        CondicionDispositivo @default(NUEVO)
-  costoBs          Decimal              @map("costo_bs") @db.Decimal(10, 2)
-  costoUsd         Decimal              @map("costo_usd") @db.Decimal(10, 2)
-  estadoInventario EstadoInventario     @default(DISPONIBLE) @map("estado_inventario")
+  costoBs               Decimal              @map("costo_bs") @db.Decimal(10, 2)
+  costoUsd              Decimal              @map("costo_usd") @db.Decimal(10, 2)
+  precioVentaSugeridoBs Decimal              @default(0.00) @map("precio_venta_sugerido_bs") @db.Decimal(10, 2)
+  estadoInventario      EstadoInventario     @default(DISPONIBLE) @map("estado_inventario")
 
   variante      VarianteDispositivo @relation(fields: [varianteId], references: [id])
   sucursal      Sucursal            @relation(fields: [sucursalId], references: [id])

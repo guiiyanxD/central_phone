@@ -215,6 +215,7 @@ export const api = {
           condicion: 'NUEVO' | 'USADO' | 'OPEN_BOX';
           costoBs: string | number;
           costoUsd: string | number;
+          precioVentaSugeridoBs?: string | number;
           estadoInventario: 'DISPONIBLE' | 'VENDIDO' | 'RESERVADO' | 'EN_GARANTIA' | 'DEFECTUOSO';
           variante: {
             id: number;
@@ -304,6 +305,7 @@ export const api = {
         condicion?: 'NUEVO' | 'USADO' | 'OPEN_BOX';
         costoBs: number;
         costoUsd: number;
+        precioVentaSugeridoBs?: number;
       }>;
       accesorios?: Array<{
         accesorioId: number;

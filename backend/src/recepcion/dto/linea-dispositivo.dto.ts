@@ -61,4 +61,8 @@ export class LineaDispositivoDto {
   @IsNumber({}, { message: 'El costo en Dólares ($) debe ser numérico.' })
   @IsNotEmpty({ message: 'Costo en $ requerido.' })
   costoUsd: number;
+
+  @IsNumber({}, { message: 'El precio de venta sugerido (Bs) debe ser numérico.' })
+  @IsOptional()
+  precioVentaSugeridoBs?: number;
 }

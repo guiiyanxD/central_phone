@@ -281,7 +281,9 @@ export default function InventarioPage() {
                     <th className="py-3 px-4">Modelo & Variante</th>
                     <th className="py-3 px-4">IMEI 1 / Serie</th>
                     <th className="py-3 px-4">Condición</th>
-                    <th className="py-3 px-4">Costo Adquisición</th>
+                    <th className="py-3 px-4">
+                      {user?.rol === 'ADMIN' ? 'Costo / P. Sugerido' : 'Precio Sugerido'}
+                    </th>
                     <th className="py-3 px-4">Sucursal</th>
                     <th className="py-3 px-4 text-right">Estado</th>
                   </tr>
@@ -337,8 +339,18 @@ export default function InventarioPage() {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-mono text-slate-800">
-                          <p className="font-semibold">Bs {Number(d.costoBs).toFixed(2)}</p>
-                          <p className="text-[10px] text-slate-400">$ {Number(d.costoUsd).toFixed(2)} USD</p>
+                          {user?.rol === 'ADMIN' ? (
+                            <>
+                              <p className="font-semibold">Bs {Number(d.costoBs).toFixed(2)}</p>
+                              <p className="text-[10px] text-emerald-700 font-medium">
+                                Sug: Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="font-semibold text-slate-900">
+                              Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
+                            </p>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 text-slate-600">
                           <div className="flex items-center gap-1">

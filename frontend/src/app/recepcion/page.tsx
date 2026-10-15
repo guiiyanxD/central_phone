@@ -42,6 +42,7 @@ interface TelefonoRow {
   condicion: 'NUEVO' | 'USADO' | 'OPEN_BOX';
   costoBs: number;
   costoUsd: number;
+  precioVentaSugeridoBs: number;
 }
 
 interface AccesorioRow {
@@ -80,6 +81,7 @@ export default function RecepcionMercaderiaPage() {
       condicion: 'NUEVO',
       costoBs: 0,
       costoUsd: 0,
+      precioVentaSugeridoBs: 0,
     },
   ]);
 
@@ -147,6 +149,7 @@ export default function RecepcionMercaderiaPage() {
         condicion: 'NUEVO',
         costoBs: 0,
         costoUsd: 0,
+        precioVentaSugeridoBs: 0,
       },
     ]);
   };
@@ -161,6 +164,14 @@ export default function RecepcionMercaderiaPage() {
       telefonos.map((t) => {
         if (t.id === id) {
           const updated = { ...t, [field]: value };
+          // Si cambia costoBs y precioVentaSugeridoBs no fue personalizado o era 0/cálculo previo, sugerir +15%
+          if (field === 'costoBs') {
+            const numCosto = Number(value) || 0;
+            const prevCalculado = Math.round((Number(t.costoBs) || 0) * 1.15);
+            if (!t.precioVentaSugeridoBs || t.precioVentaSugeridoBs === prevCalculado) {
+              updated.precioVentaSugeridoBs = Math.round(numCosto * 1.15);
+            }
+          }
           // Si cambia varianteId, actualizar displays
           if (field === 'varianteId' && typeof value === 'number') {
             for (const m of modelos) {
@@ -334,6 +345,7 @@ export default function RecepcionMercaderiaPage() {
           condicion: t.condicion,
           costoBs: Number(t.costoBs) || 0,
           costoUsd: Number(t.costoUsd) || 0,
+          precioVentaSugeridoBs: Number(t.precioVentaSugeridoBs) || 0,
         })),
         accesorios: accesoriosValidos.map((a) => ({
           accesorioId: Number(a.accesorioId),
@@ -422,6 +434,7 @@ export default function RecepcionMercaderiaPage() {
                     condicion: 'NUEVO',
                     costoBs: 0,
                     costoUsd: 0,
+                    precioVentaSugeridoBs: 0,
                   },
                 ]);
                 setAccesorios([
@@ -723,6 +736,24 @@ export default function RecepcionMercaderiaPage() {
                       value={t.costoUsd || ''}
                       onChange={(e) =>
                         handleUpdateTelefono(t.id, 'costoUsd', parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+
+                  {/* Precio Venta Sugerido en Bs (US09 / Fase 2) */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label required>P. Venta Sugerido (Bs)</Label>
+                      <span className="text-[10px] text-slate-500 font-mono">+15% auto</span>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={t.precioVentaSugeridoBs || ''}
+                      onChange={(e) =>
+                        handleUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
                       }
                     />
                   </div>
