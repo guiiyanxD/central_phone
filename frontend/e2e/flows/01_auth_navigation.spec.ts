@@ -19,7 +19,9 @@ test.describe('Navegación y Autenticación en CentralPhone', () => {
     await page.click('button[type="submit"]');
 
     // Debe mostrar alerta de credenciales inválidas
-    await expect(page.locator('text=Credenciales')).toBeVisible({ timeout: 10000 });
+    const alertBox = page.locator('.text-rose-700');
+    await expect(alertBox).toBeVisible({ timeout: 10000 });
+    await expect(alertBox).toContainText('Credenciales');
   });
 });
 
