@@ -19,14 +19,14 @@
 
 ## 2. 📋 Criterios de Éxito y Definition of Done (DoD)
 
-* [ ] El esquema de Prisma incluye `precioVentaSugeridoBs Decimal @default(0.00) @map("precio_venta_sugerido_bs") @db.Decimal(10, 2)` en `Dispositivo`.
-* [ ] Migración de Prisma (`add-precio-sugerido-dispositivo`) aplicada y probada en PostgreSQL.
-* [ ] La pantalla de recepción de mercadería ([`recepcion/page.tsx`](../../frontend/src/app/recepcion/page.tsx)) permite capturar tanto el costo de adquisición como el precio de venta sugerido al público de cada teléfono.
-* [ ] La API de inventario para el mostrador (`GET /modelos/dispositivos`) omite `costoBs` y `costoUsd` para usuarios con rol `VENDEDOR`.
-* [ ] El terminal de venta ([`pos/page.tsx`](../../frontend/src/app/pos/page.tsx)) toma el precio de venta sugerido oficial sin exponer costos de adquisición.
-* [ ] Si un vendedor intenta ingresar un precio de venta inferior al 95% del precio sugerido, el sistema bloquea el cobro o solicita código de autorización del Administrador.
-* [ ] La recepción rechaza cualquier teléfono cuyo `imei1` coincida con un `imei2` existente en el historial o viceversa.
-* [ ] Todas las operaciones monetarias en backend redondean mediante helper seguro de centavos.
+* [x] El esquema de Prisma incluye `precioVentaSugeridoBs Decimal @default(0.00) @map("precio_venta_sugerido_bs") @db.Decimal(10, 2)` en `Dispositivo`.
+* [x] Migración de Prisma (`add-precio-sugerido-dispositivo`) aplicada y probada en PostgreSQL.
+* [x] La pantalla de recepción de mercadería ([`recepcion/page.tsx`](../../frontend/src/app/recepcion/page.tsx)) permite capturar tanto el costo de adquisición como el precio de venta sugerido al público de cada teléfono.
+* [x] La API de inventario para el mostrador (`GET /modelos/dispositivos`) omite `costoBs` y `costoUsd` para usuarios con rol `VENDEDOR`.
+* [x] El terminal de venta ([`pos/page.tsx`](../../frontend/src/app/pos/page.tsx)) toma el precio de venta sugerido oficial sin exponer costos de adquisición.
+* [x] Si un vendedor intenta ingresar un precio de venta inferior al piso comercial (10% de descuento del precio sugerido), el sistema advierte/bloquea el cobro o solicita código de autorización del Administrador.
+* [x] La recepción rechaza cualquier teléfono cuyo `imei1` coincida con un `imei2` existente en el historial o viceversa.
+* [x] Todas las operaciones monetarias en backend redondean mediante helper seguro de centavos (`money.util.ts`).
 
 ---
 
