@@ -1,0 +1,377 @@
+@startuml diagrama_clases
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam roundcorner 5
+
+' ========================================================
+' ENUMS Y TIPOS DE VALOR
+' ========================================================
+package "Dominio.Tipos" {
+    enum RolUsuario {
+        ADMIN
+        VENDEDOR
+    }
+
+    enum EstadoDispositivo {
+        DISPONIBLE
+        VENDIDO
+        RESERVADO
+        DEFECTUOSO
+    }
+
+    enum CondicionEquipo {
+        NUEVO
+        USADO
+        OPEN_BOX
+    }
+
+    enum TipoSim {
+        SIM_FISICO
+        ESIM
+        DUAL_SIM
+    }
+
+    enum EstadoCaja {
+        ABIERTA
+        CERRADA
+    }
+
+    enum TipoItem {
+        DISPOSITIVO
+        ACCESORIO
+    }
+
+    enum TipoEstrategiaPago {
+        CASH
+        STATIC_QR
+        DYNAMIC_QR
+    }
+}
+
+' ========================================================
+' PAQUETE: CONFIGURACIÓN Y SUCURSALES
+' ========================================================
+package "Dominio.Configuracion" {
+    class ConfiguracionNegocio <<Singleton>> {
+        - id: int
+        - nombreEmpresa: String
+        - logoUrl: String
+        - qrOficialImagenUrl: String
+        - bancoOficial: String
+        - titularCuenta: String
+        - numeroCuenta: String
+        - tipoCuenta: String
+        - actualizadoEn: DateTime
+        --
+        + actualizarQrOficial(admin: Usuario, qrUrl: String, banco: String, titular: String, nroCuenta: String): void
+        + actualizarInformacionEmpresa(nombre: String, logoUrl: String): void
+        + obtenerDatosCobroQr(): DatosCobroQr
+    }
+
+    class Sucursal {
+        - id: int
+        - nombre: String
+        - direccion: String
+        - telefono: String
+        - ciudad: String
+        - activo: boolean
+        - creadoEn: DateTime
+        --
+        + activar(): void
+        + desactivar(): void
+        + transferirDispositivo(dispositivo: Dispositivo, destino: Sucursal): void
+        + transferirStockLoteAccesorio(lote: LoteAccesorio, cantidad: int, destino: Sucursal): void
+    }
+}
+
+' ========================================================
+' PAQUETE: ACTORES
+' ========================================================
+package "Dominio.Actores" {
+    class Usuario {
+        - id: int
+        - nombre: String
+        - email: String
+        - passwordHash: String
+        - rol: RolUsuario
+        - activo: boolean
+        - creadoEn: DateTime
+        --
+        + autenticar(passwordPlana: String): boolean
+        + esAdmin(): boolean
+        + cambiarPassword(actual: String, nueva: String): void
+        + activar(): void
+        + desactivar(): void
+    }
+
+    class Proveedor {
+        - id: int
+        - nombre: String
+        - telefono: String
+        - contactoReferencia: String
+        - creadoEn: DateTime
+        --
+        + actualizarContacto(telefono: String, referencia: String): void
+    }
+
+    class Cliente {
+        - id: int
+        - nombreCompleto: String
+        - telefono: String
+        - ciNit: String
+        - creadoEn: DateTime
+        --
+        + actualizarDatos(nombre: String, telefono: String, ciNit: String): void
+    }
+}
+
+' ========================================================
+' PAQUETE: RECEPCIÓN Y COMPRAS (NOTAS DE INGRESO)
+' ========================================================
+package "Dominio.Recepcion" {
+    class NotaIngreso {
+        - id: int
+        - numeroComprobante: String
+        - fechaIngreso: DateTime
+        - totalCostoBs: decimal
+        - observaciones: String
+        --
+        + registrarRecepcion(prov: Proveedor, suc: Sucursal, user: Usuario, nroComp: String): void
+        + agregarLineaDispositivo(dispositivo: Dispositivo): void
+        + agregarLineaLoteAccesorio(lote: LoteAccesorio): void
+        + calcularTotalCosto(): decimal
+    }
+}
+
+' ========================================================
+' PAQUETE: CATÁLOGO E INVENTARIO
+' ========================================================
+package "Dominio.Inventario" {
+    class ModeloDispositivo <<AggregateRoot>> {
+        - id: int
+        - marca: String
+        - nombreModelo: String
+        - descripcion: String
+        --
+        + agregarVariante(color: String, capacidadGb: int, sim: TipoSim): VarianteDispositivo
+        + obtenerVariantes(): List~VarianteDispositivo~
+        + tieneVariantes(): boolean
+    }
+
+    class VarianteDispositivo {
+        - id: int
+        - color: String
+        - capacidadGb: int
+        - tipoSim: TipoSim
+        --
+        + getNombreCompleto(): String
+        + getSkuReferencial(): String
+    }
+
+    class Dispositivo {
+        - id: int
+        - numeroSerie: String
+        - imei1: String
+        - imei2: String
+        - condicion: CondicionEquipo
+        - costoBs: decimal
+        - costoUsd: decimal
+        - estado: EstadoDispositivo
+        --
+        + marcarComoVendido(): void
+        + marcarComoDisponible(): void
+        + marcarComoDefectuoso(): void
+        + cambiarSucursal(nuevaSucursal: Sucursal): void
+        + esEsim(): boolean
+        + validarImeis(): boolean
+    }
+
+    class CategoriaAccesorio {
+        - id: int
+        - nombre: String
+        - descripcion: String
+        --
+        + actualizar(nombre: String, descripcion: String): void
+    }
+
+    class Accesorio {
+        - id: int
+        - nombre: String
+        --
+        + actualizarNombre(nuevoNombre: String): void
+        + crearLoteDiferenciado(suc: Sucursal, nota: NotaIngreso, dif: String, costo: decimal, venta: decimal, cant: int): LoteAccesorio
+    }
+
+    class LoteAccesorio {
+        - id: int
+        - nombreDiferenciador: String
+        - costoUnitarioBs: decimal
+        - precioVentaBs: decimal
+        - cantidadInicial: int
+        - stockActual: int
+        - activo: boolean
+        --
+        + descontarStock(cantidad: int): void
+        + incrementarStock(cantidad: int): void
+        + ajustarPrecioVenta(nuevoPrecio: decimal): void
+        + estaAgotado(): boolean
+    }
+}
+
+' ========================================================
+' PAQUETE: CAJA Y FINANZAS
+' ========================================================
+package "Dominio.Caja" {
+    class CajaDiaria {
+        - id: int
+        - fechaApertura: DateTime
+        - fechaCierre: DateTime
+        - montoInicialEfectivo: decimal
+        - montoFinalEfectivo: decimal
+        - estado: EstadoCaja
+        - observaciones: String
+        --
+        + abrir(usuario: Usuario, montoInicial: decimal): void
+        + cerrar(usuario: Usuario, montoRealEfectivo: decimal, obs: String): ArqueoResult
+        + calcularTotalVentasEfectivo(): decimal
+        + calcularTotalVentasQr(): decimal
+        + calcularTotalGastosEfectivo(): decimal
+        + calcularTotalGastosQr(): decimal
+        + calcularBalanceNeto(): decimal
+    }
+
+    class CategoriaGasto {
+        - id: int
+        - nombre: String
+        --
+        + actualizarNombre(nuevoNombre: String): void
+    }
+
+    class GastoOperativo {
+        - id: int
+        - montoBs: decimal
+        - concepto: String
+        - fechaHora: DateTime
+        --
+        + registrar(caja: CajaDiaria, usuario: Usuario, monto: decimal, concepto: String): void
+    }
+}
+
+' ========================================================
+' PAQUETE: VENTAS Y PAGOS (STRATEGY PATTERN)
+' ========================================================
+package "Dominio.Ventas" {
+    interface IMetodoPagoStrategy {
+        + getCodigo(): String
+        + getNombre(): String
+        + getTipoEstrategia(): TipoEstrategiaPago
+        + obtenerInstruccionesCobro(): InstruccionesCobro
+        + procesarPago(monto: decimal, datos: DatosPago): ResultadoPago
+    }
+
+    class EfectivoStrategy implements IMetodoPagoStrategy {
+        + getCodigo(): String
+        + getNombre(): String
+        + getTipoEstrategia(): TipoEstrategiaPago
+        + obtenerInstruccionesCobro(): InstruccionesCobro
+        + procesarPago(monto: decimal, datos: DatosPago): ResultadoPago
+    }
+
+    class StaticQrStrategy implements IMetodoPagoStrategy {
+        - qrOficialUrl: String
+        - titularCuenta: String
+        - numeroCuenta: String
+        - banco: String
+        --
+        + getCodigo(): String
+        + getNombre(): String
+        + getTipoEstrategia(): TipoEstrategiaPago
+        + obtenerInstruccionesCobro(): InstruccionesCobro
+        + procesarPago(monto: decimal, datos: DatosPago): ResultadoPago
+    }
+
+    class DynamicApiQrStrategy implements IMetodoPagoStrategy {
+        - apiEndpoint: String
+        - apiKey: String
+        --
+        + getCodigo(): String
+        + getNombre(): String
+        + getTipoEstrategia(): TipoEstrategiaPago
+        + obtenerInstruccionesCobro(): InstruccionesCobro
+        + procesarPago(monto: decimal, datos: DatosPago): ResultadoPago
+        + consultarEstadoQr(qrTransaccionId: String): EstadoPagoQr
+    }
+
+    class Venta {
+        - id: int
+        - fechaHora: DateTime
+        - totalVentaBs: decimal
+        - comprobanteReferencia: String
+        - comprobanteImagenUrl: String
+        --
+        + agregarDetalleDispositivo(disp: Dispositivo, precioVenta: decimal): void
+        + agregarDetalleLoteAccesorio(lote: LoteAccesorio, cantidad: int, precioVenta: decimal): void
+        + calcularTotal(): decimal
+        + calcularCostoTotal(): decimal
+        + calcularGananciaNeta(): decimal
+        + procesarPago(estrategia: IMetodoPagoStrategy, datosPago: DatosPago): boolean
+    }
+
+    class DetalleVenta {
+        - id: int
+        - tipoItem: TipoItem
+        - cantidad: int
+        - costoUnitarioBs: decimal
+        - precioUnitarioBs: decimal
+        - subtotalBs: decimal
+        --
+        + calcularSubtotal(): decimal
+        + calcularGanancia(): decimal
+    }
+}
+
+' ========================================================
+' RELACIONES Y MULTIPLICIDADES
+' ========================================================
+
+ConfiguracionNegocio "0..1" ..> "1" Usuario : "actualizado por"
+
+Sucursal "1" -- "0..*" Usuario : "emplea a"
+Sucursal "1" *-- "0..*" NotaIngreso : "recibe"
+Sucursal "1" *-- "0..*" Dispositivo : "alberga stock"
+Sucursal "1" *-- "0..*" LoteAccesorio : "mantiene stock"
+Sucursal "1" *-- "0..*" CajaDiaria : "opera"
+
+Usuario "1" -- "0..*" NotaIngreso : "recepciona"
+Usuario "1" -- "0..*" CajaDiaria : "abre / cierra"
+Usuario "1" -- "0..*" Venta : "atiende"
+Usuario "1" -- "0..*" GastoOperativo : "registra"
+
+Proveedor "1" -- "0..*" NotaIngreso : "abastece mediante"
+
+NotaIngreso "1" *-- "0..*" Dispositivo : "ingresa"
+NotaIngreso "1" *-- "0..*" LoteAccesorio : "ingresa"
+
+' INVARIANTE: Modelo debe tener al menos una variante (1..*)
+ModeloDispositivo "1" *-- "1..*" VarianteDispositivo : "compuesto por"
+VarianteDispositivo "1" -- "0..*" Dispositivo : "especifica"
+
+CategoriaAccesorio "1" *-- "0..*" Accesorio : "agrupa"
+Accesorio "1" *-- "0..*" LoteAccesorio : "diferencia en lotes"
+
+CajaDiaria "1" *-- "0..*" Venta : "consolida"
+CajaDiaria "1" *-- "0..*" GastoOperativo : "deduce"
+
+CategoriaGasto "1" -- "0..*" GastoOperativo : "clasifica"
+GastoOperativo --> "1" IMetodoPagoStrategy : "se paga con"
+
+Cliente "0..1" -- "0..*" Venta : "compra"
+
+Venta "1" *-- "1..*" DetalleVenta : "compuesta por"
+Venta ..> "1" IMetodoPagoStrategy : "se liquida con"
+
+DetalleVenta "0..*" o-- "0..1" Dispositivo : "unidad vendida"
+DetalleVenta "0..*" o-- "0..1" LoteAccesorio : "lote descontado"
+
+@enduml

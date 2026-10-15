@@ -1,0 +1,65 @@
+@startuml cu_catalogo_inventario
+!theme plain
+left to right direction
+skinparam packageStyle rectangle
+skinparam roundcorner 5
+
+actor "Vendedor" as vendedor
+actor "Administrador" as admin
+actor "Proveedor" as prov <<External>>
+
+vendedor -up-|> admin : "hereda permisos operativos"
+
+rectangle "Módulo: Catálogo, Recepción e Inventario" {
+    package "Catálogo de Dispositivos & Accesorios" {
+        usecase "CU_INV_01: Gestionar Modelos de Dispositivo\n(Obliga >= 1 Variante)" as UC_GestionModelos
+        usecase "CU_INV_02: Gestionar Variantes de Dispositivo\n(Color, Capacidad, SIM)" as UC_GestionVariantes
+        usecase "CU_INV_03: Importar Catálogo en Lote (CSV)" as UC_ImportarCsv
+        usecase "CU_INV_04: Gestionar Categorías de Accesorios" as UC_GestionCatAcc
+        usecase "CU_INV_05: Gestionar Catálogo de Accesorios Base" as UC_GestionAcc
+        usecase "CU_INV_06: Crear Variante In-line ('Al Vuelo')" as UC_CrearVarianteInline
+    }
+
+    package "Proveedores y Recepción de Mercadería" {
+        usecase "CU_INV_07: Gestionar Proveedores" as UC_GestionProv
+        usecase "CU_INV_08: Registrar Nota de Ingreso Unificada" as UC_RegistrarNotaIngreso
+        usecase "CU_INV_09: Registrar Dispositivos Serializados (IMEIs/Series)" as UC_RegDispositivos
+        usecase "CU_INV_10: Registrar Lotes Diferenciados de Accesorio" as UC_RegLotesAcc
+        usecase "CU_INV_11: Consultar Historial de Notas de Ingreso" as UC_HistorialIngresos
+        usecase "CU_INV_12: Anular Nota de Ingreso" as UC_AnularNotaIngreso
+    }
+
+    package "Control de Inventario y Movimientos" {
+        usecase "CU_INV_13: Consultar Inventario de Dispositivos\n(Filtros IMEI, Serie, Estado)" as UC_ConsultarDisp
+        usecase "CU_INV_14: Consultar Stock de Lotes de Accesorios\n(Alertas de agotamiento)" as UC_ConsultarLotes
+        usecase "CU_INV_15: Transferir Dispositivo entre Sucursales" as UC_TransferirDisp
+        usecase "CU_INV_16: Transferir Stock de Lote entre Sucursales" as UC_TransferirLote
+        usecase "CU_INV_17: Modificar Estado de Dispositivo\n(Disponible, Garantía, Defectuoso)" as UC_CambiarEstadoDisp
+    }
+}
+
+' Relaciones de Inclusión y Extensión
+UC_RegistrarNotaIngreso .> UC_RegDispositivos : <<include>>
+UC_RegistrarNotaIngreso .> UC_RegLotesAcc : <<include>>
+UC_RegistrarNotaIngreso <.. UC_CrearVarianteInline : <<extend>> (si variante no existe)
+
+' Interacciones con Actores
+prov --> UC_RegistrarNotaIngreso : "entrega mercadería a"
+
+admin --> UC_GestionModelos
+admin --> UC_GestionVariantes
+admin --> UC_ImportarCsv
+admin --> UC_GestionCatAcc
+admin --> UC_GestionAcc
+admin --> UC_GestionProv
+admin --> UC_AnularNotaIngreso
+admin --> UC_TransferirDisp
+admin --> UC_TransferirLote
+admin --> UC_CambiarEstadoDisp
+
+vendedor --> UC_RegistrarNotaIngreso
+vendedor --> UC_HistorialIngresos
+vendedor --> UC_ConsultarDisp
+vendedor --> UC_ConsultarLotes
+
+@enduml

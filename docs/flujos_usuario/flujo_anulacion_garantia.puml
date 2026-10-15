@@ -1,0 +1,88 @@
+@startuml flujo_anulacion_garantia
+!theme plain
+skinparam roundcorner 5
+skinparam conditionStyle insideDiamond
+
+|Cliente|
+start
+:Se presenta en tienda con solicitud\n(Cancelación de Venta o Reclamo de Garantía);
+
+if (¿Cuál es el tipo de solicitud?) then (Anulación de Venta por Error)
+    |Vendedor|
+    :Escucha motivo del cliente o error de cobro detectado;
+    :Solicita intervención del Administrador (requiere rol ADMIN);
+
+    |Administrador|
+    :Ingresa al módulo de 'Ventas' -> 'Anulaciones';
+    :Buscar la venta por Número de Ticket o IMEI vendido;
+    :Revisar detalle de la transacción;
+
+    |Sistema CentralPhone|
+    :Verificar estado de la Caja Diaria donde se registró la venta;
+    if (¿La caja en la que se vendió sigue ABIERTA?) then (Sí)
+        |Administrador|
+        :Digitar motivo detallado de la anulación;
+        :Confirmar Anulación de la Venta;
+
+        |Sistema CentralPhone|
+        :Iniciar **Transacción Atómica de Rollback (ACID)**;
+        :Marcar 'ventas' como 'ANULADA';
+        if (¿Venta incluía Dispositivo?) then (Sí)
+            :Actualizar 'dispositivos':\nset estado_inventario = 'DISPONIBLE';
+        endif
+        if (¿Venta incluía Accesorios?) then (Sí)
+            :Actualizar 'lotes_accesorio':\nset stock_actual = stock_actual + cantidad_anulada;
+        endif
+        :Deducir el importe de la venta de la sesión de caja activa;
+        :Confirmar Transacción (COMMIT);
+
+        |Vendedor|
+        :Devuelve el dinero al cliente (o reversa de transferencia);
+        :Recupera el equipo físico o accesorios;
+
+        |Cliente|
+        :Recibe comprobante de anulación y reembolso;
+    else (No - Caja ya fue CERRADA)
+        |Sistema CentralPhone|
+        :Bloquear reversa directa de caja;
+        :Alerta: "Caja cerrada. Se requiere comprobante de egreso administrativo especial";
+        |Administrador|
+        :Gestionar reembolso como egreso extraordinario contable;
+    endif
+
+else (Reclamo de Garantía Técnica de Dispositivo)
+    |Vendedor|
+    :Solicitar equipo físico y Número de Celular / Ticket del cliente;
+    :Escanear o digitar el IMEI del equipo en el buscador de auditoría;
+
+    |Sistema CentralPhone|
+    :Buscar historial del IMEI;
+    if (¿El IMEI fue vendido por CentralPhone?) then (No)
+        :Mostrar alerta:\n"Este equipo no pertenece al historial de ventas de CentralPhone";
+        |Vendedor|
+        :Rechazar atención por falta de trazabilidad en tienda;
+    else (Sí)
+        :Recuperar fecha de venta, condición de entrega y cliente asociado;
+        if (¿El equipo se encuentra dentro del plazo de garantía?) then (No - Plazo expirado)
+            :Alerta:\n"Garantía vencida. Ofrecer reparación con costo adicional";
+            |Vendedor|
+            :Informa al cliente condiciones de reparación comercial;
+        else (Sí - Garantía Vigente)
+            |Vendedor|
+            :Registrar reporte de falla técnica declarada por el cliente;
+            |Administrador|
+            :Aprobar ingreso a servicio técnico;
+            |Sistema CentralPhone|
+            :Actualizar 'dispositivos':\nset estado_inventario = 'EN_GARANTIA';
+            :Emitir Orden de Servicio Técnico con código de seguimiento;
+            |Vendedor|
+            :Entrega comprobante de recepción por garantía al cliente;
+            |Cliente|
+            :Recibe constancia de ingreso de su equipo;
+        endif
+    endif
+endif
+
+stop
+
+@enduml

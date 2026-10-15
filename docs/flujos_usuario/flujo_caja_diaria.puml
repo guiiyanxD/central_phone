@@ -1,0 +1,88 @@
+@startuml flujo_caja_diaria
+!theme plain
+skinparam roundcorner 5
+skinparam conditionStyle insideDiamond
+
+|Vendedor|
+start
+:Llega a la sucursal para iniciar su jornada;
+:Ingresa al módulo de 'Caja Diaria';
+
+|Sistema de Caja|
+:Verificar si existe caja previa sin cerrar en la sucursal;
+if (¿Existe caja previa abierta?) then (Sí)
+    :Alerta: "Existe una sesión de caja pendiente de cierre";
+    |Vendedor|
+    :Debe cerrar la caja anterior antes de iniciar una nueva;
+else (No)
+    |Vendedor|
+    :Cuenta el dinero físico inicial para cambio (Caja Chica);
+    :Digita el Monto Inicial en Efectivo (ej: Bs 300);
+    |Sistema de Caja|
+    :Crear registro en 'cajas_diarias' con estado 'ABIERTA';
+    :Habilitar operaciones de venta y gastos para el turno;
+endif
+
+|Vendedor|
+fork
+    repeat
+        :Atender ventas de clientes (POS);
+        |Sistema de Caja|
+        :Acumular ventas en efectivo y pagos por QR Oficial;
+        |Vendedor|
+    repeat while (Durante la jornada comercial)
+fork again
+    repeat
+        :Ocurre un gasto operativo menor imprevisto\n(ej: chips Tigo, refrigerio/tomicha, transporte);
+        :Ingresa a 'Registrar Gasto de Caja';
+        :Digita: Monto (Bs), Categoría de Gasto,\nConcepto detallado y Método (Efectivo o QR);
+        |Sistema de Caja|
+        if (¿Método de pago del gasto es Efectivo?) then (Sí)
+            if (¿Hay suficiente saldo en efectivo en caja?) then (No)
+                :Mostrar error: "Saldo en efectivo insuficiente en caja";
+            else (Sí)
+                :Registrar gasto en 'gastos_operativos';
+                :Deducir monto del efectivo disponible en caja;
+            endif
+        else (QR)
+            :Registrar gasto en 'gastos_operativos';
+            :Registrar salida en cuenta bancaria QR;
+        endif
+        |Vendedor|
+    repeat while (Durante la jornada comercial)
+end fork
+
+|Vendedor|
+:Finaliza la jornada laboral;
+:Selecciona 'Cerrar Turno / Arqueo de Caja';
+:Realiza el **Conteo Físico a Ciegas** de todos los billetes\ny monedas existentes en la gaveta;
+:Digita el Monto Final en Efectivo contado físicamente;
+
+|Sistema de Caja|
+:Calcular Balance Teórico del Sistema:\nEfectivo Esperado = Monto Inicial + Ventas Efectivo - Gastos Efectivo;
+:Calcular Total Recaudado en QR Oficial:\nTotal QR = Ventas QR - Gastos QR;
+:Calcular Diferencia de Efectivo:\nDiferencia = Efectivo Contado - Efectivo Esperado;
+
+if (¿Diferencia == 0?) then (Sí)
+    :Marcar arqueo como 'CUADRE PERFECTO';
+else (No)
+    if (¿Diferencia > 0?) then (Sobrante)
+        :Registrar advertencia de SOBRANTE de dinero;
+    else (Faltante)
+        :Registrar advertencia de FALTANTE de dinero;
+    endif
+    |Vendedor|
+    :Ingresar justificación / observación obligatoria sobre el descuadre;
+endif
+
+|Sistema de Caja|
+:Actualizar 'cajas_diarias':\nset estado = 'CERRADA',\nmonto_final_efectivo = contado,\nfecha_cierre = NOW(),\nobservaciones = notas;
+
+:Generar Reporte de Cierre de Caja del Turno;
+
+|Administrador|
+:Recibe notificación / auditoría de cierre de turno;
+:Audita arqueo, total ventas en efectivo vs QR y gastos operativos;
+stop
+
+@enduml

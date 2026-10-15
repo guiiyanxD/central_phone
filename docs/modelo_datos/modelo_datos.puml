@@ -1,0 +1,278 @@
+@startuml modelo_datos
+!theme plain
+skinparam linetype ortho
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor white
+    ArrowColor #2C3E50
+    BorderColor #2C3E50
+}
+
+' ==========================================
+' CONFIGURACIÓN GLOBAL Y SUCURSALES
+' ==========================================
+
+entity "configuracion_negocio" as configuracion_negocio {
+    * id : INT <<PK, CHECK (id = 1)>>
+    --
+    * nombre_empresa : VARCHAR(100)
+    logo_url : VARCHAR(500)
+    * qr_oficial_imagen_url : VARCHAR(500)
+    * banco_oficial : VARCHAR(100)
+    * titular_cuenta : VARCHAR(150)
+    * numero_cuenta : VARCHAR(50)
+    tipo_cuenta : VARCHAR(30)
+    actualizado_por_usuario_id : INT <<FK>>
+    * actualizado_en : TIMESTAMP
+}
+
+entity "sucursales" as sucursales {
+    * id : INT <<PK, GENERATED>>
+    --
+    * nombre : VARCHAR(100)
+    * direccion : VARCHAR(255)
+    telefono : VARCHAR(30)
+    * ciudad : VARCHAR(50)
+    * activo : BOOLEAN
+    * creado_en : TIMESTAMP
+}
+
+entity "usuarios" as usuarios {
+    * id : INT <<PK, GENERATED>>
+    --
+    sucursal_id : INT <<FK>>
+    * nombre : VARCHAR(100)
+    * email : VARCHAR(100) <<UK>>
+    * password_hash : VARCHAR(255)
+    * rol : VARCHAR(20) 'ADMIN, VENDEDOR'
+    * activo : BOOLEAN
+    * creado_en : TIMESTAMP
+}
+
+' ==========================================
+' ACTORES COMERCIALES
+' ==========================================
+
+entity "proveedores" as proveedores {
+    * id : INT <<PK, GENERATED>>
+    --
+    * nombre : VARCHAR(100)
+    telefono : VARCHAR(30)
+    contacto_referencia : VARCHAR(100)
+    * creado_en : TIMESTAMP
+}
+
+entity "clientes" as clientes {
+    * id : INT <<PK, GENERATED>>
+    --
+    * nombre_completo : VARCHAR(150)
+    * telefono : VARCHAR(30)
+    ci_nit : VARCHAR(30)
+    * creado_en : TIMESTAMP
+}
+
+' ==========================================
+' RECEPCIÓN UNIFICADA DE MERCADERÍA
+' ==========================================
+
+entity "notas_ingreso" as notas_ingreso {
+    * id : INT <<PK, GENERATED>>
+    --
+    * proveedor_id : INT <<FK>>
+    * sucursal_id : INT <<FK>>
+    * usuario_id : INT <<FK>>
+    numero_comprobante : VARCHAR(100)
+    * fecha_ingreso : TIMESTAMP
+    * total_costo_bs : DECIMAL(10,2)
+    observaciones : TEXT
+}
+
+' ==========================================
+' CATÁLOGO E INVENTARIO DE DISPOSITIVOS
+' ==========================================
+
+entity "modelos_dispositivo" as modelos_dispositivo {
+    * id : INT <<PK, GENERATED>>
+    --
+    * marca : VARCHAR(50) 'Apple'
+    * nombre_modelo : VARCHAR(100) 'iPhone 18 Pro, iPhone 15'
+    descripcion : VARCHAR(255)
+}
+
+entity "variantes_dispositivo" as variantes_dispositivo {
+    * id : INT <<PK, GENERATED>>
+    --
+    * modelo_id : INT <<FK>>
+    * color : VARCHAR(50) 'Black, Glacier, Burgundy'
+    * capacidad_gb : INT '128, 256, 512, 1024, 2048'
+    * tipo_sim : VARCHAR(30) 'SIM Físico, eSIM, Dual SIM'
+    --
+    <<UK (modelo_id, color, capacidad_gb, tipo_sim)>>
+}
+
+entity "dispositivos" as dispositivos {
+    * id : INT <<PK, GENERATED>>
+    --
+    * variante_id : INT <<FK>>
+    * sucursal_id : INT <<FK>>
+    * nota_ingreso_id : INT <<FK>>
+    * numero_serie : VARCHAR(50) <<UK>>
+    * imei_1 : VARCHAR(20) <<UK>>
+    imei_2 : VARCHAR(20) <<UK>>
+    * condicion : VARCHAR(20) 'NUEVO, USADO, OPEN_BOX'
+    * costo_bs : DECIMAL(10,2)
+    * costo_usd : DECIMAL(10,2)
+    * estado_inventario : VARCHAR(20) 'DISPONIBLE, VENDIDO, RESERVADO, DEFECTUOSO'
+}
+
+' ==========================================
+' CATÁLOGO Y LOTES DE ACCESORIOS
+' ==========================================
+
+entity "categorias_accesorio" as categorias_accesorio {
+    * id : INT <<PK, GENERATED>>
+    --
+    * nombre : VARCHAR(50) <<UK>> 'Fundas, Cargadores, Hidrogel'
+    descripcion : VARCHAR(255)
+}
+
+entity "accesorios" as accesorios {
+    * id : INT <<PK, GENERATED>>
+    --
+    * categoria_id : INT <<FK>>
+    * nombre : VARCHAR(150) 'Funda iPhone 13, Cabezal 20W'
+}
+
+entity "lotes_accesorio" as lotes_accesorio {
+    * id : INT <<PK, GENERATED>>
+    --
+    * accesorio_id : INT <<FK>>
+    * sucursal_id : INT <<FK>>
+    * nota_ingreso_id : INT <<FK>>
+    * nombre_diferenciador : VARCHAR(100) 'Silicona Simple (Bs 40), MagSafe Reforzada (Bs 100)'
+    * costo_unitario_bs : DECIMAL(10,2)
+    * precio_venta_bs : DECIMAL(10,2)
+    * cantidad_inicial : INT
+    * stock_actual : INT CHECK (stock_actual >= 0)
+    * activo : BOOLEAN DEFAULT TRUE
+}
+
+' ==========================================
+' CAJA DIARIA Y GASTOS
+' ==========================================
+
+entity "cajas_diarias" as cajas_diarias {
+    * id : INT <<PK, GENERATED>>
+    --
+    * sucursal_id : INT <<FK>>
+    * usuario_apertura_id : INT <<FK>>
+    usuario_cierre_id : INT <<FK>>
+    * fecha_apertura : TIMESTAMP
+    fecha_cierre : TIMESTAMP
+    * monto_inicial_efectivo : DECIMAL(10,2)
+    monto_final_efectivo : DECIMAL(10,2)
+    * estado : VARCHAR(20) 'ABIERTA, CERRADA'
+    observaciones : TEXT
+}
+
+entity "categorias_gasto" as categorias_gasto {
+    * id : INT <<PK, GENERATED>>
+    --
+    * nombre : VARCHAR(50) <<UK>>
+}
+
+entity "gastos_operativos" as gastos_operativos {
+    * id : INT <<PK, GENERATED>>
+    --
+    * caja_id : INT <<FK>>
+    * categoria_id : INT <<FK>>
+    * usuario_id : INT <<FK>>
+    * metodo_pago_id : INT <<FK>>
+    * monto_bs : DECIMAL(10,2)
+    * concepto : VARCHAR(255)
+    * fecha_hora : TIMESTAMP
+}
+
+' ==========================================
+' VENTAS Y PAGOS
+' ==========================================
+
+entity "metodos_pago" as metodos_pago {
+    * id : INT <<PK, GENERATED>>
+    --
+    * codigo : VARCHAR(30) <<UK>> 'EFECTIVO, QR_ESTATICO'
+    * nombre : VARCHAR(100)
+    * tipo_estrategia : VARCHAR(30) 'CASH, STATIC_QR, DYNAMIC_QR'
+    * activo : BOOLEAN
+}
+
+entity "ventas" as ventas {
+    * id : INT <<PK, GENERATED>>
+    --
+    * caja_id : INT <<FK>>
+    * usuario_id : INT <<FK>>
+    cliente_id : INT <<FK>>
+    * metodo_pago_id : INT <<FK>>
+    * fecha_hora : TIMESTAMP
+    * total_venta_bs : DECIMAL(10,2)
+    comprobante_referencia : VARCHAR(100)
+    comprobante_imagen_url : VARCHAR(500)
+}
+
+entity "detalle_ventas" as detalle_ventas {
+    * id : INT <<PK, GENERATED>>
+    --
+    * venta_id : INT <<FK>>
+    * tipo_item : VARCHAR(20) 'DISPOSITIVO, ACCESORIO'
+    dispositivo_id : INT <<FK>>
+    lote_accesorio_id : INT <<FK>>
+    * cantidad : INT
+    * costo_unitario_bs : DECIMAL(10,2)
+    * precio_unitario_bs : DECIMAL(10,2)
+    * subtotal_bs : DECIMAL(10,2)
+    --
+    <<CHECK ((tipo_item='DISPOSITIVO' AND dispositivo_id IS NOT NULL AND lote_accesorio_id IS NULL AND cantidad=1) OR (tipo_item='ACCESORIO' AND lote_accesorio_id IS NOT NULL AND dispositivo_id IS NULL))>>
+}
+
+' ==========================================
+' RELACIONES
+' ==========================================
+
+configuracion_negocio }o--|| usuarios : "actualizado por"
+
+sucursales ||--o{ usuarios : "asigna"
+sucursales ||--o{ notas_ingreso : "recibe en"
+sucursales ||--o{ dispositivos : "alberga stock"
+sucursales ||--o{ lotes_accesorio : "mantiene stock"
+sucursales ||--o{ cajas_diarias : "opera"
+
+usuarios ||--o{ notas_ingreso : "registra recepcion"
+usuarios ||--o{ cajas_diarias : "abre / cierra"
+usuarios ||--o{ ventas : "registra"
+usuarios ||--o{ gastos_operativos : "registra"
+
+proveedores ||--o{ notas_ingreso : "suministra mercaderia"
+
+notas_ingreso ||--o{ dispositivos : "ingresa unidades"
+notas_ingreso ||--o{ lotes_accesorio : "ingresa lotes"
+
+modelos_dispositivo ||--|{ variantes_dispositivo : "debe tener >= 1 variante"
+variantes_dispositivo ||--o{ dispositivos : "instancia unidades"
+
+categorias_accesorio ||--o{ accesorios : "clasifica"
+accesorios ||--o{ lotes_accesorio : "diferencia en lotes"
+
+cajas_diarias ||--o{ ventas : "consolida"
+cajas_diarias ||--o{ gastos_operativos : "contiene egresos"
+
+categorias_gasto ||--o{ gastos_operativos : "clasifica"
+metodos_pago ||--o{ gastos_operativos : "financia"
+metodos_pago ||--o{ ventas : "liquida con"
+
+clientes ||--o{ ventas : "compra"
+
+ventas ||--|{ detalle_ventas : "contiene"
+dispositivos ||--o| detalle_ventas : "unidad vendida"
+lotes_accesorio ||--o{ detalle_ventas : "lote descontado"
+
+@enduml

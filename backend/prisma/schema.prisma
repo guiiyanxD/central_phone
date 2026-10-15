@@ -1,0 +1,364 @@
+// ==========================================
+// CENTRALPHONE - PRISMA SCHEMA (3FN)
+// ==========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------
+// CONFIGURACIÓN GLOBAL & SUCURSALES
+// ------------------------------------------
+
+model ConfiguracionNegocio {
+  id                      Int      @id @default(1)
+  nombreEmpresa           String   @default("CentralPhone") @map("nombre_empresa")
+  logoUrl                 String?  @map("logo_url")
+  qrOficialImagenUrl      String   @map("qr_oficial_imagen_url")
+  bancoOficial            String   @map("banco_oficial")
+  titularCuenta           String   @map("titular_cuenta")
+  numeroCuenta            String   @map("numero_cuenta")
+  tipoCuenta              String   @default("Caja de Ahorro") @map("tipo_cuenta")
+  actualizadoPorUsuarioId Int?     @map("actualizado_por_usuario_id")
+  actualizadoEn           DateTime @default(now()) @updatedAt @map("actualizado_en")
+
+  actualizadoPor Usuario? @relation(fields: [actualizadoPorUsuarioId], references: [id])
+
+  @@map("configuracion_negocio")
+}
+
+model Sucursal {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @db.VarChar(100)
+  direccion String   @db.VarChar(255)
+  telefono  String?  @db.VarChar(30)
+  ciudad    String   @default("Santa Cruz") @db.VarChar(50)
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  usuarios       Usuario[]
+  dispositivos   Dispositivo[]
+  lotesAccesorio LoteAccesorio[]
+  cajasDiarias   CajaDiaria[]
+  notasIngreso   NotaIngreso[]
+
+  @@map("sucursales")
+}
+
+enum RolUsuario {
+  ADMIN
+  VENDEDOR
+}
+
+model Usuario {
+  id           Int        @id @default(autoincrement())
+  sucursalId   Int?       @map("sucursal_id")
+  nombre       String     @db.VarChar(100)
+  email        String     @unique @db.VarChar(100)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  rol          RolUsuario @default(VENDEDOR)
+  activo       Boolean    @default(true)
+  creadoEn     DateTime   @default(now()) @map("creado_en")
+
+  sucursal             Sucursal?              @relation(fields: [sucursalId], references: [id])
+  cajasApertura        CajaDiaria[]           @relation("UsuarioApertura")
+  cajasCierre          CajaDiaria[]           @relation("UsuarioCierre")
+  ventas               Venta[]
+  gastosOperativos     GastoOperativo[]
+  notasIngreso         NotaIngreso[]
+  configuracionesAdmin ConfiguracionNegocio[]
+
+  @@map("usuarios")
+}
+
+// ------------------------------------------
+// ACTORES COMERCIALES
+// ------------------------------------------
+
+model Proveedor {
+  id                 Int      @id @default(autoincrement())
+  nombre             String   @db.VarChar(100)
+  telefono           String?  @db.VarChar(30)
+  contactoReferencia String?  @map("contacto_referencia") @db.VarChar(100)
+  creadoEn           DateTime @default(now()) @map("creado_en")
+
+  notasIngreso NotaIngreso[]
+
+  @@map("proveedores")
+}
+
+model Cliente {
+  id             Int      @id @default(autoincrement())
+  nombreCompleto String   @map("nombre_completo") @db.VarChar(150)
+  telefono       String   @db.VarChar(30)
+  ciNit          String?  @map("ci_nit") @db.VarChar(30)
+  creadoEn       DateTime @default(now()) @map("creado_en")
+
+  ventas Venta[]
+
+  @@map("clientes")
+}
+
+// ------------------------------------------
+// RECEPCIÓN UNIFICADA DE MERCADERÍA
+// ------------------------------------------
+
+model NotaIngreso {
+  id                Int      @id @default(autoincrement())
+  proveedorId       Int      @map("proveedor_id")
+  sucursalId        Int      @map("sucursal_id")
+  usuarioId         Int      @map("usuario_id")
+  numeroComprobante String?  @map("numero_comprobante") @db.VarChar(100)
+  fechaIngreso      DateTime @default(now()) @map("fecha_ingreso")
+  totalCostoBs      Decimal  @default(0.00) @map("total_costo_bs") @db.Decimal(10, 2)
+  observaciones     String?  @db.Text
+
+  proveedor      Proveedor       @relation(fields: [proveedorId], references: [id])
+  sucursal       Sucursal        @relation(fields: [sucursalId], references: [id])
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
+  dispositivos   Dispositivo[]
+  lotesAccesorio LoteAccesorio[]
+
+  @@map("notas_ingreso")
+}
+
+// ------------------------------------------
+// CATÁLOGO E INVENTARIO DE DISPOSITIVOS
+// ------------------------------------------
+
+model ModeloDispositivo {
+  id           Int      @id @default(autoincrement())
+  marca        String   @default("Apple") @db.VarChar(50)
+  nombreModelo String   @map("nombre_modelo") @db.VarChar(100)
+  descripcion  String?  @db.VarChar(255)
+
+  variantes VarianteDispositivo[]
+
+  @@map("modelos_dispositivo")
+}
+
+model VarianteDispositivo {
+  id           Int      @id @default(autoincrement())
+  modeloId     Int      @map("modelo_id")
+  color        String   @db.VarChar(50)
+  capacidadGb  Int      @map("capacidad_gb")
+  tipoSim      String   @default("SIM Físico") @map("tipo_sim") @db.VarChar(30)
+
+  modelo       ModeloDispositivo @relation(fields: [modeloId], references: [id], onDelete: Cascade)
+  dispositivos Dispositivo[]
+
+  @@unique([modeloId, color, capacidadGb, tipoSim])
+  @@map("variantes_dispositivo")
+}
+
+enum CondicionDispositivo {
+  NUEVO
+  USADO
+  OPEN_BOX
+}
+
+enum EstadoInventario {
+  DISPONIBLE
+  VENDIDO
+  RESERVADO
+  EN_GARANTIA
+  DEFECTUOSO
+}
+
+model Dispositivo {
+  id               Int                  @id @default(autoincrement())
+  varianteId       Int                  @map("variante_id")
+  sucursalId       Int                  @map("sucursal_id")
+  notaIngresoId    Int                  @map("nota_ingreso_id")
+  numeroSerie      String               @unique @map("numero_serie") @db.VarChar(50)
+  imei1            String               @unique @map("imei_1") @db.VarChar(20)
+  imei2            String?              @unique @map("imei_2") @db.VarChar(20)
+  condicion        CondicionDispositivo @default(NUEVO)
+  costoBs          Decimal              @map("costo_bs") @db.Decimal(10, 2)
+  costoUsd         Decimal              @map("costo_usd") @db.Decimal(10, 2)
+  estadoInventario EstadoInventario     @default(DISPONIBLE) @map("estado_inventario")
+
+  variante      VarianteDispositivo @relation(fields: [varianteId], references: [id])
+  sucursal      Sucursal            @relation(fields: [sucursalId], references: [id])
+  notaIngreso   NotaIngreso         @relation(fields: [notaIngresoId], references: [id])
+  detalleVentas DetalleVenta[]
+
+  @@map("dispositivos")
+}
+
+// ------------------------------------------
+// CATÁLOGO Y LOTES DE ACCESORIOS
+// ------------------------------------------
+
+model CategoriaAccesorio {
+  id          Int         @id @default(autoincrement())
+  nombre      String      @unique @db.VarChar(50)
+  descripcion String?     @db.VarChar(255)
+
+  accesorios  Accesorio[]
+
+  @@map("categorias_accesorio")
+}
+
+model Accesorio {
+  id          Int      @id @default(autoincrement())
+  categoriaId Int      @map("categoria_id")
+  nombre      String   @db.VarChar(150)
+
+  categoria CategoriaAccesorio @relation(fields: [categoriaId], references: [id])
+  lotes     LoteAccesorio[]
+
+  @@map("accesorios")
+}
+
+model LoteAccesorio {
+  id                  Int      @id @default(autoincrement())
+  accesorioId         Int      @map("accesorio_id")
+  sucursalId          Int      @map("sucursal_id")
+  notaIngresoId       Int      @map("nota_ingreso_id")
+  nombreDiferenciador String   @map("nombre_diferenciador") @db.VarChar(100)
+  costoUnitarioBs     Decimal  @map("costo_unitario_bs") @db.Decimal(10, 2)
+  precioVentaBs       Decimal  @map("precio_venta_bs") @db.Decimal(10, 2)
+  cantidadInicial     Int      @map("cantidad_inicial")
+  stockActual         Int      @default(0) @map("stock_actual")
+  activo              Boolean  @default(true)
+  fechaIngreso        DateTime @default(now()) @map("fecha_ingreso")
+
+  accesorio     Accesorio      @relation(fields: [accesorioId], references: [id])
+  sucursal      Sucursal       @relation(fields: [sucursalId], references: [id])
+  notaIngreso   NotaIngreso    @relation(fields: [notaIngresoId], references: [id])
+  detalleVentas DetalleVenta[]
+
+  @@map("lotes_accesorio")
+}
+
+// ------------------------------------------
+// CAJA DIARIA Y GASTOS
+// ------------------------------------------
+
+enum EstadoCaja {
+  ABIERTA
+  CERRADA
+}
+
+model CajaDiaria {
+  id                   Int        @id @default(autoincrement())
+  sucursalId           Int        @map("sucursal_id")
+  usuarioAperturaId    Int        @map("usuario_apertura_id")
+  usuarioCierreId      Int?       @map("usuario_cierre_id")
+  fechaApertura        DateTime   @default(now()) @map("fecha_apertura")
+  fechaCierre          DateTime?  @map("fecha_cierre")
+  montoInicialEfectivo Decimal    @default(0.00) @map("monto_inicial_efectivo") @db.Decimal(10, 2)
+  montoFinalEfectivo   Decimal?   @map("monto_final_efectivo") @db.Decimal(10, 2)
+  montoTeoricoEfectivo Decimal?   @map("monto_teorico_efectivo") @db.Decimal(10, 2)
+  diferenciaEfectivo   Decimal?   @map("diferencia_efectivo") @db.Decimal(10, 2)
+  justificacion        String?    @db.Text
+  estado               EstadoCaja @default(ABIERTA)
+  observaciones        String?    @db.Text
+
+  sucursal         Sucursal         @relation(fields: [sucursalId], references: [id])
+  usuarioApertura  Usuario          @relation("UsuarioApertura", fields: [usuarioAperturaId], references: [id])
+  usuarioCierre    Usuario?         @relation("UsuarioCierre", fields: [usuarioCierreId], references: [id])
+  ventas           Venta[]
+  gastosOperativos GastoOperativo[]
+
+  @@map("cajas_diarias")
+}
+
+model CategoriaGasto {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique @db.VarChar(50)
+
+  gastosOperativos GastoOperativo[]
+
+  @@map("categorias_gasto")
+}
+
+model GastoOperativo {
+  id           Int      @id @default(autoincrement())
+  cajaId       Int      @map("caja_id")
+  categoriaId  Int      @map("categoria_id")
+  usuarioId    Int      @map("usuario_id")
+  metodoPagoId Int      @map("metodo_pago_id")
+  montoBs      Decimal  @map("monto_bs") @db.Decimal(10, 2)
+  concepto     String   @db.VarChar(255)
+  fechaHora    DateTime @default(now()) @map("fecha_hora")
+
+  caja       CajaDiaria     @relation(fields: [cajaId], references: [id])
+  categoria  CategoriaGasto @relation(fields: [categoriaId], references: [id])
+  usuario    Usuario        @relation(fields: [usuarioId], references: [id])
+  metodoPago MetodoPago     @relation(fields: [metodoPagoId], references: [id])
+
+  @@map("gastos_operativos")
+}
+
+// ------------------------------------------
+// MÉTODOS DE PAGO Y VENTAS
+// ------------------------------------------
+
+enum TipoEstrategiaPago {
+  CASH
+  STATIC_QR
+  DYNAMIC_QR
+}
+
+model MetodoPago {
+  id             Int                @id @default(autoincrement())
+  codigo         String             @unique @db.VarChar(30)
+  nombre         String             @db.VarChar(100)
+  tipoEstrategia TipoEstrategiaPago @default(CASH) @map("tipo_estrategia")
+  activo         Boolean            @default(true)
+
+  ventas           Venta[]
+  gastosOperativos GastoOperativo[]
+
+  @@map("metodos_pago")
+}
+
+model Venta {
+  id                    Int      @id @default(autoincrement())
+  cajaId                Int      @map("caja_id")
+  usuarioId             Int      @map("usuario_id")
+  clienteId             Int?     @map("cliente_id")
+  metodoPagoId          Int      @map("metodo_pago_id")
+  fechaHora             DateTime @default(now()) @map("fecha_hora")
+  totalVentaBs          Decimal  @map("total_venta_bs") @db.Decimal(10, 2)
+  comprobanteReferencia String?  @map("comprobante_referencia") @db.VarChar(100)
+  comprobanteImagenUrl  String?  @map("comprobante_imagen_url") @db.VarChar(500)
+
+  caja       CajaDiaria     @relation(fields: [cajaId], references: [id])
+  usuario    Usuario        @relation(fields: [usuarioId], references: [id])
+  cliente    Cliente?       @relation(fields: [clienteId], references: [id])
+  metodoPago MetodoPago     @relation(fields: [metodoPagoId], references: [id])
+  detalles   DetalleVenta[]
+
+  @@map("ventas")
+}
+
+enum TipoItemVenta {
+  DISPOSITIVO
+  ACCESORIO
+}
+
+model DetalleVenta {
+  id               Int           @id @default(autoincrement())
+  ventaId          Int           @map("venta_id")
+  tipoItem         TipoItemVenta @map("tipo_item")
+  dispositivoId    Int?          @map("dispositivo_id")
+  loteAccesorioId  Int?          @map("lote_accesorio_id")
+  cantidad         Int           @default(1)
+  costoUnitarioBs  Decimal       @map("costo_unitario_bs") @db.Decimal(10, 2)
+  precioUnitarioBs Decimal       @map("precio_unitario_bs") @db.Decimal(10, 2)
+  subtotalBs       Decimal       @map("subtotal_bs") @db.Decimal(10, 2)
+
+  venta         Venta          @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  dispositivo   Dispositivo?   @relation(fields: [dispositivoId], references: [id])
+  loteAccesorio LoteAccesorio? @relation(fields: [loteAccesorioId], references: [id])
+
+  @@map("detalle_ventas")
+}

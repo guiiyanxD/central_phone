@@ -1,0 +1,65 @@
+@startuml casos_uso_general
+!theme plain
+left to right direction
+skinparam packageStyle rectangle
+skinparam roundcorner 5
+
+actor "Usuario" as user
+actor "Vendedor" as vendedor
+actor "Administrador" as admin
+
+vendedor -up-|> user
+admin -up-|> user
+
+rectangle "Sistema CentralPhone - Visión General" {
+    package "Seguridad & Acceso" {
+        usecase "CU01: Autenticación & Sesión" as UC_Auth
+        usecase "CU02: Gestión de Usuarios & Roles" as UC_Usuarios
+    }
+
+    package "Configuración Global" {
+        usecase "CU03: Configurar QR Oficial de Cobro (Anti-fraude)" as UC_ConfigQr
+        usecase "CU04: Gestión de Sucursales" as UC_Sucursales
+    }
+
+    package "Catálogo & Inventario" {
+        usecase "CU05: Gestión de Modelos y Variantes" as UC_Modelos
+        usecase "CU06: Recepción Unificada (Nota de Ingreso)" as UC_NotaIngreso
+        usecase "CU07: Control de Stock (Dispositivos & Lotes Accesorios)" as UC_Stock
+        usecase "CU08: Transferencias entre Sucursales" as UC_Transferencias
+    }
+
+    package "Punto de Venta (POS) & Finanzas" {
+        usecase "CU09: Control de Caja Diaria & Arqueo" as UC_Caja
+        usecase "CU10: Registro de Gastos Operativos" as UC_Gastos
+        usecase "CU11: Realizar Venta (Dispositivos / Accesorios)" as UC_Venta
+        usecase "CU12: Cobro por QR Oficial / Efectivo" as UC_Cobro
+    }
+
+    package "Reportería & Auditoría" {
+        usecase "CU13: Reportes de Rentabilidad & Cajas" as UC_Reportes
+        usecase "CU14: Trazabilidad y Auditoría por IMEI" as UC_AuditoriaImei
+    }
+}
+
+' Asociaciones de Usuario Base
+user --> UC_Auth
+
+' Asociaciones de Vendedor
+vendedor --> UC_Stock
+vendedor --> UC_Caja
+vendedor --> UC_Gastos
+vendedor --> UC_Venta
+vendedor --> UC_Cobro
+vendedor --> UC_NotaIngreso
+
+' Asociaciones de Administrador
+admin --> UC_Usuarios
+admin --> UC_ConfigQr
+admin --> UC_Sucursales
+admin --> UC_Modelos
+admin --> UC_Transferencias
+admin --> UC_Reportes
+admin --> UC_AuditoriaImei
+
+@enduml

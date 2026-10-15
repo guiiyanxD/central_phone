@@ -1,0 +1,49 @@
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Builds y compilaciones
+dist/
+build/
+.next/
+out/
+
+# Variables de entorno (REGLA INMUTABLE: NUNCA SUBIR AL CONTROL DE VERSIONES)
+.env
+*.local.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Bases de datos y almacenamiento de archivos local
+postgres_data/
+uploads/
+*.sqlite
+*.sqlite-journal
+
+# Prisma
+generated/
+prisma/*.db
+prisma/*.db-journal
+
+# Logs y depuración
+logs/
+*.log
+
+# IDEs y SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Playwright E2E & Reportes
+playwright-report/
+test-results/
+e2e/.auth/
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/
