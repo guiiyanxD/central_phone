@@ -32,6 +32,20 @@ body {
 }
 
 /* ==========================================================
+ * ACCESIBILIDAD: SOPORTE PARA PREFERS-REDUCED-MOTION (ID-MI-003)
+ * ========================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================
  * ESTILOS DE IMPRESIÓN OFICIAL PARA TICKETS Y RECIBOS TÉRMICOS
  * ========================================================== */
 @media print {

@@ -29,6 +29,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
 export default function CajaDiariaPage() {
@@ -198,31 +199,21 @@ export default function CajaDiariaPage() {
           </p>
         </div>
 
-        {/* Pestañas de Vista */}
-        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('turno')}
-            className={cn(
-              'px-3 py-1.5 rounded-md transition-colors',
-              activeTab === 'turno'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            )}
-          >
-            Turno Actual
-          </button>
-          <button
-            onClick={() => setActiveTab('historial')}
-            className={cn(
-              'px-3 py-1.5 rounded-md transition-colors',
-              activeTab === 'historial'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            )}
-          >
-            Historial de Arqueos ({historialCajas.length})
-          </button>
-        </div>
+        {/* Pestañas de Vista (ID-DS-004) */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => setActiveTab(val as 'turno' | 'historial')}
+          className="w-auto"
+        >
+          <TabsList variant="pill">
+            <TabsTrigger value="turno" variant="pill">
+              Turno Actual
+            </TabsTrigger>
+            <TabsTrigger value="historial" variant="pill">
+              Historial de Arqueos ({historialCajas.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Banner de Resultado de Cierre reciente si existe */}
@@ -539,7 +530,7 @@ export default function CajaDiariaPage() {
                       <tr key={c.id} className="hover:bg-slate-50">
                         <td className="py-3 px-4 font-mono">
                           <p className="font-bold text-slate-900">Turno #{c.id}</p>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] text-slate-500 font-medium">
                             {new Date(c.fechaCierre || c.fechaApertura).toLocaleDateString('es-BO')}
                           </p>
                         </td>

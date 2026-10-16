@@ -33,6 +33,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
 interface CartItem {
@@ -702,43 +703,29 @@ export default function PosPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* PANEL IZQUIERDO: CATÁLOGO Y BUSCADOR DE PRODUCTOS (7 COLUMNAS) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Tabs Selector de Catálogo */}
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <div className="flex gap-4 text-xs font-bold">
-              <button
-                onClick={() => setCatalogTab('telefonos')}
-                className={cn(
-                  'pb-2 border-b-2 flex items-center gap-1.5 transition-colors',
-                  catalogTab === 'telefonos'
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                )}
-              >
+          {/* Tabs Selector de Catálogo (ID-DS-004) */}
+          <Tabs
+            value={catalogTab}
+            onValueChange={(val) => setCatalogTab(val as 'telefonos' | 'accesorios')}
+          >
+            <TabsList variant="line" className="w-full justify-start pb-2 mb-2">
+              <TabsTrigger value="telefonos" variant="line">
                 <Smartphone className="h-3.5 w-3.5" />
                 <span>Teléfonos Disponibles ({filteredPhones.length})</span>
-              </button>
-
-              <button
-                onClick={() => setCatalogTab('accesorios')}
-                className={cn(
-                  'pb-2 border-b-2 flex items-center gap-1.5 transition-colors',
-                  catalogTab === 'accesorios'
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                )}
-              >
+              </TabsTrigger>
+              <TabsTrigger value="accesorios" variant="line">
                 <Headphones className="h-3.5 w-3.5" />
                 <span>Lotes de Accesorios</span>
-              </button>
-            </div>
-          </div>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {catalogTab === 'telefonos' ? (
             /* LISTA DE TELÉFONOS SERIALIZADOS */
             <div className="space-y-3">
               {/* Buscador de Teléfonos con escaneo continuo por lector de barras (ID-POS-001) */}
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                 <Input
                   ref={inputSearchRef}
                   autoFocus
@@ -749,7 +736,7 @@ export default function PosPage() {
                   onChange={(e) => setSearchPhone(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
                 />
-                <span className="absolute right-2.5 top-2 hidden sm:inline-flex items-center text-[10px] font-mono font-medium text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                <span className="absolute right-2.5 top-2 hidden sm:inline-flex items-center text-[10px] font-mono font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
                   Enter ↵ | F2
                 </span>
               </div>
@@ -831,7 +818,7 @@ export default function PosPage() {
             <div className="space-y-3">
               {/* Buscador de Accesorios */}
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                 <Input
                   aria-label="Buscar accesorio o variante"
                   className="pl-9 pr-4 text-xs"
@@ -1001,7 +988,7 @@ export default function PosPage() {
                         type="button"
                         aria-label={`Eliminar ${item.nombre} del carrito`}
                         onClick={() => handleRemoveFromCart(item.cartId)}
-                        className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                        className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
