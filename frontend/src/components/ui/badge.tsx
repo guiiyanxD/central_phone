@@ -16,11 +16,11 @@ const badgeVariants = cva(
         secondary:
           'border-slate-200 bg-slate-100 text-slate-800 font-medium',
         destructive:
-          'border-slate-300 bg-white text-rose-700 font-semibold',
+          'border-rose-200 bg-rose-50 text-rose-700 font-semibold',
         success:
-          'border-slate-300 bg-white text-slate-900 font-semibold',
+          'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold',
         warning:
-          'border-slate-300 bg-white text-slate-800 font-semibold',
+          'border-amber-200 bg-amber-50 text-amber-800 font-semibold',
         outline:
           'border-slate-300 bg-white text-slate-800',
         mono:

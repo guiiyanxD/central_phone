@@ -4,11 +4,13 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#363EFF] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none active:scale-[0.99]',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none active:scale-[0.99]',
   {
     variants: {
       variant: {
         default:
+          'bg-slate-900 text-white hover:bg-slate-800 shadow-sm font-semibold',
+        cobalt:
           'bg-[#363EFF] text-white hover:bg-[#2B32E0] shadow-sm shadow-[#363EFF]/20 font-semibold',
         destructive:
           'bg-rose-600 text-white hover:bg-rose-700 shadow-sm font-semibold',

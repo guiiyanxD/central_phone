@@ -35,14 +35,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center p-3 sm:p-6 lg:p-10 animate-in fade-in duration-300">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-2 sm:p-6 lg:p-10 animate-in fade-in duration-300">
       {/* Contenedor Flotante Ampliado (Sincronizado con login_example.webp) */}
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-2">
+      <div className="w-full max-w-md lg:max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-2">
         {/* =========================================================================
             PANEL IZQUIERDO: Hero Artístico con Textura Líquida Orgánica
-            Solamente el nombre de la empresa centrado en color Blanco Hueso
+            Visible en Desktop / Tablets amplias (lg:flex)
             ========================================================================= */}
-        <div className="relative p-8 sm:p-12 lg:p-16 flex flex-col justify-center items-center text-center min-h-[380px] lg:min-h-[620px] bg-slate-950 text-white overflow-hidden select-none">
+        <div className="hidden lg:flex relative p-8 sm:p-12 lg:p-16 flex-col justify-center items-center text-center lg:min-h-[620px] bg-slate-950 text-white overflow-hidden select-none">
           {/* Fondo de alta resolución con textura fluida de seda en azul cobalto y flama */}
           <div className="absolute inset-0">
             <Image
@@ -81,28 +81,45 @@ export default function LoginPage() {
             PANEL DERECHO: Formulario de Autenticación POS
             Ingreso manual estricto (DoD Fase 1 de Seguridad - Cero Credenciales Expuestas)
             ========================================================================= */}
-        <div className="p-8 sm:p-12 lg:p-14 flex flex-col justify-between bg-white">
-          <div className="space-y-6 my-auto">
+        <div className="p-6 sm:p-10 lg:p-14 flex flex-col justify-between bg-white">
+          <div className="space-y-5 my-auto">
+            {/* Cabecera de Marca para Móviles (< lg) para evitar scroll vertical */}
+            <div className="lg:hidden flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div className="relative h-9 w-9 rounded-xl border border-slate-200 bg-white shadow-subtle flex-shrink-0">
+                <Image
+                  src="/logo.png"
+                  alt="CentralPhone Logo"
+                  fill
+                  className="object-contain p-1"
+                  priority
+                />
+              </div>
+              <div>
+                <p className="text-base font-bold text-slate-900 leading-tight">CentralPhone</p>
+                <p className="text-[11px] text-slate-500 font-medium">Gestión Comercial & Mostrador</p>
+              </div>
+            </div>
+
             {/* Título de la Sección */}
-            <div className="space-y-1.5">
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            <div className="space-y-1">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
                 Acceso al Sistema
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500">
+              <p className="text-xs text-slate-500">
                 Ingresa tus credenciales autorizadas de usuario para iniciar tu turno.
               </p>
             </div>
 
             {/* Alerta de Error de Credenciales */}
             {errorMsg && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-700 flex items-start gap-2.5 shadow-sm animate-in fade-in">
+              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 flex items-start gap-2 shadow-sm animate-in fade-in">
                 <ShieldAlert className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
             {/* Formulario de Login Estándar y Seguro */}
-            <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+            <form onSubmit={handleSubmit} className="space-y-3.5 pt-0.5">
               <div>
                 <Label required>Correo Electrónico</Label>
                 <div className="relative mt-1">
@@ -114,7 +131,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoFocus
-                    className="pl-9"
+                    className="pl-9 text-xs"
                   />
                 </div>
               </div>
@@ -129,14 +146,14 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-9"
+                    className="pl-9 text-xs"
                   />
                 </div>
               </div>
 
               <Button
                 type="submit"
-                className="w-full text-xs font-semibold h-11 mt-2 bg-[#363EFF] hover:bg-[#2B32E0] shadow-md shadow-[#363EFF]/25 text-white"
+                className="w-full text-xs font-semibold h-10 mt-1 bg-slate-900 hover:bg-slate-800 shadow-md text-white"
                 isLoading={isLoading}
                 loadingText="Verificando credenciales..."
               >
@@ -147,8 +164,8 @@ export default function LoginPage() {
           </div>
 
           {/* Footer de Seguridad y Cierre */}
-          <div className="pt-6 border-t border-slate-100 mt-6">
-            <p className="text-center text-[11px] text-slate-400">
+          <div className="pt-4 border-t border-slate-100 mt-5">
+            <p className="text-center text-[10px] text-slate-400">
               CentralPhone POS • Sesión protegida mediante JWT & RBAC
             </p>
           </div>

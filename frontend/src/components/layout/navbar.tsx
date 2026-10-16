@@ -4,7 +4,19 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { User, ChevronDown, LogOut, Building2 } from 'lucide-react';
+import {
+  User,
+  ChevronDown,
+  LogOut,
+  Building2,
+  LayoutGrid,
+  Smartphone,
+  Wallet,
+  PackagePlus,
+  Boxes,
+  BarChart3,
+  QrCode,
+} from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 
@@ -19,17 +31,18 @@ export function Navbar() {
   }
 
   const navLinks = [
-    { href: '/', label: 'Operaciones' },
-    { href: '/pos', label: 'Punto de Venta' },
-    { href: '/caja', label: 'Caja Diaria' },
-    { href: '/recepcion', label: 'Recepción' },
-    { href: '/inventario', label: 'Inventario' },
-    ...(user?.rol === 'ADMIN' ? [{ href: '/reportes', label: 'Reportes' }] : []),
-    { href: '/configuracion', label: 'Configuración & QR' },
+    { href: '/', label: 'Operaciones', icon: LayoutGrid },
+    { href: '/pos', label: 'Punto de Venta', icon: Smartphone },
+    { href: '/caja', label: 'Caja Diaria', icon: Wallet },
+    { href: '/recepcion', label: 'Recepción', icon: PackagePlus },
+    { href: '/inventario', label: 'Inventario', icon: Boxes },
+    ...(user?.rol === 'ADMIN' ? [{ href: '/reportes', label: 'Reportes', icon: BarChart3 }] : []),
+    { href: '/configuracion', label: 'Configuración & QR', icon: QrCode },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+    <>
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Identidad de Marca y Navegación Principal */}
         <div className="flex items-center gap-6">
@@ -48,7 +61,7 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Menú de Navegación Minimalista */}
+          {/* Menú de Navegación Minimalista Desktop */}
           <nav className="hidden lg:flex items-center gap-1 pl-4 border-l border-slate-200">
             {navLinks.map((link) => {
               const isActive =
@@ -62,7 +75,7 @@ export function Navbar() {
                   className={cn(
                     'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
                     isActive
-                      ? 'bg-[#363EFF]/10 text-[#363EFF] font-semibold shadow-subtle'
+                      ? 'bg-slate-100 text-slate-900 font-bold shadow-subtle border border-slate-200/80'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                   )}
                 >
@@ -133,5 +146,35 @@ export function Navbar() {
         </div>
       </div>
     </header>
-  );
+
+    {/* Barra de Navegación Inferior Fija para Tablets y Móviles (< lg) */}
+    <nav
+      aria-label="Navegación móvil y tablet"
+      className="fixed bottom-0 left-0 right-0 z-50 flex lg:hidden h-16 bg-white border-t border-slate-200 px-1.5 justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+    >
+      {navLinks.slice(0, 5).map((link) => {
+        const Icon = link.icon;
+        const isActive =
+          link.href === '/'
+            ? pathname === '/'
+            : pathname.startsWith(link.href);
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={cn(
+              'flex flex-col items-center justify-center flex-1 h-full py-1 rounded-lg text-[10px] font-medium transition-colors',
+              isActive
+                ? 'text-slate-900 font-bold bg-slate-50'
+                : 'text-slate-500 hover:text-slate-900 active:bg-slate-100'
+            )}
+          >
+            <Icon className={cn('h-5 w-5 mb-0.5', isActive ? 'text-slate-900' : 'text-slate-400')} />
+            <span className="truncate max-w-[62px] text-center leading-tight">{link.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  </>
+);
 }

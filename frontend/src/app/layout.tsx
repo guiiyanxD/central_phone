@@ -18,7 +18,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-[#363EFF] selection:text-white">
         <AuthProvider>
           <Navbar />
-          <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+          <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-8">
             {children}
           </main>
         </AuthProvider>

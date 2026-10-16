@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { playScanBeep, playSaleSuccessSound } from '@/lib/sound';
 import {
   CreditCard,
   Smartphone,
@@ -80,10 +81,23 @@ export default function PosPage() {
   const [priceWarning, setPriceWarning] = useState<string | null>(null);
   const [completedSale, setCompletedSale] = useState<any | null>(null);
 
+  // Estados de ergonomía de mostrador y calculadora de vuelto (ID-POS-001, ID-UX-001)
+  const inputSearchRef = useRef<HTMLInputElement>(null);
+  const [montoRecibidoBs, setMontoRecibidoBs] = useState<number | ''>('');
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+
+  // Filtro de búsqueda rápida en accesorios (ID-UX-004)
+  const [searchAccessory, setSearchAccessory] = useState('');
+
+  // Patrón "Deshacer" para eliminación accidental en mostrador (ID-POS-003)
+  const [lastRemovedItem, setLastRemovedItem] = useState<CartItem | null>(null);
+  const [undoToastVisible, setUndoToastVisible] = useState(false);
+  const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Modal QR Oficial
   const [modalQrOpen, setModalQrOpen] = useState(false);
 
-  // Carga de sesión y catálogo
+  // Carga inicial de sesión y catálogo
   const loadData = async () => {
     setIsLoadingSession(true);
     setIsLoadingCatalog(true);
@@ -106,9 +120,66 @@ export default function PosPage() {
     }
   };
 
+  // Revalidación silenciosa en segundo plano sin parpadeo de Skeletons (ID-MI-001)
+  const silentRefresh = async () => {
+    try {
+      const [cajaRes, dispRes, accRes] = await Promise.all([
+        api.caja.getActiva(),
+        api.modelos.getDispositivos({ estado: 'DISPONIBLE' }),
+        api.accesorios.getAll(),
+      ]);
+      setSessionData(cajaRes);
+      setDispositivos(dispRes);
+      setAccesorios(accRes);
+    } catch {
+      // Silencioso
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [user]);
+
+  // Autofocus en el buscador de IMEI al abrir POS o cerrar ticket completado (ID-POS-001)
+  useEffect(() => {
+    if (sessionData?.caja && !isLoadingSession && !completedSale && catalogTab === 'telefonos') {
+      inputSearchRef.current?.focus();
+    }
+  }, [sessionData?.caja, isLoadingSession, completedSale, catalogTab]);
+
+  // Atajos globales de teclado para cajero de mostrador (ID-POS-002, ID-POS-003)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (modalQrOpen || completedSale) return;
+
+      if (e.key === 'F2') {
+        e.preventDefault();
+        setCatalogTab('telefonos');
+        setTimeout(() => {
+          inputSearchRef.current?.focus();
+          inputSearchRef.current?.select();
+        }, 50);
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        setCatalogTab((t) => (t === 'telefonos' ? 'accesorios' : 'telefonos'));
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        setMetodoPagoCodigo('EFECTIVO');
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        setMetodoPagoCodigo('QR_SIMPLE');
+        setModalQrOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        if (lastRemovedItem) {
+          e.preventDefault();
+          handleUndoRemove();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [modalQrOpen, completedSale, lastRemovedItem]);
 
   // Manejadores de Carrito
   const handleAddPhoneToCart = (disp: any) => {
@@ -183,20 +254,6 @@ export default function PosPage() {
 
   const handleUpdatePrice = (cartId: string, newPrice: number) => {
     setPriceWarning(null);
-    const item = cart.find((i) => i.cartId === cartId);
-    if (!item) return;
-
-    // Regla de negocio: si no es ADMIN, no puede reducir más del 10% del precio sugerido original
-    if (user?.rol !== 'ADMIN' && item.precioSugeridoOriginal && item.precioSugeridoOriginal > 0) {
-      const pisoMinimo = item.precioSugeridoOriginal * 0.9;
-      if (newPrice < pisoMinimo) {
-        setPriceWarning(
-          `Política Comercial: Como vendedor no puedes reducir el precio por debajo de Bs ${pisoMinimo.toFixed(2)} (máx 10% de descuento). Requiere autorización de un Administrador.`
-        );
-        return;
-      }
-    }
-
     setCart(
       cart.map((item) =>
         item.cartId === cartId ? { ...item, precioUnitarioBs: newPrice } : item
@@ -204,8 +261,101 @@ export default function PosPage() {
     );
   };
 
+  const handleValidatePriceFloor = (cartId: string) => {
+    setPriceWarning(null);
+    const item = cart.find((i) => i.cartId === cartId);
+    if (!item) return;
+
+    // Regla de negocio: si no es ADMIN, no puede reducir más del 10% del precio sugerido original (ID-UX-002)
+    if (user?.rol !== 'ADMIN' && item.precioSugeridoOriginal && item.precioSugeridoOriginal > 0) {
+      const pisoMinimo = Math.round(item.precioSugeridoOriginal * 0.9);
+      if (item.precioUnitarioBs < pisoMinimo) {
+        setPriceWarning(
+          `Política Comercial: Como vendedor no puedes reducir el precio de "${item.nombre}" por debajo de Bs ${pisoMinimo.toFixed(2)} (máx 10% de descuento). Se ha reajustado al piso permitido.`
+        );
+        setCart(
+          cart.map((i) => (i.cartId === cartId ? { ...i, precioUnitarioBs: pisoMinimo } : i))
+        );
+      }
+    }
+  };
+
+  // Manejador del escáner de código de barras para teléfono (Enter directo sin mouse) (ID-POS-001)
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const q = searchPhone.trim().toLowerCase();
+      if (!q) return;
+
+      // 1. Buscar coincidencia exacta por IMEI 1, IMEI 2 o Serie
+      const exactMatch = dispositivos.find(
+        (d) =>
+          d.imei1.toLowerCase() === q ||
+          (d.imei2 && d.imei2.toLowerCase() === q) ||
+          d.numeroSerie.toLowerCase() === q
+      );
+
+      if (exactMatch) {
+        if (cart.some((i) => i.dispositivoId === exactMatch.id)) {
+          setScanFeedback(`El equipo (${exactMatch.imei1}) ya está en el ticket.`);
+        } else {
+          handleAddPhoneToCart(exactMatch);
+          playScanBeep();
+          setScanFeedback(`✓ Escaneado: ${exactMatch.variante?.modelo?.nombreModelo} (${exactMatch.imei1})`);
+          setSearchPhone('');
+        }
+        setTimeout(() => setScanFeedback(null), 3000);
+        return;
+      }
+
+      // 2. Si no hay match exacto pero el filtro arrojó 1 solo equipo
+      if (filteredPhones.length === 1) {
+        const single = filteredPhones[0];
+        if (cart.some((i) => i.dispositivoId === single.id)) {
+          setScanFeedback(`El equipo ya está en el ticket.`);
+        } else {
+          handleAddPhoneToCart(single);
+          playScanBeep();
+          setScanFeedback(`✓ Agregado: ${single.variante?.modelo?.nombreModelo} (${single.imei1})`);
+          setSearchPhone('');
+        }
+        setTimeout(() => setScanFeedback(null), 3000);
+      }
+    }
+  };
+
   const handleRemoveFromCart = (cartId: string) => {
+    const itemToRemove = cart.find((item) => item.cartId === cartId);
+    if (!itemToRemove) return;
+
     setCart(cart.filter((item) => item.cartId !== cartId));
+    setLastRemovedItem(itemToRemove);
+    setUndoToastVisible(true);
+
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(() => {
+      setUndoToastVisible(false);
+      setLastRemovedItem(null);
+    }, 5000);
+  };
+
+  const handleUndoRemove = () => {
+    if (!lastRemovedItem) return;
+    setCart((prev) => [...prev, lastRemovedItem]);
+    setUndoToastVisible(false);
+    setLastRemovedItem(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+  };
+
+  const handleClearCart = () => {
+    if (cart.length === 0) return;
+    if (window.confirm('¿Deseas descartar y vaciar todos los productos del ticket actual?')) {
+      setCart([]);
+      setMontoRecibidoBs('');
+      setPriceWarning(null);
+      setUndoToastVisible(false);
+      setLastRemovedItem(null);
+    }
   };
 
   // Cálculos de Totales
@@ -446,13 +596,15 @@ export default function PosPage() {
       };
 
       const res = await api.ventas.create(payload);
+      playSaleSuccessSound(); // Sonido armónico de venta completada exitosamente
       setCompletedSale(res);
       setCart([]);
       setClienteNombre('');
       setClienteTelefono('');
       setClienteCiNit('');
       setComprobanteRef('');
-      await loadData(); // Recargar existencias actualizadas
+      setMontoRecibidoBs('');
+      await silentRefresh(); // Revalidación silenciosa sin parpadeo de Skeletons (ID-MI-001)
     } catch (err: any) {
       setSaleError(err.message || 'Error al procesar la venta.');
     } finally {
@@ -470,6 +622,19 @@ export default function PosPage() {
       d.variante?.modelo?.nombreModelo.toLowerCase().includes(q) ||
       d.variante?.color.toLowerCase().includes(q)
     );
+  });
+
+  // Filtrado de lotes de accesorios por nombre de producto o lote (ID-UX-004)
+  const filteredAccessories = accesorios.flatMap((acc) => {
+    const q = searchAccessory.toLowerCase().trim();
+    const matchingLotes = (acc.lotes || []).filter((lote: any) => {
+      if (!q) return true;
+      return (
+        acc.nombre.toLowerCase().includes(q) ||
+        (lote.nombreDiferenciador && lote.nombreDiferenciador.toLowerCase().includes(q))
+      );
+    });
+    return matchingLotes.map((lote: any) => ({ acc, lote }));
   });
 
   if (isLoadingSession) {
@@ -571,16 +736,34 @@ export default function PosPage() {
           {catalogTab === 'telefonos' ? (
             /* LISTA DE TELÉFONOS SERIALIZADOS */
             <div className="space-y-3">
-              {/* Buscador de Teléfonos */}
+              {/* Buscador de Teléfonos con escaneo continuo por lector de barras (ID-POS-001) */}
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  className="pl-9 text-xs"
+                  ref={inputSearchRef}
+                  autoFocus
+                  aria-label="Escanear o tipear IMEI 1, Serie o Modelo"
+                  className="pl-9 pr-24 text-xs font-mono"
                   placeholder="Escanear o tipear IMEI 1, Serie o Modelo..."
                   value={searchPhone}
                   onChange={(e) => setSearchPhone(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                 />
+                <span className="absolute right-2.5 top-2 hidden sm:inline-flex items-center text-[10px] font-mono font-medium text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                  Enter ↵ | F2
+                </span>
               </div>
+
+              {/* Feedback de escaneo de código de barras exitoso */}
+              {scanFeedback && (
+                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between animate-in fade-in duration-150">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    {scanFeedback}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-mono">En Ticket</span>
+                </div>
+              )}
 
               {filteredPhones.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500 border border-slate-200 rounded-xl bg-white">
@@ -627,9 +810,12 @@ export default function PosPage() {
                           <Button
                             size="sm"
                             variant={isAdded ? 'outline' : 'default'}
-                            className="h-7 text-xs px-2.5"
+                            className="h-8 text-xs px-3 font-semibold"
                             disabled={isAdded}
-                            onClick={() => handleAddPhoneToCart(d)}
+                            onClick={() => {
+                              handleAddPhoneToCart(d);
+                              playScanBeep();
+                            }}
                           >
                             {isAdded ? 'En Carrito' : '+ Agregar'}
                           </Button>
@@ -641,41 +827,64 @@ export default function PosPage() {
               )}
             </div>
           ) : (
-            /* LISTA DE LOTES DE ACCESORIOS */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[580px] overflow-y-auto pr-1">
-              {accesorios.flatMap((acc) =>
-                (acc.lotes || []).map((lote: any) => (
-                  <div
-                    key={lote.id}
-                    className="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-subtle transition-all text-xs flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{acc.nombre}</span>
-                        <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                          {lote.stockActual} u. en stock
-                        </span>
-                      </div>
-                      <p className="text-slate-700 font-medium text-[11px] mt-0.5">
-                        {lote.nombreDiferenciador}
-                      </p>
-                    </div>
+            /* LISTA DE LOTES DE ACCESORIOS (ID-UX-004) */
+            <div className="space-y-3">
+              {/* Buscador de Accesorios */}
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  aria-label="Buscar accesorio o variante"
+                  className="pl-9 pr-4 text-xs"
+                  placeholder="Buscar accesorio por nombre o lote (ej. Silicona, MagSafe, Carga Rápida)..."
+                  value={searchAccessory}
+                  onChange={(e) => setSearchAccessory(e.target.value)}
+                />
+              </div>
 
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
-                      <span className="font-mono font-bold text-slate-900">
-                        Bs {Number(lote.precioVentaBs).toFixed(2)}
-                      </span>
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs px-2.5"
-                        disabled={lote.stockActual <= 0}
-                        onClick={() => handleAddAccessoryToCart(acc, lote)}
-                      >
-                        + Agregar
-                      </Button>
+              {filteredAccessories.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 border border-slate-200 rounded-xl bg-white">
+                  {searchAccessory.trim()
+                    ? 'No se encontraron accesorios coincidentes con la búsqueda.'
+                    : 'No hay accesorios disponibles en el inventario.'}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1">
+                  {filteredAccessories.map(({ acc, lote }) => (
+                    <div
+                      key={lote.id}
+                      className="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-subtle transition-all text-xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">{acc.nombre}</span>
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {lote.stockActual} u. en stock
+                          </span>
+                        </div>
+                        <p className="text-slate-700 font-medium text-[11px] mt-0.5">
+                          {lote.nombreDiferenciador}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                        <span className="font-mono font-bold text-slate-900">
+                          Bs {Number(lote.precioVentaBs).toFixed(2)}
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs px-3 font-semibold"
+                          disabled={lote.stockActual <= 0}
+                          onClick={() => {
+                            handleAddAccessoryToCart(acc, lote);
+                            playScanBeep();
+                          }}
+                        >
+                          + Agregar
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -691,15 +900,27 @@ export default function PosPage() {
                   Ticket de Venta
                 </CardTitle>
               </div>
-              <span className="text-xs text-slate-500 font-medium">
-                {cart.length} productos
-              </span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs text-slate-500 font-medium">
+                  {cart.length} productos
+                </span>
+                {cart.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearCart}
+                    className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline px-1.5 py-0.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                    title="Vaciar todos los productos del ticket"
+                  >
+                    Vaciar Ticket
+                  </button>
+                )}
+              </div>
             </CardHeader>
 
             <CardContent className="p-4 space-y-4">
               {/* Lista de Items en Carrito */}
               {cart.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400">
+                <div className="py-10 text-center text-xs text-slate-500 font-medium">
                   El carrito está vacío. Selecciona teléfonos o accesorios para cobrar.
                 </div>
               ) : (
@@ -717,64 +938,70 @@ export default function PosPage() {
                           {item.subtitulo}
                         </p>
                         {item.imei && (
-                          <p className="font-mono text-[9px] text-slate-400">
+                          <p className="font-mono text-[9px] text-slate-600 font-medium">
                             IMEI: {item.imei}
                           </p>
                         )}
                       </div>
 
-                      {/* Control de Cantidad (solo accesorios) */}
+                      {/* Control de Cantidad accesible para tablet y PC (ID-A11Y-001) */}
                       {item.tipo === 'ACCESORIO' ? (
-                        <div className="flex items-center border border-slate-200 bg-white rounded-md">
+                        <div className="flex items-center border border-slate-200 bg-white rounded-lg shadow-sm">
                           <button
                             type="button"
+                            aria-label={`Disminuir cantidad de ${item.nombre}`}
                             onClick={() => handleUpdateQuantity(item.cartId, -1)}
-                            className="p-1 hover:bg-slate-100 text-slate-600 rounded-l"
+                            className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center hover:bg-slate-100 text-slate-700 active:scale-95 transition-transform rounded-l focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900"
                           >
-                            <Minus className="h-2.5 w-2.5" />
+                            <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="px-2 font-mono font-bold text-[11px]">
+                          <span className="px-2 font-mono font-bold text-[11px]" aria-live="polite">
                             {item.cantidad}
                           </span>
                           <button
                             type="button"
+                            aria-label={`Aumentar cantidad de ${item.nombre}`}
                             onClick={() => handleUpdateQuantity(item.cartId, 1)}
-                            className="p-1 hover:bg-slate-100 text-slate-600 rounded-r"
+                            className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center hover:bg-slate-100 text-slate-700 active:scale-95 transition-transform rounded-r focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900"
                           >
-                            <Plus className="h-2.5 w-2.5" />
+                            <Plus className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       ) : (
-                        <span className="font-mono text-[10px] text-slate-500">
+                        <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                           1 u.
                         </span>
                       )}
 
-                      {/* Precio Unitario Editable */}
+                      {/* Precio Unitario Editable con validación onBlur (ID-UX-002) */}
                       <div className="text-right">
                         <div className="flex items-center gap-1 justify-end">
-                          <span className="text-[10px] text-slate-400">Bs</span>
+                          <span className="text-[10px] text-slate-500 font-mono font-medium">Bs</span>
                           <input
                             type="number"
-                            step="0.01"
+                            step="0.50"
                             min="0"
+                            aria-label={`Precio unitario acordado para ${item.nombre}`}
                             value={item.precioUnitarioBs || ''}
                             onChange={(e) => handleUpdatePrice(item.cartId, parseFloat(e.target.value) || 0)}
-                            className="w-20 text-right font-mono font-bold text-slate-900 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
+                            onBlur={() => handleValidatePriceFloor(item.cartId)}
+                            className="w-20 text-right font-mono font-bold text-slate-900 border border-slate-200 rounded px-1.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 bg-white"
                             title="Ajustar precio acordado"
                           />
                         </div>
                         {item.cantidad > 1 && (
-                          <span className="font-mono text-[10px] text-slate-400 block mt-0.5">
+                          <span className="font-mono text-[10px] text-slate-500 font-medium block mt-0.5">
                             Total: Bs {(item.cantidad * item.precioUnitarioBs).toFixed(2)}
                           </span>
                         )}
                       </div>
 
+                      {/* Botón Eliminar con touch target adecuado y aria-label (ID-A11Y-001, ID-A11Y-003) */}
                       <button
                         type="button"
+                        aria-label={`Eliminar ${item.nombre} del carrito`}
                         onClick={() => handleRemoveFromCart(item.cartId)}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded"
+                        className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -862,6 +1089,75 @@ export default function PosPage() {
                     <QrCode className="h-3.5 w-3.5" />
                   </button>
                 </div>
+
+                {/* Calculadora de Efectivo y Vuelto Automático (ID-UX-001) */}
+                {metodoPagoCodigo === 'EFECTIVO' && cart.length > 0 && (
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/80 space-y-2.5 text-xs animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-800">
+                        Efectivo Recibido en Gaveta
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        Total: Bs {totalBs.toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* Botones de Billetes Rápidos */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setMontoRecibidoBs(totalBs)}
+                        className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-semibold text-slate-700 transition-colors shadow-subtle"
+                      >
+                        Exacto (Bs {totalBs.toFixed(2)})
+                      </button>
+                      {[100, 200, 500, 1000].map((billete) => {
+                        return (
+                          <button
+                            key={billete}
+                            type="button"
+                            onClick={() => setMontoRecibidoBs(billete)}
+                            className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-semibold text-slate-700 transition-colors shadow-subtle font-mono"
+                          >
+                            Bs {billete}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Input de Monto Recibido */}
+                    <Input
+                      type="number"
+                      step="0.50"
+                      min="0"
+                      placeholder="Ingresa monto entregado por el cliente..."
+                      value={montoRecibidoBs || ''}
+                      onChange={(e) => setMontoRecibidoBs(parseFloat(e.target.value) || '')}
+                      className="bg-white text-xs font-mono font-bold"
+                    />
+
+                    {/* Visualización Destacada del Vuelto */}
+                    {typeof montoRecibidoBs === 'number' && montoRecibidoBs > 0 && (
+                      <div
+                        className={cn(
+                          'p-2.5 rounded-lg border flex items-center justify-between font-mono text-xs transition-colors',
+                          montoRecibidoBs >= totalBs
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                            : 'bg-amber-50 border-amber-200 text-amber-900'
+                        )}
+                      >
+                        <span className="font-semibold font-sans">
+                          {montoRecibidoBs >= totalBs ? 'Cambio / Vuelto a Entregar:' : 'Monto Faltante:'}
+                        </span>
+                        <span className="text-base font-bold">
+                          {montoRecibidoBs >= totalBs
+                            ? `Bs ${(montoRecibidoBs - totalBs).toFixed(2)}`
+                            : `Faltan Bs ${(totalBs - montoRecibidoBs).toFixed(2)}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Si elige QR, exigir referencia bancaria (US15) */}
                 {metodoPagoCodigo === 'QR_SIMPLE' && (
@@ -1109,6 +1405,26 @@ export default function PosPage() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Toast Flotante de Deshacer Eliminación de Ítem en Mostrador (ID-POS-003) */}
+      {undoToastVisible && lastRemovedItem && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-800 animate-in slide-in-from-bottom-5 duration-200"
+        >
+          <span className="text-xs">
+            Se eliminó <strong className="font-semibold text-slate-100">{lastRemovedItem.nombre}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoRemove}
+            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white rounded px-1 py-0.5"
+          >
+            Deshacer (Ctrl+Z)
+          </button>
+        </div>
       )}
     </div>
   );

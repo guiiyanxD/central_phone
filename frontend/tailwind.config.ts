@@ -18,11 +18,11 @@ const config: Config = {
           border: '#E2E8F0',   // Slate 200
         },
         primary: {
-          DEFAULT: '#363EFF', // Electric Cobalt Blue (arte visual oficial)
-          hover: '#2B32E0',
+          DEFAULT: '#0F172A', // Slate 900 (Apple Minimalist Monochrome)
+          hover: '#1E293B',   // Slate 800
           foreground: '#FFFFFF',
-          soft: '#EEF0FF',
-          border: '#C7D2FE',
+          soft: '#F1F5F9',
+          border: '#E2E8F0',
         },
         accent: {
           flame: '#F97316', // Sunset Coral Flame

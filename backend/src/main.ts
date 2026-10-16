@@ -16,10 +16,30 @@ async function bootstrap() {
   // Prefijo global de API
   app.setGlobalPrefix('api/v1');
 
-  // Configuración de CORS basada en variables de entorno
-  const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+  // Configuración de CORS con soporte para red local (tablets y móviles de mostrador)
+  const allowedOriginsEnv = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim());
+
   app.enableCors({
-    origin: corsOrigin,
+    origin: (requestOrigin, callback) => {
+      if (!requestOrigin) return callback(null, true);
+
+      if (allowedOriginsEnv.includes(requestOrigin) || allowedOriginsEnv.includes('*')) {
+        return callback(null, true);
+      }
+
+      const isLocalOrLan =
+        /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(
+          requestOrigin,
+        );
+
+      if (isLocalOrLan) {
+        return callback(null, true);
+      }
+
+      callback(new Error(`Origen CORS no permitido: ${requestOrigin}`));
+    },
     credentials: true,
   });
 

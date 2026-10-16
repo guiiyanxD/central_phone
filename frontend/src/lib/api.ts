@@ -1,6 +1,34 @@
 // Centralized API Client for CentralPhone
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+/**
+ * Obtiene la URL base de la API adaptándose dinámicamente al hostname del cliente.
+ * Si el usuario accede desde un móvil en la red local (ej: 192.168.x.x:3000),
+ * se conmuta automáticamente el host de localhost hacia dicha IP para evitar 'Load failed'.
+ */
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
+  if (typeof window !== 'undefined') {
+    try {
+      const parsed = new URL(envUrl);
+      const clientHostname = window.location.hostname;
+
+      if (
+        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+        clientHostname &&
+        clientHostname !== 'localhost' &&
+        clientHostname !== '127.0.0.1'
+      ) {
+        parsed.hostname = clientHostname;
+        return parsed.toString().replace(/\/$/, '');
+      }
+    } catch {
+      // Retornar envUrl de fallback si falla el parsing
+    }
+  }
+
+  return envUrl;
+}
 
 export class ApiError extends Error {
   statusCode: number;
@@ -47,7 +75,8 @@ async function request<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const apiBase = getApiBaseUrl();
+  const url = `${apiBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   try {
     const response = await fetch(url, {
