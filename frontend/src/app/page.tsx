@@ -80,7 +80,7 @@ export default function WelcomeHubPage() {
         <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
           <CardHeader className="p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
+              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#363EFF] to-[#2B32E0] text-white flex items-center justify-center shadow-md shadow-[#363EFF]/20">
                 <CreditCard className="h-5 w-5" />
               </div>
               <Badge variant="success">Caja Lista</Badge>
@@ -94,7 +94,7 @@ export default function WelcomeHubPage() {
           </CardHeader>
           <CardContent className="p-6 pt-0">
             <Button
-              className="w-full justify-between group-hover:bg-slate-800"
+              className="w-full justify-between"
               isLoading={activeAction === 'pos'}
               loadingText="Iniciando terminal..."
               onClick={() => handleLaunchFlow('pos')}
@@ -109,7 +109,7 @@ export default function WelcomeHubPage() {
         <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
           <CardHeader className="p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="h-11 w-11 rounded-xl bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center">
+              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white shadow-md shadow-[#F97316]/20 flex items-center justify-center">
                 <PackagePlus className="h-5 w-5" />
               </div>
               <Badge variant="outline">Ingreso Unificado</Badge>
@@ -124,7 +124,7 @@ export default function WelcomeHubPage() {
           <CardContent className="p-6 pt-0">
             <Button
               variant="outline"
-              className="w-full justify-between"
+              className="w-full justify-between hover:border-[#F97316]/40 hover:text-[#EA580C]"
               isLoading={activeAction === 'recepcion'}
               loadingText="Abriendo formulario..."
               onClick={() => handleLaunchFlow('recepcion')}
@@ -139,7 +139,7 @@ export default function WelcomeHubPage() {
         <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
           <CardHeader className="p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="h-11 w-11 rounded-xl bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center">
+              <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
                 <Smartphone className="h-5 w-5" />
               </div>
               <Badge variant="mono">Serializado</Badge>
@@ -154,7 +154,7 @@ export default function WelcomeHubPage() {
           <CardContent className="p-6 pt-0">
             <Button
               variant="outline"
-              className="w-full justify-between"
+              className="w-full justify-between hover:border-slate-400"
               isLoading={activeAction === 'inventario'}
               loadingText="Consultando inventario..."
               onClick={() => handleLaunchFlow('inventario')}
@@ -169,7 +169,7 @@ export default function WelcomeHubPage() {
         <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
           <CardHeader className="p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="h-11 w-11 rounded-xl bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center">
+              <div className="h-11 w-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
                 <Receipt className="h-5 w-5" />
               </div>
               <Badge variant="outline">Turno Activo</Badge>

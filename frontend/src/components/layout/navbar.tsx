@@ -60,10 +60,10 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
                     isActive
-                      ? 'bg-slate-100 text-slate-900 font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'bg-[#363EFF]/10 text-[#363EFF] font-semibold shadow-subtle'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                   )}
                 >
                   {link.label}

@@ -9,6 +9,10 @@ const badgeVariants = cva(
       variant: {
         default:
           'border-transparent bg-slate-900 text-white shadow-sm',
+        cobalt:
+          'border-transparent bg-[#363EFF] text-white shadow-sm',
+        flame:
+          'border-orange-200 bg-orange-50 text-orange-700 font-semibold',
         secondary:
           'border-slate-200 bg-slate-100 text-slate-800 font-medium',
         destructive:

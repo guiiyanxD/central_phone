@@ -4,12 +4,12 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none active:scale-[0.99]',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#363EFF] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none active:scale-[0.99]',
   {
     variants: {
       variant: {
         default:
-          'bg-slate-900 text-white hover:bg-slate-800 shadow-sm font-semibold',
+          'bg-[#363EFF] text-white hover:bg-[#2B32E0] shadow-sm shadow-[#363EFF]/20 font-semibold',
         destructive:
           'bg-rose-600 text-white hover:bg-rose-700 shadow-sm font-semibold',
         outline:
@@ -19,6 +19,8 @@ const buttonVariants = cva(
         ghost: 'text-slate-600 hover:text-slate-900 hover:bg-slate-100',
         success:
           'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm font-semibold',
+        flame:
+          'bg-[#F97316] text-white hover:bg-[#EA580C] shadow-sm shadow-[#F97316]/20 font-semibold',
       },
       size: {
         default: 'h-10 px-4 py-2',
