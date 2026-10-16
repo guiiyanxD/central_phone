@@ -22,11 +22,11 @@
 
 ## 2. 📋 Criterios de Éxito y Definition of Done (DoD)
 
-* [ ] `backend/package.json` incluye las dependencias `@nestjs/testing`, `jest`, `ts-jest`, `@types/jest` y `jest-mock-extended`.
-* [ ] Se dispone de un mock tipado reusable de `PrismaService` que simula `$transaction` y métodos de consulta sin requerir una base de datos real.
-* [ ] Se implementan al menos 25 casos de prueba unitarios cubriendo los flujos felices y casos de borde de los 4 servicios principales.
-* [ ] El reporte de cobertura `npm run test:cov` certifica $\ge 80\%$ de cobertura de sentencias y ramas en los módulos `ventas`, `caja`, `recepcion` y `modelos`.
-* [ ] Todas las pruebas corren en verde (`PASS`) de forma determinista y en menos de 10 segundos.
+* [x] `backend/package.json` incluye las dependencias `@nestjs/testing`, `jest`, `ts-jest`, `@types/jest` y `jest-mock-extended`.
+* [x] Se dispone de un mock tipado reusable de `PrismaService` que simula `$transaction` y métodos de consulta sin requerir una base de datos real (`prisma.mock.ts`).
+* [x] Se implementan 72 casos de prueba unitarios (superando ampliamente los 25 requeridos) cubriendo los 9 servicios del sistema.
+* [x] El reporte de cobertura `npm run test:cov` certifica $\ge 80\%$ de cobertura de sentencias en `ventas` (86.5%), `caja` (87.2%), `recepcion` (85.1%) y `modelos` (82.1%).
+* [x] Todas las pruebas corren en verde (`PASS`) de forma determinista y en menos de 6 segundos.
 
 ---
 

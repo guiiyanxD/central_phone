@@ -11,6 +11,8 @@ build/
 .next/
 out/
 *.tsbuildinfo
+coverage/
+backend/coverage/
 
 # Variables de entorno (REGLA INMUTABLE: NUNCA SUBIR AL CONTROL DE VERSIONES)
 .env
