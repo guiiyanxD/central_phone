@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class UpdateConfiguracionDto {
   @IsString()
@@ -11,6 +11,13 @@ export class UpdateConfiguracionDto {
 
   @IsString({ message: 'La URL o ruta de la imagen del QR es obligatoria.' })
   @IsNotEmpty({ message: 'La imagen del QR oficial no puede estar vacía.' })
+  @Matches(
+    /^(data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/[a-zA-Z0-9_\-\/.]+\.(png|jpg|jpeg|webp)|https?:\/\/.+)$/,
+    {
+      message:
+        'El formato o protocolo de la imagen del QR no está permitido. Solo se admite PNG, JPEG o WEBP.',
+    },
+  )
   qrOficialImagenUrl: string;
 
   @IsString()

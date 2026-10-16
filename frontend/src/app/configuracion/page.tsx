@@ -74,24 +74,88 @@ export default function ConfiguracionPage() {
     loadData();
   }, []);
 
-  // Manejador de carga de archivo de imagen para el QR oficial
+  // Manejador de carga y sanitización de imagen para el QR oficial
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setSaveError('Por favor, selecciona un archivo de imagen válido (PNG, JPEG, WEBP).');
+    // Validación estricta de MIME en cliente (bloqueo total a SVG, HTML y binarios)
+    const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      setSaveError(
+        'Formato no permitido. Solo se aceptan archivos de imagen PNG, JPEG o WEBP (los archivos SVG, HTML o scripts están estrictamente prohibidos).'
+      );
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // Validación de tamaño (máx 5MB)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setSaveError('El archivo es demasiado grande. El límite máximo permitido es 5 MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        setQrUrl(base64);
-        setSaveError(null);
-      }
+    reader.onerror = () => {
+      setSaveError('Error al leer el archivo seleccionado.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
     };
+
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          // Normalizar resolución máxima a 800x800 manteniendo relación de aspecto
+          const maxDim = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            throw new Error('No se pudo inicializar el contexto de imagen.');
+          }
+
+          // Re-rasterizar en el canvas: esto purga metadatos EXIF y desactiva vectores maliciosos
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Exportar como PNG rasterizado seguro
+          const cleanBase64 = canvas.toDataURL('image/png');
+          setQrUrl(cleanBase64);
+          setSaveError(null);
+        } catch (err: any) {
+          setSaveError('Error al procesar la imagen: ' + (err.message || 'Lienzo no disponible'));
+        } finally {
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+
+      img.onerror = () => {
+        setSaveError('El archivo seleccionado no es una imagen válida o contiene datos corruptos.');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      };
+
+      img.src = rawDataUrl;
+    };
+
     reader.readAsDataURL(file);
   };
 
@@ -106,8 +170,6 @@ export default function ConfiguracionPage() {
     try {
       await api.configuracion.update({
         nombreEmpresa,
-        nit,
-        telefonoPrincipal,
         qrOficialImagenUrl: qrUrl,
         bancoOficial: banco,
         titularCuenta: titular,
@@ -231,7 +293,7 @@ export default function ConfiguracionPage() {
                       type="file"
                       ref={fileInputRef}
                       onChange={handleFileChange}
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/webp"
                       className="hidden"
                     />
                     <Button

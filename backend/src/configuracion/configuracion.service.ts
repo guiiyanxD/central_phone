@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
+import { validateImagePayload } from '../common/utils/image-validator.util';
 
 @Injectable()
 export class ConfiguracionService implements OnModuleInit {
@@ -48,6 +49,12 @@ export class ConfiguracionService implements OnModuleInit {
   }
 
   async updateConfiguracion(dto: UpdateConfiguracionDto, adminUserId: number) {
+    // Verificación estricta de Magic Bytes, formato MIME y esquemas peligrosos
+    validateImagePayload(dto.qrOficialImagenUrl, 'qrOficialImagenUrl');
+    if (dto.logoUrl) {
+      validateImagePayload(dto.logoUrl, 'logoUrl');
+    }
+
     return this.prisma.configuracionNegocio.upsert({
       where: { id: 1 },
       update: {
