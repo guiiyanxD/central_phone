@@ -11,6 +11,9 @@ describe('VentasService', () => {
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    prisma.cliente.findFirst.mockResolvedValue({ id: 1, nombreCompleto: 'Juan Carlos Perez', telefono: '70012345' } as any);
+    prisma.cliente.create.mockResolvedValue({ id: 1, nombreCompleto: 'Juan Carlos Perez', telefono: '70012345' } as any);
+    prisma.cliente.update.mockResolvedValue({ id: 1, nombreCompleto: 'Juan Carlos Perez', telefono: '70012345' } as any);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -25,6 +28,11 @@ describe('VentasService', () => {
   describe('createVenta', () => {
     const usuarioId = 1;
     const sucursalId = 1;
+    const clienteValido = {
+      nombreCompleto: 'Juan Carlos Perez',
+      telefono: '70012345',
+      ciNit: '4567890 SC',
+    };
 
     it('debe lanzar BadRequestException si no existe una caja abierta para el turno', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue(null);
@@ -32,9 +40,34 @@ describe('VentasService', () => {
       await expect(
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
           dispositivos: [{ dispositivoId: 10, precioVentaBs: 1000 }],
         })
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe lanzar BadRequestException si no se proporcionan los datos obligatorios del comprador (nombre o teléfono)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({
+        id: 5,
+        estado: EstadoCaja.ABIERTA,
+      } as any);
+
+      // Sin cliente
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 1000 }],
+        } as any)
+      ).rejects.toThrow(/Los datos del cliente.*son obligatorios/);
+
+      // Con teléfono vacío
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: { nombreCompleto: 'Juan Perez', telefono: '' },
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 1000 }],
+        })
+      ).rejects.toThrow(/Los datos del cliente.*son obligatorios/);
     });
 
     it('debe lanzar BadRequestException si el carrito está completamente vacío', async () => {
@@ -46,6 +79,7 @@ describe('VentasService', () => {
       await expect(
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
           dispositivos: [],
           accesorios: [],
         })
@@ -63,6 +97,7 @@ describe('VentasService', () => {
       await expect(
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'BITCOIN_INVENTADO',
+          cliente: clienteValido,
           dispositivos: [{ dispositivoId: 10, precioVentaBs: 1000 }],
         })
       ).rejects.toThrow(NotFoundException);
@@ -83,6 +118,7 @@ describe('VentasService', () => {
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'QR_SIMPLE',
           comprobanteReferencia: '',
+          cliente: clienteValido,
           dispositivos: [{ dispositivoId: 10, precioVentaBs: 1000 }],
         })
       ).rejects.toThrow(BadRequestException);
@@ -102,6 +138,7 @@ describe('VentasService', () => {
       await expect(
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
           dispositivos: [{ dispositivoId: 10, precioVentaBs: 4500 }],
         })
       ).rejects.toThrow(ConflictException);
@@ -121,6 +158,7 @@ describe('VentasService', () => {
       await expect(
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
           dispositivos: [{ dispositivoId: 10, precioVentaBs: 4800 }], // Menor a costo
         })
       ).rejects.toThrow(BadRequestException);
@@ -141,14 +179,16 @@ describe('VentasService', () => {
       await expect(
         service.createVenta(usuarioId, sucursalId, {
           metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
           accesorios: [{ loteAccesorioId: 3, cantidad: 5, precioVentaBs: 50 }],
         })
       ).rejects.toThrow(ConflictException);
     });
 
-    it('debe procesar exitosamente la venta atómica de un teléfono y un accesorio', async () => {
+    it('debe procesar exitosamente la venta atómica de un teléfono y un accesorio con vinculación de cliente', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.cliente.findFirst.mockResolvedValue({ id: 99, ...clienteValido } as any);
 
       // Mock teléfono
       prisma.dispositivo.findUnique.mockResolvedValue({
@@ -174,6 +214,7 @@ describe('VentasService', () => {
       prisma.venta.findUnique.mockResolvedValue({
         id: 101,
         totalVentaBs: 4600,
+        cliente: { id: 99, ...clienteValido },
         detalles: [
           { tipoItem: TipoItemVenta.DISPOSITIVO, cantidad: 1, costoUnitarioBs: 4000, precioUnitarioBs: 4500 },
           { tipoItem: TipoItemVenta.ACCESORIO, cantidad: 1, costoUnitarioBs: 30, precioUnitarioBs: 100 },
@@ -182,6 +223,7 @@ describe('VentasService', () => {
 
       const result = await service.createVenta(usuarioId, sucursalId, {
         metodoPagoCodigo: 'EFECTIVO',
+        cliente: clienteValido,
         dispositivos: [{ dispositivoId: 10, precioVentaBs: 4500 }],
         accesorios: [{ loteAccesorioId: 20, cantidad: 1, precioVentaBs: 100 }],
       });

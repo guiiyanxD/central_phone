@@ -47,6 +47,19 @@ export class VentasService {
     const dispositivos = dto.dispositivos || [];
     const accesorios = dto.accesorios || [];
 
+    // Regla de Negocio: Datos del comprador obligatorios para garantía y trazabilidad
+    if (
+      !dto.cliente ||
+      !dto.cliente.nombreCompleto ||
+      dto.cliente.nombreCompleto.trim().length === 0 ||
+      !dto.cliente.telefono ||
+      dto.cliente.telefono.trim().length === 0
+    ) {
+      throw new BadRequestException(
+        'Los datos del cliente (nombre completo y teléfono de contacto) son obligatorios para procesar la venta y emitir la garantía.'
+      );
+    }
+
     if (dispositivos.length === 0 && accesorios.length === 0) {
       throw new BadRequestException(
         'El carrito de venta debe contener al menos un teléfono o accesorio para procesar el cobro.'
@@ -88,24 +101,29 @@ export class VentasService {
 
     // Ejecutar Transacción ACID
     return this.prisma.$transaction(async (tx) => {
-      // 1. Cliente
-      let clienteId: number | null = null;
-      if (dto.cliente?.telefono && dto.cliente.nombreCompleto) {
-        let cliente = await tx.cliente.findFirst({
-          where: { telefono: dto.cliente.telefono.trim() },
-        });
+      // 1. Cliente (Registro o vinculación obligatoria para trazabilidad)
+      let cliente = await tx.cliente.findFirst({
+        where: { telefono: dto.cliente.telefono.trim() },
+      });
 
-        if (!cliente) {
-          cliente = await tx.cliente.create({
-            data: {
-              nombreCompleto: dto.cliente.nombreCompleto.trim(),
-              telefono: dto.cliente.telefono.trim(),
-              ciNit: dto.cliente.ciNit?.trim() || null,
-            },
-          });
-        }
-        clienteId = cliente.id;
+      if (!cliente) {
+        cliente = await tx.cliente.create({
+          data: {
+            nombreCompleto: dto.cliente.nombreCompleto.trim(),
+            telefono: dto.cliente.telefono.trim(),
+            ciNit: dto.cliente.ciNit?.trim() || null,
+          },
+        });
+      } else {
+        cliente = await tx.cliente.update({
+          where: { id: cliente.id },
+          data: {
+            nombreCompleto: dto.cliente.nombreCompleto.trim(),
+            ciNit: dto.cliente.ciNit?.trim() || cliente.ciNit,
+          },
+        });
       }
+      const clienteId = cliente?.id || null;
 
       // 2. Procesar Dispositivos Físicos (Regla 1: IMEI/Serie único marcado VENDIDO)
       const detallesParaCrear: Array<{

@@ -214,11 +214,201 @@ export default function PosPage() {
     0
   );
 
+  // Impresión aislada del Comprobante / Recibo Térmico (Solo el ticket, sin la página)
+  const handlePrintReceipt = () => {
+    if (!completedSale) return;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const fechaHora = new Date(completedSale.fechaHora).toLocaleString('es-BO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const itemsHtml =
+      completedSale.detalles
+        ?.map((det: any) => {
+          const nombreItem =
+            det.tipoItem === 'DISPOSITIVO'
+              ? `${det.dispositivo?.variante?.modelo?.nombreModelo || 'iPhone'} (${det.dispositivo?.variante?.color || ''} ${det.dispositivo?.variante?.capacidadGb ? det.dispositivo.variante.capacidadGb + 'GB' : ''})`
+              : `${det.loteAccesorio?.accesorio?.nombre || 'Accesorio'} [${det.loteAccesorio?.nombreDiferenciador || ''}]`;
+
+          const imeiHtml = det.dispositivo
+            ? `<div style="font-size:9px;color:#222;margin-top:1px;">IMEI 1: ${det.dispositivo.imei1}${det.dispositivo.imei2 ? '<br>IMEI 2: ' + det.dispositivo.imei2 : ''}<br>SERIE: ${det.dispositivo.numeroSerie}</div>`
+            : '';
+
+          const cantHtml =
+            det.cantidad > 1
+              ? `<div style="font-size:9px;color:#444;">${det.cantidad} unid. x Bs ${Number(det.precioUnitarioBs).toFixed(2)}</div>`
+              : '';
+
+          return `
+            <tr>
+              <td style="padding:4px 0;vertical-align:top;">
+                <div style="font-weight:bold;">${nombreItem}</div>
+                ${imeiHtml}
+                ${cantHtml}
+              </td>
+              <td style="padding:4px 0;vertical-align:top;text-align:right;font-weight:bold;white-space:nowrap;">
+                Bs ${Number(det.subtotalBs).toFixed(2)}
+              </td>
+            </tr>
+          `;
+        })
+        .join('') || '';
+
+    const clienteInfo = completedSale.cliente
+      ? `
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span style="color:#555;">Cliente:</span>
+          <span style="font-weight:bold;">${completedSale.cliente.nombreCompleto}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span style="color:#555;">Teléfono:</span>
+          <span style="font-weight:bold;">${completedSale.cliente.telefono}</span>
+        </div>
+        ${
+          completedSale.cliente.ciNit
+            ? `<div style="display:flex;justify-content:space-between;margin:2px 0;">
+                <span style="color:#555;">C.I. / NIT:</span>
+                <span>${completedSale.cliente.ciNit}</span>
+              </div>`
+            : ''
+        }
+      `
+      : `
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span style="color:#555;">Cliente:</span>
+          <span>Cliente Mostrador</span>
+        </div>
+      `;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Recibo - ${completedSale.comprobanteReferencia || 'Ticket'}</title>
+        <style>
+          @page {
+            size: 80mm auto;
+            margin: 4mm;
+          }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            color: #000;
+            background: #fff;
+            margin: 0;
+            padding: 4px;
+            width: 72mm;
+            line-height: 1.25;
+          }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .dashed { border-top: 1px dashed #000; margin: 6px 0; }
+          .title { font-size: 15px; font-weight: bold; margin-bottom: 2px; }
+          .subtitle { font-size: 9px; margin-bottom: 1px; }
+          table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 10px; }
+          .total-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #000; }
+          .footer { text-align: center; margin-top: 10px; font-size: 9px; }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <div class="title">${configuracion?.nombreEmpresa || 'CENTRALPHONE'}</div>
+          <div class="subtitle">${completedSale.caja?.sucursal?.nombre || 'Sucursal Principal'} • ${completedSale.caja?.sucursal?.ciudad || 'Santa Cruz'}</div>
+          <div class="subtitle">Ticket: ${completedSale.comprobanteReferencia}</div>
+          <div class="subtitle">Fecha: ${fechaHora}</div>
+        </div>
+
+        <div class="dashed"></div>
+
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span style="color:#555;">Atendido por:</span>
+          <span style="font-weight:bold;">${completedSale.usuario?.nombre || 'Vendedor'}</span>
+        </div>
+        ${clienteInfo}
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span style="color:#555;">Método de Pago:</span>
+          <span style="font-weight:bold;">${completedSale.metodoPago?.nombre || 'Efectivo'}</span>
+        </div>
+
+        <div class="dashed"></div>
+
+        <table>
+          <thead>
+            <tr style="border-bottom: 1px dashed #000;">
+              <th style="text-align: left; padding-bottom: 3px;">DESCRIPCIÓN</th>
+              <th style="text-align: right; padding-bottom: 3px;">SUBTOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="total-row">
+          <span>TOTAL:</span>
+          <span>Bs ${Number(completedSale.totalVentaBs).toFixed(2)}</span>
+        </div>
+
+        <div class="dashed"></div>
+
+        <div class="footer">
+          <div class="bold">*** POLIZA DE GARANTÍA CENTRALPHONE ***</div>
+          <div style="margin-top: 3px;">Este ticket es su comprobante oficial para validar la garantía de 3 meses por IMEI y número de serie.</div>
+          <div style="margin-top: 5px;">¡Gracias por su compra!</div>
+        </div>
+      </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 1500);
+    }, 250);
+  };
+
   // Confirmar Venta
   const handleProcessCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
     setSaleError(null);
+
+    // Validación obligatoria de datos del comprador para garantía
+    if (!clienteNombre.trim()) {
+      setSaleError('El nombre completo del cliente es obligatorio para registrar la venta y emitir la garantía.');
+      return;
+    }
+
+    if (!clienteTelefono.trim()) {
+      setSaleError('El teléfono de contacto del cliente es obligatorio para el registro de garantía y contacto.');
+      return;
+    }
 
     // Validación de cobro QR
     if (
@@ -235,13 +425,11 @@ export default function PosPage() {
       const payload = {
         metodoPagoCodigo,
         comprobanteReferencia: comprobanteRef.trim() || undefined,
-        cliente: clienteTelefono.trim()
-          ? {
-              nombreCompleto: clienteNombre.trim() || 'Cliente Mostrador',
-              telefono: clienteTelefono.trim(),
-              ciNit: clienteCiNit.trim() || undefined,
-            }
-          : undefined,
+        cliente: {
+          nombreCompleto: clienteNombre.trim(),
+          telefono: clienteTelefono.trim(),
+          ciNit: clienteCiNit.trim() || undefined,
+        },
         dispositivos: cart
           .filter((i) => i.tipo === 'DISPOSITIVO')
           .map((i) => ({
@@ -602,22 +790,38 @@ export default function PosPage() {
                 </div>
               )}
 
-              {/* Datos Opcionales del Cliente */}
+              {/* Datos Obligatorios del Comprador */}
               <div className="border-t border-slate-100 pt-3 space-y-2 text-xs">
-                <p className="font-semibold text-slate-800">
-                  Datos del Cliente (Opcional)
-                </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-slate-700" />
+                    Datos del Comprador <span className="text-rose-600 font-bold">*</span>
+                  </p>
+                  <span className="text-[10px] text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                    Obligatorio para Garantía
+                  </span>
+                </div>
+                <div className="space-y-2">
                   <Input
-                    placeholder="Nombre completo"
+                    placeholder="Nombre completo y apellidos *"
                     value={clienteNombre}
                     onChange={(e) => setClienteNombre(e.target.value)}
+                    className="text-xs bg-white"
                   />
-                  <Input
-                    placeholder="Teléfono (recibo WhatsApp)"
-                    value={clienteTelefono}
-                    onChange={(e) => setClienteTelefono(e.target.value)}
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Teléfono / WhatsApp *"
+                      value={clienteTelefono}
+                      onChange={(e) => setClienteTelefono(e.target.value)}
+                      className="text-xs bg-white"
+                    />
+                    <Input
+                      placeholder="C.I. / NIT"
+                      value={clienteCiNit}
+                      onChange={(e) => setClienteCiNit(e.target.value)}
+                      className="text-xs bg-white"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -715,8 +919,8 @@ export default function PosPage() {
 
               {/* Mensaje de Error si hay */}
               {saleError && (
-                <div className="p-2.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-900 text-xs flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-slate-800 flex-shrink-0" />
+                <div className="p-2.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
                   <span>{saleError}</span>
                 </div>
               )}
@@ -816,10 +1020,12 @@ export default function PosPage() {
         >
           <div className="space-y-4 pt-1">
             {/* Ticket Estilo Térmico Minimalista */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 font-mono text-xs space-y-3">
+            <div id="printable-ticket" className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 font-mono text-xs space-y-3">
               <div className="text-center border-b border-dashed border-slate-300 pb-2">
                 <p className="font-bold text-slate-900 text-sm">CENTRALPHONE</p>
-                <p className="text-[10px] text-slate-500">Santa Cruz, Bolivia</p>
+                <p className="text-[10px] text-slate-500">
+                  {completedSale.caja?.sucursal?.nombre || 'Sucursal Principal'} • {completedSale.caja?.sucursal?.ciudad || 'Santa Cruz, Bolivia'}
+                </p>
                 <p className="text-[10px] text-slate-500 mt-1">
                   Ticket: {completedSale.comprobanteReferencia} •{' '}
                   {new Date(completedSale.fechaHora).toLocaleTimeString('es-BO')}
@@ -833,8 +1039,22 @@ export default function PosPage() {
                 </p>
                 <p>
                   <span className="text-slate-500">Cliente:</span>{' '}
-                  {completedSale.cliente?.nombreCompleto || 'Cliente Mostrador'}
+                  <span className="font-semibold text-slate-900">
+                    {completedSale.cliente?.nombreCompleto || 'Cliente Mostrador'}
+                  </span>
                 </p>
+                <p>
+                  <span className="text-slate-500">Teléfono:</span>{' '}
+                  <span className="font-semibold text-slate-900">
+                    {completedSale.cliente?.telefono || 'S/N'}
+                  </span>
+                </p>
+                {completedSale.cliente?.ciNit && (
+                  <p>
+                    <span className="text-slate-500">C.I. / NIT:</span>{' '}
+                    <span>{completedSale.cliente.ciNit}</span>
+                  </p>
+                )}
                 <p>
                   <span className="text-slate-500">Método de Pago:</span>{' '}
                   {completedSale.metodoPago?.nombre}
@@ -875,7 +1095,7 @@ export default function PosPage() {
               <Button
                 variant="outline"
                 className="flex-1 text-xs"
-                onClick={() => window.print()}
+                onClick={handlePrintReceipt}
               >
                 <Printer className="mr-1.5 h-3.5 w-3.5" />
                 Imprimir Recibo

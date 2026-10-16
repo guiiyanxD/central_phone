@@ -26,8 +26,8 @@ export class CreateVentaDto {
 
   @ValidateNested()
   @Type(() => ClienteDto)
-  @IsOptional()
-  cliente?: ClienteDto;
+  @IsNotEmpty({ message: 'Los datos del cliente son obligatorios para procesar la venta.' })
+  cliente: ClienteDto;
 
   @IsArray()
   @ValidateNested({ each: true })
