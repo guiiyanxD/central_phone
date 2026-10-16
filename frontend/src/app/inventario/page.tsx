@@ -16,6 +16,7 @@ import {
   Sparkles,
   ShieldCheck,
   Building2,
+  History,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -27,6 +28,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Modal } from '@/components/ui/modal';
+import { ModalLineaVida } from './modal-linea-vida';
 import { cn } from '@/lib/utils';
 
 export default function InventarioPage() {
@@ -38,6 +40,7 @@ export default function InventarioPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [estadoFilter, setEstadoFilter] = useState('TODOS');
   const [isLoadingDispositivos, setIsLoadingDispositivos] = useState(true);
+  const [selectedImeiForLifeline, setSelectedImeiForLifeline] = useState<string | null>(null);
 
   // Estados de Accesorios y Lotes
   const [accesorios, setAccesorios] = useState<any[]>([]);
@@ -320,10 +323,27 @@ export default function InventarioPage() {
                           </p>
                         </td>
                         <td className="py-3.5 px-4 font-mono">
-                          <p className="text-slate-900 font-medium">{d.imei1}</p>
-                          <p className="text-slate-400 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedImeiForLifeline(d.imei1)}
+                            className="group text-left inline-flex items-center gap-1.5 text-slate-900 font-semibold hover:text-indigo-600 transition-colors"
+                            title="Consultar Línea de Vida Completa"
+                          >
+                            <span>{d.imei1}</span>
+                            <History className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                          </button>
+                          <p className="text-slate-400 text-[10px] mt-0.5">
                             Serie: {d.numeroSerie}
-                            {d.imei2 && ` | IMEI 2: ${d.imei2}`}
+                            {d.imei2 && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedImeiForLifeline(d.imei2)}
+                                className="ml-1 text-slate-500 hover:text-indigo-600 hover:underline"
+                                title="Consultar Línea de Vida para IMEI 2"
+                              >
+                                | IMEI 2: {d.imei2}
+                              </button>
+                            )}
                           </p>
                         </td>
                         <td className="py-3.5 px-4">
@@ -625,6 +645,13 @@ export default function InventarioPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Modal Interactivo de Línea de Vida por IMEI (US18) */}
+      <ModalLineaVida
+        isOpen={Boolean(selectedImeiForLifeline)}
+        onClose={() => setSelectedImeiForLifeline(null)}
+        imei={selectedImeiForLifeline}
+      />
     </div>
   );
 }

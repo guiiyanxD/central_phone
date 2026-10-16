@@ -3,7 +3,7 @@ import { VentasService } from './ventas.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPrismaMock, MockPrismaService } from '../prisma/prisma.mock';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { EstadoCaja, EstadoInventario, TipoItemVenta } from '@prisma/client';
+import { EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
 
 describe('VentasService', () => {
   let service: VentasService;
@@ -241,6 +241,122 @@ describe('VentasService', () => {
       const res = await service.findOne(7);
       expect(res.costoTotalBs).toBe(700);
       expect(res.gananciaNetaBs).toBe(300);
+    });
+  });
+
+  describe('anularVenta', () => {
+    it('debe lanzar NotFoundException si la venta no existe', async () => {
+      prisma.venta.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.anularVenta(999, 1, { motivo: 'Error en registro de pago' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si la venta ya está anulada', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 10,
+        estado: EstadoVenta.ANULADA,
+        detalles: [],
+      } as any);
+
+      await expect(
+        service.anularVenta(10, 1, { motivo: 'Intento de anular nuevamente' })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe revertir atómicamente el estado del teléfono a DISPONIBLE e incrementar stock de accesorio', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 10,
+        estado: EstadoVenta.COMPLETADA,
+        detalles: [
+          { tipoItem: TipoItemVenta.DISPOSITIVO, dispositivoId: 5 },
+          { tipoItem: TipoItemVenta.ACCESORIO, loteAccesorioId: 8, cantidad: 3 },
+        ],
+      } as any);
+
+      prisma.venta.update.mockResolvedValue({
+        id: 10,
+        estado: EstadoVenta.ANULADA,
+        motivoAnulacion: 'Error en datos del cliente',
+        anuladoPorUsuarioId: 1,
+      } as any);
+
+      const res = await service.anularVenta(10, 1, { motivo: 'Error en datos del cliente' });
+
+      expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { estadoInventario: EstadoInventario.DISPONIBLE },
+      });
+
+      expect(prisma.loteAccesorio.update).toHaveBeenCalledWith({
+        where: { id: 8 },
+        data: { stockActual: { increment: 3 } },
+      });
+
+      expect(prisma.venta.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: expect.objectContaining({
+            estado: EstadoVenta.ANULADA,
+            motivoAnulacion: 'Error en datos del cliente',
+            anuladoPorUsuarioId: 1,
+          }),
+        })
+      );
+
+      expect(res.estado).toBe(EstadoVenta.ANULADA);
+    });
+  });
+
+  describe('getReporteRentabilidad', () => {
+    it('debe calcular correctamente ingresos, costos CMV, gastos operativos y ganancia neta real', async () => {
+      prisma.venta.findMany.mockResolvedValue([
+        {
+          id: 1,
+          estado: EstadoVenta.COMPLETADA,
+          totalVentaBs: 5000,
+          metodoPago: { nombre: 'Efectivo', codigo: 'EFECTIVO' },
+          usuario: { nombre: 'Vendedor 1' },
+          cliente: { nombreCompleto: 'Juan Perez' },
+          caja: { sucursal: { nombre: 'Central' } },
+          detalles: [
+            { tipoItem: TipoItemVenta.DISPOSITIVO, cantidad: 1, costoUnitarioBs: 4000, precioUnitarioBs: 5000, subtotalBs: 5000 },
+          ],
+        },
+        {
+          id: 2,
+          estado: EstadoVenta.ANULADA,
+          totalVentaBs: 3000,
+          metodoPago: { nombre: 'Efectivo', codigo: 'EFECTIVO' },
+          usuario: { nombre: 'Vendedor 2' },
+          cliente: { nombreCompleto: 'Maria Lopez' },
+          caja: { sucursal: { nombre: 'Central' } },
+          detalles: [
+            { tipoItem: TipoItemVenta.DISPOSITIVO, cantidad: 1, costoUnitarioBs: 2500, precioUnitarioBs: 3000, subtotalBs: 3000 },
+          ],
+        },
+      ] as any);
+
+      prisma.gastoOperativo.findMany.mockResolvedValue([
+        {
+          id: 1,
+          montoBs: 200,
+          categoria: { nombre: 'Almuerzos' },
+          metodoPago: { nombre: 'Efectivo' },
+          caja: { sucursal: { nombre: 'Central' } },
+        },
+      ] as any);
+
+      const reporte = await service.getReporteRentabilidad();
+
+      expect(reporte.resumen.totalIngresosBs).toBe(5000);
+      expect(reporte.resumen.totalCostoMercaderiaBs).toBe(4000);
+      expect(reporte.resumen.gananciaBrutaBs).toBe(1000);
+      expect(reporte.resumen.totalGastosOperativosBs).toBe(200);
+      expect(reporte.resumen.gananciaNetaRealBs).toBe(800);
+      expect(reporte.resumen.cantidadVentasCompletadas).toBe(1);
+      expect(reporte.resumen.cantidadVentasAnuladas).toBe(1);
     });
   });
 });

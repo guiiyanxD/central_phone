@@ -166,4 +166,109 @@ describe('ModelosService', () => {
       expect(res.variantesCreadas).toBe(2);
     });
   });
+
+  describe('getLineaVidaImei', () => {
+    it('debe lanzar BadRequestException si el IMEI está vacío', async () => {
+      await expect(service.getLineaVidaImei('')).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe lanzar NotFoundException si no existe el dispositivo', async () => {
+      prisma.dispositivo.findFirst.mockResolvedValue(null);
+
+      await expect(service.getLineaVidaImei('351111111111111')).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it('debe retornar la línea de vida completa con costos para ADMIN', async () => {
+      prisma.dispositivo.findFirst.mockResolvedValue({
+        id: 1,
+        imei1: '351111111111111',
+        imei2: '352222222222222',
+        numeroSerie: 'SN123456',
+        condicion: 'NUEVO',
+        estadoInventario: 'VENDIDO',
+        precioVentaSugeridoBs: 5000,
+        costoBs: 4000,
+        costoUsd: 580,
+        variante: {
+          modelo: { nombreModelo: 'iPhone 15 Pro', marca: 'Apple' },
+          color: 'Titanio Natural',
+          capacidadGb: 256,
+          tipoSim: 'eSIM',
+        },
+        sucursal: { id: 1, nombre: 'Central', ciudad: 'Santa Cruz' },
+        notaIngreso: {
+          id: 10,
+          proveedor: { id: 2, nombre: 'Mayorista USA', telefono: '77788899' },
+          usuario: { id: 1, nombre: 'Admin User' },
+          sucursal: { id: 1, nombre: 'Central' },
+          fechaIngreso: new Date(),
+          numeroComprobante: 'FAC-001',
+        },
+        detalleVentas: [
+          {
+            id: 100,
+            precioUnitarioBs: 5200,
+            costoUnitarioBs: 4000,
+            venta: {
+              id: 50,
+              comprobanteReferencia: 'TK-123456',
+              fechaHora: new Date(),
+              estado: 'COMPLETADA',
+              usuario: { id: 2, nombre: 'Vendedor Pepe' },
+              cliente: { id: 3, nombreCompleto: 'Carlos Gomez', telefono: '70012345', ciNit: '889900' },
+              metodoPago: { nombre: 'Efectivo' },
+              caja: { sucursal: { nombre: 'Central' } },
+            },
+          },
+        ],
+      } as any);
+
+      const res = await service.getLineaVidaImei('351111111111111', 'ADMIN');
+
+      expect(res.dispositivo.imei1).toBe('351111111111111');
+      expect(res.dispositivo.costoBs).toBe(4000);
+      expect(res.origen.proveedor).toBe('Mayorista USA');
+      expect(res.venta?.cliente?.nombre).toBe('Carlos Gomez');
+      expect(res.venta?.gananciaBs).toBe(1200);
+      expect(res.garantia.garantiaVigente).toBe(true);
+    });
+
+    it('debe ocultar costos mayoristas y ganancia si el usuario es VENDEDOR', async () => {
+      prisma.dispositivo.findFirst.mockResolvedValue({
+        id: 1,
+        imei1: '351111111111111',
+        imei2: null,
+        numeroSerie: 'SN123456',
+        condicion: 'NUEVO',
+        estadoInventario: 'DISPONIBLE',
+        precioVentaSugeridoBs: 5000,
+        costoBs: 4000,
+        costoUsd: 580,
+        variante: {
+          modelo: { nombreModelo: 'iPhone 15', marca: 'Apple' },
+          color: 'Negro',
+          capacidadGb: 128,
+          tipoSim: 'SIM Físico',
+        },
+        sucursal: { id: 1, nombre: 'Central', ciudad: 'Santa Cruz' },
+        notaIngreso: {
+          id: 10,
+          proveedor: { id: 2, nombre: 'Mayorista USA' },
+          usuario: { id: 1, nombre: 'Admin User' },
+          sucursal: { id: 1, nombre: 'Central' },
+          fechaIngreso: new Date(),
+          numeroComprobante: 'FAC-001',
+        },
+        detalleVentas: [],
+      } as any);
+
+      const res = await service.getLineaVidaImei('351111111111111', 'VENDEDOR');
+
+      expect(res.dispositivo.costoBs).toBeUndefined();
+      expect(res.origen.costoUnitarioBs).toBeUndefined();
+      expect(res.venta).toBeNull();
+    });
+  });
 });

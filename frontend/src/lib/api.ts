@@ -229,6 +229,64 @@ export const api = {
         }>
       >(`/modelos/dispositivos?${q.toString()}`);
     },
+    getLineaVida: (imei: string) =>
+      request<{
+        dispositivo: {
+          id: number;
+          imei1: string;
+          imei2: string | null;
+          numeroSerie: string;
+          condicion: string;
+          estadoInventario: string;
+          precioVentaSugeridoBs: number;
+          costoBs?: number;
+          costoUsd?: number;
+          modelo: string;
+          marca: string;
+          color: string;
+          capacidadGb: number;
+          tipoSim: string;
+          sucursalActual: { id: number; nombre: string; ciudad: string };
+        };
+        origen: {
+          notaIngresoId: number;
+          proveedor: string;
+          proveedorTelefono: string | null;
+          fechaIngreso: string;
+          numeroComprobante: string | null;
+          sucursalIngreso: string;
+          usuarioReceptor: string;
+          costoUnitarioBs?: number;
+          costoUnitarioUsd?: number;
+        };
+        venta: {
+          id: number;
+          ticketReferencia: string;
+          fechaVenta: string;
+          estadoVenta: 'COMPLETADA' | 'ANULADA';
+          motivoAnulacion: string | null;
+          fechaAnulacion: string | null;
+          anuladoPor: string | null;
+          vendedor: string;
+          cliente: {
+            id: number;
+            nombre: string;
+            telefono: string;
+            ciNit: string | null;
+          } | null;
+          metodoPago: string;
+          precioVentaCobradoBs: number;
+          costoUnitarioBs?: number;
+          gananciaBs?: number;
+          sucursalVenta: string;
+        } | null;
+        garantia: {
+          estadoInventario: string;
+          diasDesdeVenta: number | null;
+          garantiaVigente: boolean | null;
+          periodoMeses: number;
+        };
+      }>(`/modelos/dispositivos/${encodeURIComponent(imei)}/linea-vida`),
   },
 
   // 5. Catálogo y Lotes de Accesorios
@@ -401,5 +459,65 @@ export const api = {
       return request<any[]>(`/ventas?${q.toString()}`);
     },
     getOne: (id: number) => request<any>(`/ventas/${id}`),
+    anular: (id: number, motivo: string) =>
+      request<any>(`/ventas/${id}/anular`, {
+        method: 'PATCH',
+        body: JSON.stringify({ motivo }),
+      }),
+    getReporteRentabilidad: (params?: {
+      fechaInicio?: string;
+      fechaFin?: string;
+      sucursalId?: number;
+    }) => {
+      const q = new URLSearchParams();
+      if (params?.fechaInicio) q.set('fechaInicio', params.fechaInicio);
+      if (params?.fechaFin) q.set('fechaFin', params.fechaFin);
+      if (params?.sucursalId) q.set('sucursalId', String(params.sucursalId));
+      return request<{
+        resumen: {
+          totalIngresosBs: number;
+          totalCostoMercaderiaBs: number;
+          gananciaBrutaBs: number;
+          totalGastosOperativosBs: number;
+          gananciaNetaRealBs: number;
+          margenNetoPorcentaje: number;
+          cantidadVentasCompletadas: number;
+          cantidadVentasAnuladas: number;
+          totalDispositivosVendidos: number;
+          totalAccesoriosVendidos: number;
+          totalGastosCount: number;
+        };
+        desgloseMetodosPago: Record<string, number>;
+        desgloseGastosPorCategoria: Record<string, number>;
+        transacciones: Array<{
+          id: number;
+          fechaHora: string;
+          estado: 'COMPLETADA' | 'ANULADA';
+          motivoAnulacion: string | null;
+          fechaAnulacion: string | null;
+          anuladoPor: string | null;
+          comprobanteReferencia: string;
+          vendedor: string;
+          cliente: string;
+          clienteTelefono: string | null;
+          sucursal: string;
+          metodoPago: string;
+          totalVentaBs: number;
+          costoTotalBs: number;
+          gananciaBs: number;
+          itemsCount: number;
+          detalles: Array<{
+            id: number;
+            tipoItem: 'DISPOSITIVO' | 'ACCESORIO';
+            cantidad: number;
+            nombreItem: string;
+            imei: string | null;
+            costoUnitarioBs: number;
+            precioUnitarioBs: number;
+            subtotalBs: number;
+          }>;
+        }>;
+      }>(`/ventas/reporte-rentabilidad?${q.toString()}`);
+    },
   },
 };

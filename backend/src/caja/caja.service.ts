@@ -74,6 +74,7 @@ export class CajaService {
     let totalVentasDigitales = 0;
 
     for (const v of caja.ventas) {
+      if (v.estado === 'ANULADA') continue;
       const monto = Number(v.totalVentaBs) || 0;
       if (v.metodoPago.codigo === 'EFECTIVO') {
         totalVentasEfectivo = roundMoney(totalVentasEfectivo + monto);
@@ -107,7 +108,7 @@ export class CajaService {
         totalGastosEfectivo,
         totalGastosOtros,
         saldoEfectivoEnCaja,
-        cantidadVentas: caja.ventas.length,
+        cantidadVentas: caja.ventas.filter((v) => v.estado !== 'ANULADA').length,
         cantidadGastos: caja.gastosOperativos.length,
       },
     };
@@ -173,7 +174,7 @@ export class CajaService {
     const montoInicial = roundMoney(caja.montoInicialEfectivo);
     const ventasEfectivo = roundMoney(
       caja.ventas
-        .filter((v) => v.metodoPago.codigo === 'EFECTIVO')
+        .filter((v) => v.estado !== 'ANULADA' && v.metodoPago.codigo === 'EFECTIVO')
         .reduce((sum, v) => sum + Number(v.totalVentaBs), 0)
     );
 

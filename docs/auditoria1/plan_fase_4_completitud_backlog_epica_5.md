@@ -18,14 +18,14 @@
 
 ## 2. 📋 Criterios de Éxito y Definition of Done (DoD)
 
-* [ ] Esquema Prisma actualizado con `enum EstadoVenta { COMPLETADA, ANULADA }`, campos `estado`, `motivoAnulacion` y `anuladoPorUsuarioId` en el modelo `Venta`.
-* [ ] Migración de Prisma (`add-estado-anulacion-venta`) aplicada exitosamente.
-* [ ] Endpoint `PATCH /api/v1/ventas/:id/anular` protegido estrictamente con `@UseGuards(RolesGuard)` y `@Roles(RolUsuario.ADMIN)`.
-* [ ] La anulación revierte atómicamente todos los ítems del ticket sin dejar registros huérfanos.
-* [ ] Endpoint `GET /api/v1/modelos/dispositivos/:imei/linea-vida` retorna la historia completa del equipo (proveedor, comprobante, venta, comprador y garantía).
-* [ ] En [`inventario/page.tsx`](../../frontend/src/app/inventario/page.tsx), un clic en cualquier IMEI abre un modal con su línea de vida interactiva.
-* [ ] Nueva ruta de frontend `/reportes` exclusiva para rol `ADMIN` con indicadores clave (Total Ventas, CMV, Ganancia Bruta, Gastos Operativos y Ganancia Neta).
-* [ ] Las ventas anuladas se excluyen automáticamente de los balances activos de caja y de la rentabilidad neta real.
+* [x] Esquema Prisma actualizado con `enum EstadoVenta { COMPLETADA, ANULADA }`, campos `estado`, `motivoAnulacion` y `anuladoPorUsuarioId` en el modelo `Venta`.
+* [x] Migración de Prisma (`add-estado-anulacion-venta`) aplicada exitosamente.
+* [x] Endpoint `PATCH /api/v1/ventas/:id/anular` protegido estrictamente con `@UseGuards(RolesGuard)` y `@Roles(RolUsuario.ADMIN)`.
+* [x] La anulación revierte atómicamente todos los ítems del ticket sin dejar registros huérfanos.
+* [x] Endpoint `GET /api/v1/modelos/dispositivos/:imei/linea-vida` retorna la historia completa del equipo (proveedor, comprobante, venta, comprador y garantía).
+* [x] En [`inventario/page.tsx`](../../frontend/src/app/inventario/page.tsx), un clic en cualquier IMEI abre un modal con su línea de vida interactiva.
+* [x] Nueva ruta de frontend `/reportes` exclusiva para rol `ADMIN` con indicadores clave (Total Ventas, CMV, Ganancia Bruta, Gastos Operativos y Ganancia Neta).
+* [x] Las ventas anuladas se excluyen automáticamente de los balances activos de caja y de la rentabilidad neta real.
 
 ---
 

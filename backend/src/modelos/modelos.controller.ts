@@ -43,6 +43,15 @@ export class ModelosController {
     );
   }
 
+  // US18: Línea de vida y trazabilidad completa por IMEI
+  @Get('dispositivos/:imei/linea-vida')
+  async getLineaVida(
+    @Param('imei') imei: string,
+    @CurrentUser('rol') userRole?: string,
+  ) {
+    return this.modelosService.getLineaVidaImei(imei, userRole);
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.modelosService.findOne(id);

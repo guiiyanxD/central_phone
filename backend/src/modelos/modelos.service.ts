@@ -10,6 +10,7 @@ import { CreateModeloDto } from './dto/create-modelo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
 export class ModelosService {
@@ -138,6 +139,138 @@ export class ModelosService {
     }
 
     return dispositivos;
+  }
+
+  // US18: Línea de vida y trazabilidad completa por IMEI
+  async getLineaVidaImei(imei: string, userRole?: string) {
+    if (!imei || imei.trim().length === 0) {
+      throw new BadRequestException('El número de IMEI es obligatorio para consultar la línea de vida.');
+    }
+    const cleanImei = imei.trim();
+
+    const dispositivo = await this.prisma.dispositivo.findFirst({
+      where: {
+        OR: [
+          { imei1: cleanImei },
+          { imei2: cleanImei },
+        ],
+      },
+      include: {
+        variante: {
+          include: { modelo: true },
+        },
+        sucursal: {
+          select: { id: true, nombre: true, ciudad: true },
+        },
+        notaIngreso: {
+          include: {
+            proveedor: { select: { id: true, nombre: true, contactoReferencia: true, telefono: true } },
+            usuario: { select: { id: true, nombre: true } },
+            sucursal: { select: { id: true, nombre: true } },
+          },
+        },
+        detalleVentas: {
+          include: {
+            venta: {
+              include: {
+                cliente: true,
+                usuario: { select: { id: true, nombre: true } },
+                anuladoPor: { select: { id: true, nombre: true } },
+                metodoPago: true,
+                caja: {
+                  include: {
+                    sucursal: { select: { id: true, nombre: true } },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { id: 'desc' },
+        },
+      },
+    });
+
+    if (!dispositivo) {
+      throw new NotFoundException(`No se encontró ningún dispositivo registrado con el IMEI "${cleanImei}".`);
+    }
+
+    const detalleVenta = dispositivo.detalleVentas[0] || null;
+    const venta = detalleVenta?.venta || null;
+    const esAdmin = userRole === 'ADMIN';
+
+    let diasDesdeVenta: number | null = null;
+    let garantiaVigente: boolean | null = null;
+    if (venta && venta.estado === 'COMPLETADA') {
+      const ahora = new Date();
+      const fechaVenta = new Date(venta.fechaHora);
+      const diffTime = Math.abs(ahora.getTime() - fechaVenta.getTime());
+      diasDesdeVenta = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      garantiaVigente = diasDesdeVenta <= 365;
+    }
+
+    return {
+      dispositivo: {
+        id: dispositivo.id,
+        imei1: dispositivo.imei1,
+        imei2: dispositivo.imei2,
+        numeroSerie: dispositivo.numeroSerie,
+        condicion: dispositivo.condicion,
+        estadoInventario: dispositivo.estadoInventario,
+        precioVentaSugeridoBs: Number(dispositivo.precioVentaSugeridoBs),
+        costoBs: esAdmin ? Number(dispositivo.costoBs) : undefined,
+        costoUsd: esAdmin ? Number(dispositivo.costoUsd) : undefined,
+        modelo: dispositivo.variante.modelo.nombreModelo,
+        marca: dispositivo.variante.modelo.marca,
+        color: dispositivo.variante.color,
+        capacidadGb: dispositivo.variante.capacidadGb,
+        tipoSim: dispositivo.variante.tipoSim,
+        sucursalActual: dispositivo.sucursal,
+      },
+      origen: {
+        notaIngresoId: dispositivo.notaIngreso.id,
+        proveedor: dispositivo.notaIngreso.proveedor?.nombre || 'Proveedor Mayorista',
+        proveedorTelefono: dispositivo.notaIngreso.proveedor?.telefono || null,
+        fechaIngreso: dispositivo.notaIngreso.fechaIngreso,
+        numeroComprobante: dispositivo.notaIngreso.numeroComprobante,
+        sucursalIngreso: dispositivo.notaIngreso.sucursal?.nombre,
+        usuarioReceptor: dispositivo.notaIngreso.usuario?.nombre,
+        costoUnitarioBs: esAdmin ? Number(dispositivo.costoBs) : undefined,
+        costoUnitarioUsd: esAdmin ? Number(dispositivo.costoUsd) : undefined,
+      },
+      venta: venta
+        ? {
+            id: venta.id,
+            ticketReferencia: venta.comprobanteReferencia,
+            fechaVenta: venta.fechaHora,
+            estadoVenta: venta.estado,
+            motivoAnulacion: venta.motivoAnulacion,
+            fechaAnulacion: venta.fechaAnulacion,
+            anuladoPor: venta.anuladoPor?.nombre || null,
+            vendedor: venta.usuario?.nombre || 'Vendedor',
+            cliente: venta.cliente
+              ? {
+                  id: venta.cliente.id,
+                  nombre: venta.cliente.nombreCompleto,
+                  telefono: venta.cliente.telefono,
+                  ciNit: venta.cliente.ciNit,
+                }
+              : null,
+            metodoPago: venta.metodoPago.nombre,
+            precioVentaCobradoBs: Number(detalleVenta.precioUnitarioBs),
+            costoUnitarioBs: esAdmin ? Number(detalleVenta.costoUnitarioBs) : undefined,
+            gananciaBs: esAdmin
+              ? roundMoney(Number(detalleVenta.precioUnitarioBs) - Number(detalleVenta.costoUnitarioBs))
+              : undefined,
+            sucursalVenta: venta.caja?.sucursal?.nombre || dispositivo.sucursal.nombre,
+          }
+        : null,
+      garantia: {
+        estadoInventario: dispositivo.estadoInventario,
+        diasDesdeVenta,
+        garantiaVigente,
+        periodoMeses: 12,
+      },
+    };
   }
 
   async findOne(id: number) {

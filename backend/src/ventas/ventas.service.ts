@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
-import { EstadoCaja, EstadoInventario, TipoItemVenta } from '@prisma/client';
+import { AnularVentaDto } from './dto/anular-venta.dto';
+import { EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
@@ -284,16 +285,71 @@ export class VentasService {
     });
   }
 
-  // 2. Consultar listado de ventas (con cálculo dinámico de ganancia neta en 3FN)
-  async findAll(cajaId?: number, sucursalId?: number) {
+  // 2. Anular Venta con Rollback Atómico (US19 - Regla ACID y Trazabilidad)
+  async anularVenta(ventaId: number, adminUserId: number, dto: AnularVentaDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const venta = await tx.venta.findUnique({
+        where: { id: ventaId },
+        include: { detalles: true, caja: true },
+      });
+
+      if (!venta) {
+        throw new NotFoundException(`La venta #${ventaId} no existe.`);
+      }
+
+      if (venta.estado === EstadoVenta.ANULADA) {
+        throw new BadRequestException('Esta venta ya se encuentra anulada.');
+      }
+
+      // 1. Revertir inventario de teléfonos (Regla 1: Vuelto a DISPONIBLE)
+      for (const det of venta.detalles) {
+        if (det.tipoItem === TipoItemVenta.DISPOSITIVO && det.dispositivoId) {
+          await tx.dispositivo.update({
+            where: { id: det.dispositivoId },
+            data: { estadoInventario: EstadoInventario.DISPONIBLE },
+          });
+        }
+
+        // 2. Revertir stock de lotes de accesorios
+        if (det.tipoItem === TipoItemVenta.ACCESORIO && det.loteAccesorioId) {
+          await tx.loteAccesorio.update({
+            where: { id: det.loteAccesorioId },
+            data: { stockActual: { increment: det.cantidad } },
+          });
+        }
+      }
+
+      // 3. Marcar venta como ANULADA con auditoría completa
+      return tx.venta.update({
+        where: { id: venta.id },
+        data: {
+          estado: EstadoVenta.ANULADA,
+          motivoAnulacion: dto.motivo.trim(),
+          anuladoPorUsuarioId: adminUserId,
+          fechaAnulacion: new Date(),
+        },
+        include: {
+          detalles: true,
+          cliente: true,
+          metodoPago: true,
+          anuladoPor: { select: { id: true, nombre: true, email: true } },
+        },
+      });
+    });
+  }
+
+  // 3. Consultar listado de ventas (con cálculo dinámico de ganancia neta en 3FN)
+  async findAll(cajaId?: number, sucursalId?: number, estado?: EstadoVenta) {
     const ventas = await this.prisma.venta.findMany({
       where: {
         ...(cajaId ? { cajaId } : {}),
         ...(sucursalId ? { caja: { sucursalId } } : {}),
+        ...(estado ? { estado } : {}),
       },
       include: {
         cliente: true,
         usuario: { select: { id: true, nombre: true } },
+        anuladoPor: { select: { id: true, nombre: true } },
         metodoPago: true,
         caja: {
           include: {
@@ -332,6 +388,184 @@ export class VentasService {
         gananciaNetaBs: roundMoney(gananciaNetaBs),
       };
     });
+  }
+
+  // 4. Reporte Financiero de Rentabilidad Neta Consolidada (US17)
+  async getReporteRentabilidad(
+    fechaInicio?: string,
+    fechaFin?: string,
+    sucursalId?: number,
+  ) {
+    let fechaFiltro: any = {};
+    if (fechaInicio) {
+      const gte = new Date(fechaInicio);
+      if (!isNaN(gte.getTime())) {
+        fechaFiltro.gte = gte;
+      }
+    }
+    if (fechaFin) {
+      const lte = new Date(fechaFin);
+      if (!isNaN(lte.getTime())) {
+        if (fechaFin.length <= 10) {
+          lte.setHours(23, 59, 59, 999);
+        }
+        fechaFiltro.lte = lte;
+      }
+    }
+
+    const whereVenta: any = {
+      ...(Object.keys(fechaFiltro).length > 0 ? { fechaHora: fechaFiltro } : {}),
+      ...(sucursalId ? { caja: { sucursalId } } : {}),
+    };
+
+    const todasLasVentas = await this.prisma.venta.findMany({
+      where: whereVenta,
+      include: {
+        cliente: true,
+        usuario: { select: { id: true, nombre: true } },
+        anuladoPor: { select: { id: true, nombre: true } },
+        metodoPago: true,
+        caja: {
+          include: {
+            sucursal: { select: { id: true, nombre: true, ciudad: true } },
+          },
+        },
+        detalles: {
+          include: {
+            dispositivo: {
+              include: {
+                variante: { include: { modelo: true } },
+              },
+            },
+            loteAccesorio: {
+              include: { accesorio: true },
+            },
+          },
+        },
+      },
+      orderBy: { fechaHora: 'desc' },
+    });
+
+    const ventasCompletadas = todasLasVentas.filter((v) => v.estado === EstadoVenta.COMPLETADA);
+    const ventasAnuladas = todasLasVentas.filter((v) => v.estado === EstadoVenta.ANULADA);
+
+    let totalIngresosBs = 0;
+    let totalCostoMercaderiaBs = 0;
+    let totalDispositivosVendidos = 0;
+    let totalAccesoriosVendidos = 0;
+
+    const ingresosPorMetodoPago: Record<string, number> = {};
+
+    for (const v of ventasCompletadas) {
+      const totalVenta = Number(v.totalVentaBs) || 0;
+      totalIngresosBs = roundMoney(totalIngresosBs + totalVenta);
+
+      const metodo = v.metodoPago.nombre || v.metodoPago.codigo;
+      ingresosPorMetodoPago[metodo] = roundMoney((ingresosPorMetodoPago[metodo] || 0) + totalVenta);
+
+      for (const d of v.detalles) {
+        const costoDet = Number(d.costoUnitarioBs) * d.cantidad;
+        totalCostoMercaderiaBs = roundMoney(totalCostoMercaderiaBs + costoDet);
+        if (d.tipoItem === TipoItemVenta.DISPOSITIVO) {
+          totalDispositivosVendidos += d.cantidad;
+        } else {
+          totalAccesoriosVendidos += d.cantidad;
+        }
+      }
+    }
+
+    const gananciaBrutaBs = roundMoney(totalIngresosBs - totalCostoMercaderiaBs);
+
+    const whereGastos: any = {
+      ...(Object.keys(fechaFiltro).length > 0 ? { fechaHora: fechaFiltro } : {}),
+      ...(sucursalId ? { caja: { sucursalId } } : {}),
+    };
+
+    const gastos = await this.prisma.gastoOperativo.findMany({
+      where: whereGastos,
+      include: {
+        categoria: true,
+        metodoPago: true,
+        caja: {
+          include: {
+            sucursal: { select: { id: true, nombre: true } },
+          },
+        },
+      },
+      orderBy: { fechaHora: 'desc' },
+    });
+
+    let totalGastosOperativosBs = 0;
+    const gastosPorCategoria: Record<string, number> = {};
+
+    for (const g of gastos) {
+      const monto = Number(g.montoBs) || 0;
+      totalGastosOperativosBs = roundMoney(totalGastosOperativosBs + monto);
+      const cat = g.categoria.nombre;
+      gastosPorCategoria[cat] = roundMoney((gastosPorCategoria[cat] || 0) + monto);
+    }
+
+    const gananciaNetaRealBs = roundMoney(gananciaBrutaBs - totalGastosOperativosBs);
+    const margenNetoPorcentaje = totalIngresosBs > 0 ? roundMoney((gananciaNetaRealBs / totalIngresosBs) * 100) : 0;
+
+    const transacciones = todasLasVentas.map((v) => {
+      let costoVenta = 0;
+      for (const d of v.detalles) {
+        costoVenta += Number(d.costoUnitarioBs) * d.cantidad;
+      }
+      const totalVenta = Number(v.totalVentaBs);
+      const ganancia = roundMoney(totalVenta - costoVenta);
+
+      return {
+        id: v.id,
+        fechaHora: v.fechaHora,
+        estado: v.estado,
+        motivoAnulacion: v.motivoAnulacion,
+        fechaAnulacion: v.fechaAnulacion,
+        anuladoPor: v.anuladoPor?.nombre || null,
+        comprobanteReferencia: v.comprobanteReferencia,
+        vendedor: v.usuario.nombre,
+        cliente: v.cliente?.nombreCompleto || 'Cliente Mostrador',
+        clienteTelefono: v.cliente?.telefono || null,
+        sucursal: v.caja.sucursal.nombre,
+        metodoPago: v.metodoPago.nombre,
+        totalVentaBs: totalVenta,
+        costoTotalBs: roundMoney(costoVenta),
+        gananciaBs: ganancia,
+        itemsCount: v.detalles.length,
+        detalles: v.detalles.map((d) => ({
+          id: d.id,
+          tipoItem: d.tipoItem,
+          cantidad: d.cantidad,
+          nombreItem: d.tipoItem === 'DISPOSITIVO'
+            ? `${d.dispositivo?.variante?.modelo?.nombreModelo || 'iPhone'} (${d.dispositivo?.variante?.color || ''}, ${d.dispositivo?.variante?.capacidadGb || ''}GB)`
+            : d.loteAccesorio?.accesorio?.nombre || 'Accesorio',
+          imei: d.dispositivo?.imei1 || null,
+          costoUnitarioBs: Number(d.costoUnitarioBs),
+          precioUnitarioBs: Number(d.precioUnitarioBs),
+          subtotalBs: Number(d.subtotalBs),
+        })),
+      };
+    });
+
+    return {
+      resumen: {
+        totalIngresosBs,
+        totalCostoMercaderiaBs,
+        gananciaBrutaBs,
+        totalGastosOperativosBs,
+        gananciaNetaRealBs,
+        margenNetoPorcentaje,
+        cantidadVentasCompletadas: ventasCompletadas.length,
+        cantidadVentasAnuladas: ventasAnuladas.length,
+        totalDispositivosVendidos,
+        totalAccesoriosVendidos,
+        totalGastosCount: gastos.length,
+      },
+      desgloseMetodosPago: ingresosPorMetodoPago,
+      desgloseGastosPorCategoria: gastosPorCategoria,
+      transacciones,
+    };
   }
 
   // 3. Consultar una venta individual (Ticket de Compra)

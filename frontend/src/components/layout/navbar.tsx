@@ -24,6 +24,7 @@ export function Navbar() {
     { href: '/caja', label: 'Caja Diaria' },
     { href: '/recepcion', label: 'Recepción' },
     { href: '/inventario', label: 'Inventario' },
+    ...(user?.rol === 'ADMIN' ? [{ href: '/reportes', label: 'Reportes' }] : []),
     { href: '/configuracion', label: 'Configuración & QR' },
   ];
 

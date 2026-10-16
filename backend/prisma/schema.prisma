@@ -69,6 +69,7 @@ model Usuario {
   cajasApertura        CajaDiaria[]           @relation("UsuarioApertura")
   cajasCierre          CajaDiaria[]           @relation("UsuarioCierre")
   ventas               Venta[]
+  ventasAnuladas       Venta[]                @relation("VentasAnuladas")
   gastosOperativos     GastoOperativo[]
   notasIngreso         NotaIngreso[]
   configuracionesAdmin ConfiguracionNegocio[]
@@ -321,22 +322,32 @@ model MetodoPago {
   @@map("metodos_pago")
 }
 
-model Venta {
-  id                    Int      @id @default(autoincrement())
-  cajaId                Int      @map("caja_id")
-  usuarioId             Int      @map("usuario_id")
-  clienteId             Int?     @map("cliente_id")
-  metodoPagoId          Int      @map("metodo_pago_id")
-  fechaHora             DateTime @default(now()) @map("fecha_hora")
-  totalVentaBs          Decimal  @map("total_venta_bs") @db.Decimal(10, 2)
-  comprobanteReferencia String?  @map("comprobante_referencia") @db.VarChar(100)
-  comprobanteImagenUrl  String?  @map("comprobante_imagen_url") @db.VarChar(500)
+enum EstadoVenta {
+  COMPLETADA
+  ANULADA
+}
 
-  caja       CajaDiaria     @relation(fields: [cajaId], references: [id])
-  usuario    Usuario        @relation(fields: [usuarioId], references: [id])
-  cliente    Cliente?       @relation(fields: [clienteId], references: [id])
-  metodoPago MetodoPago     @relation(fields: [metodoPagoId], references: [id])
-  detalles   DetalleVenta[]
+model Venta {
+  id                    Int         @id @default(autoincrement())
+  cajaId                Int         @map("caja_id")
+  usuarioId             Int         @map("usuario_id")
+  clienteId             Int?        @map("cliente_id")
+  metodoPagoId          Int         @map("metodo_pago_id")
+  fechaHora             DateTime    @default(now()) @map("fecha_hora")
+  totalVentaBs          Decimal     @map("total_venta_bs") @db.Decimal(10, 2)
+  comprobanteReferencia String?     @map("comprobante_referencia") @db.VarChar(100)
+  comprobanteImagenUrl  String?     @map("comprobante_imagen_url") @db.VarChar(500)
+  estado                EstadoVenta @default(COMPLETADA)
+  motivoAnulacion       String?     @map("motivo_anulacion") @db.Text
+  anuladoPorUsuarioId   Int?        @map("anulado_por_usuario_id")
+  fechaAnulacion        DateTime?   @map("fecha_anulacion")
+
+  caja        CajaDiaria     @relation(fields: [cajaId], references: [id])
+  usuario     Usuario        @relation(fields: [usuarioId], references: [id])
+  anuladoPor  Usuario?       @relation("VentasAnuladas", fields: [anuladoPorUsuarioId], references: [id])
+  cliente     Cliente?       @relation(fields: [clienteId], references: [id])
+  metodoPago  MetodoPago     @relation(fields: [metodoPagoId], references: [id])
+  detalles    DetalleVenta[]
 
   @@map("ventas")
 }
