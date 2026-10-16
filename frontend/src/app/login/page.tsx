@@ -37,12 +37,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-2 sm:p-6 lg:p-10 animate-in fade-in duration-300">
       {/* Contenedor Flotante Ampliado (Sincronizado con login_example.webp) */}
-      <div className="w-full max-w-md lg:max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-2">
+      <div className="w-full max-w-md lg:max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col lg:grid lg:grid-cols-2">
         {/* =========================================================================
-            PANEL IZQUIERDO: Hero Artístico con Textura Líquida Orgánica
-            Visible en Desktop / Tablets amplias (lg:flex)
+            PANEL ARTÍSTICO: Hero con Textura Líquida Orgánica
+            Móvil: Hero Banner horizontal compacto de 128px (h-32)
+            Desktop: Panel vertical completo (lg:min-h-[620px])
             ========================================================================= */}
-        <div className="hidden lg:flex relative p-8 sm:p-12 lg:p-16 flex-col justify-center items-center text-center lg:min-h-[620px] bg-slate-950 text-white overflow-hidden select-none">
+        <div className="relative p-6 sm:p-10 lg:p-16 flex flex-col justify-center items-center text-center h-32 sm:h-40 lg:min-h-[620px] bg-slate-950 text-white overflow-hidden select-none">
           {/* Fondo de alta resolución con textura fluida de seda en azul cobalto y flama */}
           <div className="absolute inset-0">
             <Image
@@ -53,27 +54,29 @@ export default function LoginPage() {
               priority
             />
             {/* Velo sutil para contraste estético */}
-            <div className="absolute inset-0 bg-slate-950/25 backdrop-blur-[1px]" />
+            <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-[1px]" />
           </div>
 
           {/* Centro: Identidad Oficial en Blanco Hueso (#F8FAFC) */}
-          <div className="relative z-10 flex flex-col items-center justify-center space-y-4 max-w-xs sm:max-w-sm">
-            <div className="relative h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-2.5 shadow-2xl flex items-center justify-center">
+          <div className="relative z-10 flex flex-row lg:flex-col items-center justify-center gap-3 lg:gap-0 lg:space-y-4 max-w-xs sm:max-w-sm">
+            <div className="relative h-11 w-11 sm:h-14 sm:w-14 lg:h-16 lg:w-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-2 shadow-2xl flex items-center justify-center flex-shrink-0">
               <Image
                 src="/logo.png"
                 alt="CentralPhone Logo"
                 fill
-                className="object-contain p-1.5 drop-shadow-md"
+                className="object-contain p-1 drop-shadow-md"
                 priority
               />
             </div>
 
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#F8FAFC] drop-shadow-md">
-              CentralPhone
-            </h1>
-            <p className="text-xs sm:text-sm text-[#F1F5F9]/80 font-normal tracking-wide">
-              Ecosistema Oficial de Gestión Comercial
-            </p>
+            <div className="text-left lg:text-center">
+              <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold tracking-tight text-[#F8FAFC] drop-shadow-md leading-tight">
+                CentralPhone
+              </h1>
+              <p className="text-[10px] sm:text-xs lg:text-sm text-[#F1F5F9]/80 font-normal tracking-wide">
+                Ecosistema Oficial de Gestión Comercial
+              </p>
+            </div>
           </div>
         </div>
 
@@ -81,25 +84,8 @@ export default function LoginPage() {
             PANEL DERECHO: Formulario de Autenticación POS
             Ingreso manual estricto (DoD Fase 1 de Seguridad - Cero Credenciales Expuestas)
             ========================================================================= */}
-        <div className="p-6 sm:p-10 lg:p-14 flex flex-col justify-between bg-white">
+        <div className="p-6 sm:p-10 lg:p-14 flex flex-col justify-between bg-white flex-1">
           <div className="space-y-5 my-auto">
-            {/* Cabecera de Marca para Móviles (< lg) para evitar scroll vertical */}
-            <div className="lg:hidden flex items-center gap-3 pb-3 border-b border-slate-100">
-              <div className="relative h-9 w-9 rounded-xl border border-slate-200 bg-white shadow-subtle flex-shrink-0">
-                <Image
-                  src="/logo.png"
-                  alt="CentralPhone Logo"
-                  fill
-                  className="object-contain p-1"
-                  priority
-                />
-              </div>
-              <div>
-                <p className="text-base font-bold text-slate-900 leading-tight">CentralPhone</p>
-                <p className="text-[11px] text-slate-500 font-medium">Gestión Comercial & Mostrador</p>
-              </div>
-            </div>
-
             {/* Título de la Sección */}
             <div className="space-y-1">
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
