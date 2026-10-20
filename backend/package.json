@@ -16,6 +16,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+    "seed:simulation": "ts-node src/scripts/seed-simulation-2026.ts",
     "prisma:reset": "node -e \"console.error('\\n❌ [BLOQUEO DE SEGURIDAD]: prisma migrate reset está estrictamente prohibido en CentralPhone para proteger los datos de ventas y mostrador.\\n'); process.exit(1);\"",
     "migrate:reset": "npm run prisma:reset",
     "test": "jest",
