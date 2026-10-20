@@ -77,3 +77,26 @@ Este documento establece las directrices arquitectónicas, de seguridad y de neg
    * Si la base de datos es reiniciada o reconstruida desde cero, el servicio de inicialización (`ensureConfiguracionExists`) debe auto-detectar y restaurar la imagen física existente en `./uploads/qr/` y los datos bancarios reales, evitando la inserción de placeholders ficticios.
 4. **Evolución Arquitectónica hacia Catálogo Masivo**:
    * Cuando el negocio escale a miles de imágenes de productos (fotografías de catálogo por variante), la arquitectura evolucionará hacia un servicio de almacenamiento de objetos autohospedado compatible con S3 (**SeaweedFS** o **MinIO**), manteniendo intacto el pipeline de compresión previo con `sharp`.
+
+---
+
+## 🛑 10. Regla Inmutable de Protección de Base de Datos y Comandos Destructivos Prohibidos
+
+1. **Prohibición Total de Flags Destructivos en Docker (`-v`, `--volumes`)**:
+   * Queda terminantemente **PROHIBIDO** para cualquier agente de IA, desarrollador o script automatizado ejecutar:
+     * `docker compose down -v` o `docker compose down --volumes`.
+     * `docker volume rm` sobre cualquier volumen de datos del sistema (`centralphone_postgres_data` o `postgres_data`).
+     * `docker system prune --volumes` o `docker volume prune -f`.
+   * **Comandos Seguros Obligatorios**:
+     * Detener contenedores de forma segura: `docker compose down` (sin flags de volúmenes) o `docker compose stop`.
+     * Reconstruir contenedores tras cambios de código o dependencias: `docker compose up -d --build`.
+2. **Prohibición de Resets de Base de Datos (`prisma migrate reset`)**:
+   * Queda terminantemente **PROHIBIDO** ejecutar `npx prisma migrate reset` o `prisma migrate reset`. Este comando ejecuta un `DROP SCHEMA public CASCADE`, destruyendo de forma irreversible las ventas históricas, arqueos de caja y el inventario serializado.
+   * La aplicación de cambios de esquema debe realizarse únicamente con:
+     * En entornos de desarrollo: `npx prisma migrate dev` (sin flags de reseteo).
+     * En entornos de despliegue / producción: `npx prisma migrate deploy`.
+3. **Blindaje de Comandos Destructivos en Scripts (`package.json`)**:
+   * Los comandos `prisma:reset` y `migrate:reset` están interceptados en los scripts de Node/NPM con salida de error (`exit 1`), impidiendo su invocación accidental tanto por humanos como por agentes.
+4. **Principio de No Destrucción para Agentes de Inteligencia Artificial**:
+   * Ningún agente de IA debe sugerir, ejecutar ni generar planes que incluyan el borrado de bases de datos, eliminación de volúmenes o truncado de tablas (`TRUNCATE`, `DROP DATABASE`, `DROP TABLE`).
+   * Ante cualquier situación que requiera saneamiento de datos, el agente debe detenerse y solicitar confirmación explícita previa por escrito al usuario.
