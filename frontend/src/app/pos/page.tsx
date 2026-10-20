@@ -53,6 +53,14 @@ interface CartItem {
 
 export default function PosPage() {
   const { user } = useAuth();
+  const isAdmin = user?.rol === 'ADMIN';
+
+  // Helper de cálculo unificado de precio sugerido para catálogo y carrito (P0-02)
+  const getPhoneDisplayPrice = (disp: any): number => {
+    return Number(disp.precioVentaSugeridoBs) > 0
+      ? Number(disp.precioVentaSugeridoBs)
+      : Math.round(Number(disp.costoBs || 0) * 1.15);
+  };
 
   // Estados de sesión de caja
   const [sessionData, setSessionData] = useState<any | null>(null);
@@ -187,11 +195,8 @@ export default function PosPage() {
     // Si ya está en carrito, evitar duplicarlo
     if (cart.some((item) => item.dispositivoId === disp.id)) return;
 
-    // Sugerir precio de venta oficial (US09 / Fase 2)
-    const precioSugerido =
-      Number(disp.precioVentaSugeridoBs) > 0
-        ? Number(disp.precioVentaSugeridoBs)
-        : Math.round(Number(disp.costoBs || 0) * 1.15);
+    // Sugerir precio de venta oficial unificado (US09 / P0-02)
+    const precioSugerido = getPhoneDisplayPrice(disp);
 
     const newItem: CartItem = {
       cartId: `tel-${disp.id}`,
@@ -694,15 +699,17 @@ export default function PosPage() {
 
         <Link href="/caja">
           <Button variant="outline" size="sm" className="text-xs">
-            Ver Balance de Caja (Bs {sessionData.resumenFinanciero?.saldoEfectivoEnCaja?.toFixed(2)})
+            {isAdmin
+              ? `Ver Balance de Caja (Bs ${sessionData.resumenFinanciero?.saldoEfectivoEnCaja?.toFixed(2)})`
+              : `Ver Turno de Caja (#${sessionData.caja.id})`}
           </Button>
         </Link>
       </div>
 
       {/* Grid Principal POS: 7 columnas catálogo / 5 columnas carrito */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* PANEL IZQUIERDO: CATÁLOGO Y BUSCADOR DE PRODUCTOS (7 COLUMNAS) */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="md:col-span-7 space-y-4">
           {/* Tabs Selector de Catálogo (ID-DS-004) */}
           <Tabs
             value={catalogTab}
@@ -792,7 +799,7 @@ export default function PosPage() {
 
                         <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
                           <span className="font-mono font-bold text-slate-900">
-                            Bs {Math.round(Number(d.costoBs) * 1.15).toFixed(2)}
+                            Bs {getPhoneDisplayPrice(d).toFixed(2)}
                           </span>
                           <Button
                             size="sm"
@@ -878,7 +885,7 @@ export default function PosPage() {
         </div>
 
         {/* PANEL DERECHO: CARRITO & CHECKOUT (5 COLUMNAS) */}
-        <div className="lg:col-span-5">
+        <div className="md:col-span-5">
           <Card className="border-slate-200 shadow-card">
             <CardHeader className="p-4 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1011,12 +1018,27 @@ export default function PosPage() {
                     <User className="h-3.5 w-3.5 text-slate-700" />
                     Datos del Comprador <span className="text-rose-600 font-bold">*</span>
                   </p>
-                  <span className="text-[10px] text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                    Obligatorio para Garantía
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClienteNombre('Comprador casual');
+                        setClienteTelefono('71000000');
+                      }}
+                      className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors"
+                      title="Auto-completar datos para venta rápida de accesorios"
+                    >
+                      + Comprador casual
+                    </button>
+                    <span className="text-[10px] text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                      Obligatorio para Garantía
+                    </span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Input
+                    id="clienteNombre"
+                    aria-label="Nombre completo y apellidos del comprador"
                     placeholder="Nombre completo y apellidos *"
                     value={clienteNombre}
                     onChange={(e) => setClienteNombre(e.target.value)}
@@ -1024,12 +1046,16 @@ export default function PosPage() {
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <Input
+                      id="clienteTelefono"
+                      aria-label="Teléfono o WhatsApp del comprador"
                       placeholder="Teléfono / WhatsApp *"
                       value={clienteTelefono}
                       onChange={(e) => setClienteTelefono(e.target.value)}
                       className="text-xs bg-white"
                     />
                     <Input
+                      id="clienteCiNit"
+                      aria-label="C.I. o NIT del comprador"
                       placeholder="C.I. / NIT"
                       value={clienteCiNit}
                       onChange={(e) => setClienteCiNit(e.target.value)}
@@ -1089,22 +1115,22 @@ export default function PosPage() {
                       </span>
                     </div>
 
-                    {/* Botones de Billetes Rápidos */}
+                    {/* Botones de Billetes Rápidos (Cono Monetario Boliviano) */}
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
                         onClick={() => setMontoRecibidoBs(totalBs)}
-                        className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-semibold text-slate-700 transition-colors shadow-subtle"
+                        className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-semibold text-slate-700 transition-colors shadow-subtle active:scale-95"
                       >
                         Exacto (Bs {totalBs.toFixed(2)})
                       </button>
-                      {[100, 200, 500, 1000].map((billete) => {
+                      {[20, 50, 100, 200].map((billete) => {
                         return (
                           <button
                             key={billete}
                             type="button"
                             onClick={() => setMontoRecibidoBs(billete)}
-                            className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-semibold text-slate-700 transition-colors shadow-subtle font-mono"
+                            className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-semibold text-slate-700 transition-colors shadow-subtle font-mono active:scale-95"
                           >
                             Bs {billete}
                           </button>

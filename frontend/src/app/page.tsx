@@ -20,6 +20,7 @@ import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
 
 export default function WelcomeHubPage() {
   const router = useRouter();
@@ -249,91 +250,80 @@ export default function WelcomeHubPage() {
       </div>
 
       {/* ========================================================= */}
-      {/* MODAL AMPLIADO: PROYECCIÓN DEL CÓDIGO QR OFICIAL           */}
+      {/* MODAL AMPLIADO: PROYECCIÓN DEL CÓDIGO QR OFICIAL (P0-04)   */}
       {/* ========================================================= */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div
-            data-testid="modal-qr-ampliado"
-            className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-elevated text-center space-y-6"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="text-left">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-slate-900">
-                    QR Oficial CentralPhone
-                  </h3>
-                  <Badge variant="success" className="text-[10px]">Simple QR Bolivia</Badge>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Proyección a mostrador para escaneo inmediato desde la app bancaria del cliente
-                </p>
-              </div>
-              <button
-                onClick={() => setShowQrModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                aria-label="Cerrar modal de QR"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Contenedor del QR Ampliado */}
-            <div className="mx-auto w-72 h-72 sm:w-88 sm:h-88 rounded-2xl border-2 border-slate-200 bg-white p-4 flex items-center justify-center overflow-hidden shadow-subtle">
-              {configuracion?.qrOficialImagenUrl ? (
-                <img
-                  src={configuracion.qrOficialImagenUrl}
-                  alt="QR Oficial CentralPhone"
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <div className="w-full h-full border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center bg-slate-50 p-4 text-slate-900">
-                  <QrCode className="h-44 w-44 text-slate-900" />
-                  <span className="text-[11px] font-bold tracking-wider text-slate-600 mt-2">
-                    SIMPLE QR • BANCA BOLIVIANA
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Tarjeta de Datos Bancarios de Confirmación */}
-            <div className="text-xs text-left bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Banco Receptor:</span>
-                <strong className="text-slate-900 font-bold">{configuracion?.bancoOficial || 'Banco de Crédito BCP'}</strong>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Titular de Cuenta:</span>
-                <strong className="text-slate-900 font-bold">{configuracion?.titularCuenta || 'CentralPhone'}</strong>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-                <span className="text-slate-500">Número de Cuenta:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold text-slate-900">
-                    {configuracion?.numeroCuenta || '201-50893214-3-12'}
-                  </span>
-                  <button
-                    onClick={handleCopyAccount}
-                    className="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-200/80 transition-colors"
-                    title="Copiar número de cuenta"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              variant="default"
-              size="lg"
-              className="w-full font-semibold"
-              onClick={() => setShowQrModal(false)}
-            >
-              Cerrar Vista de Pago
-            </Button>
+      <Modal
+        isOpen={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        title={
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold text-slate-900">
+              QR Oficial CentralPhone
+            </span>
+            <Badge variant="success" className="text-[10px]">Simple QR Bolivia</Badge>
           </div>
+        }
+        description="Proyección a mostrador para escaneo inmediato desde la app bancaria del cliente"
+        className="max-w-xl text-center space-y-6"
+        dataTestId="modal-qr-ampliado"
+      >
+        <div className="space-y-6 pt-2">
+          {/* Contenedor del QR Ampliado (clases estándar) */}
+          <div className="mx-auto w-72 h-72 sm:w-80 sm:h-80 rounded-2xl border-2 border-slate-200 bg-white p-4 flex items-center justify-center overflow-hidden shadow-subtle">
+            {configuracion?.qrOficialImagenUrl ? (
+              <img
+                src={configuracion.qrOficialImagenUrl}
+                alt="QR Oficial CentralPhone"
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center bg-slate-50 p-4 text-slate-900">
+                <QrCode className="h-44 w-44 text-slate-900" />
+                <span className="text-[11px] font-bold tracking-wider text-slate-600 mt-2">
+                  SIMPLE QR • BANCA BOLIVIANA
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Tarjeta de Datos Bancarios de Confirmación */}
+          <div className="text-xs text-left bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Banco Receptor:</span>
+              <strong className="text-slate-900 font-bold">{configuracion?.bancoOficial || 'Banco de Crédito BCP'}</strong>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Titular de Cuenta:</span>
+              <strong className="text-slate-900 font-bold">{configuracion?.titularCuenta || 'CentralPhone'}</strong>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+              <span className="text-slate-500">Número de Cuenta:</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-bold text-slate-900">
+                  {configuracion?.numeroCuenta || '201-50893214-3-12'}
+                </span>
+                <button
+                  onClick={handleCopyAccount}
+                  className="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-200/80 transition-colors"
+                  title="Copiar número de cuenta"
+                  aria-label="Copiar número de cuenta bancaria"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            variant="default"
+            size="lg"
+            className="w-full font-semibold"
+            onClick={() => setShowQrModal(false)}
+          >
+            Cerrar Vista de Pago
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

@@ -9,6 +9,7 @@ export interface ModalProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  dataTestId?: string;
 }
 
 export function Modal({
@@ -18,6 +19,7 @@ export function Modal({
   description,
   children,
   className,
+  dataTestId,
 }: ModalProps) {
   const modalRef = React.useRef<HTMLDivElement>(null);
   const previousActiveElement = React.useRef<HTMLElement | null>(null);
@@ -134,6 +136,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        data-testid={dataTestId}
         className={cn(
           'relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-elevated z-10 animate-in fade-in zoom-in-95 duration-200',
           className

@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 
 export default function CajaDiariaPage() {
   const { user } = useAuth();
+  const isAdmin = user?.rol === 'ADMIN';
 
   // Estados de la sesión activa
   const [sessionData, setSessionData] = useState<any | null>(null);
@@ -251,7 +252,7 @@ export default function CajaDiariaPage() {
             {/* KPI Cards de Caja */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Saldo Disponible en Efectivo */}
-              <Card className="border-slate-200 bg-white shadow-subtle">
+              <Card data-testid="kpi-efectivo-gaveta" className="border-slate-200 bg-white shadow-subtle">
                 <CardHeader className="p-4 pb-1">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                     <span>Efectivo en Gaveta</span>
@@ -259,11 +260,13 @@ export default function CajaDiariaPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <p className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
-                    Bs {rf?.saldoEfectivoEnCaja.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+                  <p className="text-2xl font-bold tracking-tight text-slate-900 mt-1 font-mono">
+                    {isAdmin
+                      ? `Bs ${rf?.saldoEfectivoEnCaja.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`
+                      : 'Bs ••••••'}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                    Inicial + Ventas Efec. - Gastos
+                    {isAdmin ? 'Inicial + Ventas Efec. - Gastos' : 'Protegido'}
                   </p>
                 </CardContent>
               </Card>
@@ -463,8 +466,9 @@ export default function CajaDiariaPage() {
                   )}
 
                   <div>
-                    <Label required>Monto Inicial en Efectivo (Bs)</Label>
+                    <Label htmlFor="montoApertura" required>Monto Inicial en Efectivo (Bs)</Label>
                     <Input
+                      id="montoApertura"
                       type="number"
                       step="0.50"
                       min="0"
@@ -478,8 +482,9 @@ export default function CajaDiariaPage() {
                   </div>
 
                   <div>
-                    <Label>Observaciones de Apertura (Opcional)</Label>
+                    <Label htmlFor="obsApertura">Observaciones de Apertura (Opcional)</Label>
                     <Input
+                      id="obsApertura"
                       placeholder="Ej: Turno mañana, billetes fraccionados"
                       value={obsApertura}
                       onChange={(e) => setObsApertura(e.target.value)}
@@ -588,8 +593,9 @@ export default function CajaDiariaPage() {
           )}
 
           <div>
-            <Label required>Categoría de Gasto</Label>
+            <Label htmlFor="gastoCategoriaId" required>Categoría de Gasto</Label>
             <Select
+              id="gastoCategoriaId"
               value={gastoCategoriaId}
               onChange={(e) => setGastoCategoriaId(Number(e.target.value))}
             >
@@ -602,8 +608,9 @@ export default function CajaDiariaPage() {
           </div>
 
           <div>
-            <Label required>Monto en Bolivianos (Bs)</Label>
+            <Label htmlFor="gastoMonto" required>Monto en Bolivianos (Bs)</Label>
             <Input
+              id="gastoMonto"
               type="number"
               step="0.50"
               min="0.50"
@@ -612,13 +619,16 @@ export default function CajaDiariaPage() {
               onChange={(e) => setGastoMonto(parseFloat(e.target.value) || 0)}
             />
             <p className="text-[11px] text-slate-500 mt-1">
-              Disponible en efectivo: Bs {rf?.saldoEfectivoEnCaja.toFixed(2)}
+              {isAdmin
+                ? `Disponible en efectivo: Bs ${rf?.saldoEfectivoEnCaja.toFixed(2)}`
+                : 'Fondos disponibles en turno activo'}
             </p>
           </div>
 
           <div>
-            <Label required>Concepto / Motivo</Label>
+            <Label htmlFor="gastoConcepto" required>Concepto / Motivo</Label>
             <Input
+              id="gastoConcepto"
               placeholder="Ej: Compra 5 chips Tigo para clientes de tienda"
               value={gastoConcepto}
               onChange={(e) => setGastoConcepto(e.target.value)}
@@ -673,8 +683,9 @@ export default function CajaDiariaPage() {
           </div>
 
           <div>
-            <Label required>Efectivo Físico Contado (Bs)</Label>
+            <Label htmlFor="conteoFisico" required>Efectivo Físico Contado (Bs)</Label>
             <Input
+              id="conteoFisico"
               type="number"
               step="0.50"
               min="0"
@@ -686,8 +697,9 @@ export default function CajaDiariaPage() {
           </div>
 
           <div>
-            <Label>Justificación en Caso de Descuadre</Label>
+            <Label htmlFor="justificacionCierre">Justificación en Caso de Descuadre</Label>
             <Input
+              id="justificacionCierre"
               placeholder="Obligatorio si existe sobrante o faltante respecto al sistema"
               value={justificacionCierre}
               onChange={(e) => setJustificacionCierre(e.target.value)}
@@ -695,8 +707,9 @@ export default function CajaDiariaPage() {
           </div>
 
           <div>
-            <Label>Observaciones de Cierre (Opcional)</Label>
+            <Label htmlFor="obsCierre">Observaciones de Cierre (Opcional)</Label>
             <Input
+              id="obsCierre"
               placeholder="Ej: Turno concluido con normalidad"
               value={obsCierre}
               onChange={(e) => setObsCierre(e.target.value)}
