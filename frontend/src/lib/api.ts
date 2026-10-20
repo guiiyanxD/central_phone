@@ -50,6 +50,8 @@ function getStoredToken(): string | null {
 export function setStoredToken(token: string) {
   if (typeof window !== 'undefined') {
     localStorage.setItem('centralphone_token', token);
+    // Persistencia en cookie para Next.js Edge Middleware y SSR
+    document.cookie = `centralphone_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
   }
 }
 
@@ -57,6 +59,8 @@ export function removeStoredToken() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('centralphone_token');
     localStorage.removeItem('centralphone_user');
+    // Invalida la cookie eliminándola en el cliente
+    document.cookie = 'centralphone_token=; path=/; max-age=0; SameSite=Lax';
   }
 }
 
@@ -138,17 +142,78 @@ export const api = {
 
   // 2. Sucursales
   sucursales: {
-    getAll: () =>
+    getAll: (includeInactivas = false) =>
       request<
         Array<{
           id: number;
           nombre: string;
           ciudad: string;
           direccion: string;
-          telefono: string;
+          telefono: string | null;
           activo: boolean;
+          creadoEn?: string;
+          _count?: {
+            usuarios: number;
+            dispositivos: number;
+            lotesAccesorio: number;
+          };
         }>
-      >('/sucursales'),
+      >(`/sucursales${includeInactivas ? '?includeInactivas=true' : ''}`),
+    getById: (id: number) =>
+      request<{
+        id: number;
+        nombre: string;
+        ciudad: string;
+        direccion: string;
+        telefono: string | null;
+        activo: boolean;
+        creadoEn: string;
+        usuarios: Array<{
+          id: number;
+          nombre: string;
+          email: string;
+          rol: 'ADMIN' | 'VENDEDOR';
+          activo: boolean;
+        }>;
+      }>(`/sucursales/${id}`),
+    create: (data: {
+      nombre: string;
+      direccion: string;
+      telefono?: string;
+      ciudad?: string;
+    }) =>
+      request<{
+        id: number;
+        nombre: string;
+        ciudad: string;
+        direccion: string;
+        telefono: string | null;
+        activo: boolean;
+      }>('/sucursales', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: number,
+      data: {
+        nombre?: string;
+        direccion?: string;
+        telefono?: string;
+        ciudad?: string;
+        activo?: boolean;
+      }
+    ) =>
+      request<{
+        id: number;
+        nombre: string;
+        ciudad: string;
+        direccion: string;
+        telefono: string | null;
+        activo: boolean;
+      }>(`/sucursales/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
   },
 
   // 3. Configuración Corporativa & QR

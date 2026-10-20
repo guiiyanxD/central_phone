@@ -22,65 +22,101 @@ export function Modal({
   const modalRef = React.useRef<HTMLDivElement>(null);
   const previousActiveElement = React.useRef<HTMLElement | null>(null);
 
+  // Mantener la referencia actualizada de onClose sin provocar re-ejecuciones de efectos
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
   React.useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      document.body.style.overflow = 'hidden';
+    if (!isOpen) return;
 
-      // Enfocar el primer elemento interactivo dentro del modal tras montar
-      const timer = setTimeout(() => {
-        if (modalRef.current) {
-          const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+    // 1. Guardar el elemento previamente enfocado antes de abrir el modal
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    document.body.style.overflow = 'hidden';
+
+    // 2. Enfocar adecuadamente al montar de forma inteligente (respetando inputs y autoFocus)
+    const timer = setTimeout(() => {
+      if (!modalRef.current) return;
+
+      // Si el foco ya está dentro del modal (por ejemplo, gracias al autoFocus nativo de React), preservarlo
+      if (
+        document.activeElement &&
+        modalRef.current.contains(document.activeElement) &&
+        document.activeElement !== modalRef.current
+      ) {
+        return;
+      }
+
+      // Buscar si existe un elemento con atributo autofocus explícito
+      const autofocusEl = modalRef.current.querySelector<HTMLElement>('[autofocus]');
+      if (autofocusEl) {
+        autofocusEl.focus();
+        return;
+      }
+
+      // Buscar el primer campo de formulario activo (input, select, textarea) dentro del contenido
+      const firstFormField = modalRef.current.querySelector<HTMLElement>(
+        'form input:not([disabled]):not([type="hidden"]), form select:not([disabled]), form textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])'
+      );
+      if (firstFormField) {
+        firstFormField.focus();
+        return;
+      }
+
+      // Fallback: buscar cualquier elemento interactivo en el contenido que no sea el botón cerrar
+      const focusable = Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+
+      if (focusable.length > 0) {
+        const contentEl = focusable.find((el) => !el.hasAttribute('data-modal-close-button'));
+        (contentEl || focusable[0]).focus();
+      }
+    }, 50);
+
+    // 3. Manejador de teclado para Escape y trampa de foco (Tab / Shift+Tab)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          );
-          if (focusable.length > 0) {
-            focusable[0].focus();
+          )
+        ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+
+        if (focusable.length === 0) return;
+
+        const firstElement = focusable[0];
+        const lastElement = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
           }
         }
-      }, 50);
+      }
+    };
 
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-          return;
-        }
+    window.addEventListener('keydown', handleKeyDown);
 
-        if (e.key === 'Tab' && modalRef.current) {
-          const focusable = Array.from(
-            modalRef.current.querySelectorAll<HTMLElement>(
-              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            )
-          ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
-
-          if (focusable.length === 0) return;
-
-          const firstElement = focusable[0];
-          const lastElement = focusable[focusable.length - 1];
-
-          if (e.shiftKey) {
-            if (document.activeElement === firstElement) {
-              e.preventDefault();
-              lastElement.focus();
-            }
-          } else {
-            if (document.activeElement === lastElement) {
-              e.preventDefault();
-              firstElement.focus();
-            }
-          }
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyDown);
-
-      return () => {
-        clearTimeout(timer);
-        document.body.style.overflow = 'unset';
-        window.removeEventListener('keydown', handleKeyDown);
-        previousActiveElement.current?.focus();
-      };
-    }
-  }, [isOpen, onClose]);
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement.current?.focus();
+    };
+  }, [isOpen]); // Depende estrictamente de isOpen para no re-ejecutarse por renders del padre
 
   if (!isOpen) return null;
 
@@ -89,7 +125,7 @@ export function Modal({
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-        onClick={onClose}
+        onClick={() => onCloseRef.current()}
       />
 
       {/* Modal Surface */}
@@ -114,7 +150,8 @@ export function Modal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            data-modal-close-button="true"
+            onClick={() => onCloseRef.current()}
             aria-label="Cerrar diálogo emergente"
             className="h-9 w-9 sm:h-8 sm:w-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors -mr-1 -mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
           >
