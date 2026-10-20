@@ -31,6 +31,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: development
     container_name: centralphone_backend
     restart: unless-stopped
     env_file:

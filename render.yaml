@@ -1,0 +1,26 @@
+services:
+  # ----------------------------------------------------
+  # BACKEND API NESTJS
+  # ----------------------------------------------------
+  - type: web
+    name: centralphone-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon # o la región donde creaste tu PostgreSQL en Render
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Pega aquí la Internal Database URL de tu PostgreSQL en Render
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: INITIAL_ADMIN_EMAIL
+        value: admin@centralphone.com
+      - key: INITIAL_ADMIN_PASSWORD
+        generateValue: true

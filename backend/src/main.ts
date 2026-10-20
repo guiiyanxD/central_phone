@@ -52,7 +52,7 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.BACKEND_PORT || 4000;
+  const port = process.env.PORT || process.env.BACKEND_PORT || 4000;
   await app.listen(port, '0.0.0.0');
   logger.log(`🚀 CentralPhone Backend API corriendo en puerto ${port} (prefijo: /api/v1)`);
 }
