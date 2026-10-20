@@ -60,3 +60,20 @@ Este documento establece las directrices arquitectónicas, de seguridad y de neg
 
 8. **Escalabilidad Multi-Sucursal**:
    * Toda sucursal opera de manera independiente con su propio inventario de dispositivos físicos, sus propios lotes de accesorios y sus propias cajas diarias.
+
+---
+
+## 💾 9. Directriz Inmutable de Almacenamiento Multimedia y Optimización de Imágenes
+
+1. **Persistencia Desacoplada de Contenedores (Host Bind Mount)**:
+   * Todo archivo multimedia persistente (imágenes de códigos QR, comprobantes y catálogos futuros) debe almacenarse en el sistema de archivos del host mediante un Bind Mount (`./uploads:/app/uploads`).
+   * Está estrictamente prohibido depender únicamente de volúmenes nombrados efímeros de Docker que puedan destruirse en comandos de reconstrucción (`docker compose down -v`).
+2. **Pipeline Obligatorio de Optimización con `sharp`**:
+   * Ninguna imagen puede persistirse o servirse en su formato crudo. Toda carga debe procesarse en el backend con la librería **`sharp`** para:
+     * Redimensionar a dimensiones máximas controladas (ej. 800x800 px).
+     * Purgar metadatos EXIF sensibles o vectores maliciosos.
+     * Comprimir con preservación de contraste visual para lectura óptica de QR.
+3. **Resiliencia y Auto-Restauración de Semilla (Seeder)**:
+   * Si la base de datos es reiniciada o reconstruida desde cero, el servicio de inicialización (`ensureConfiguracionExists`) debe auto-detectar y restaurar la imagen física existente en `./uploads/qr/` y los datos bancarios reales, evitando la inserción de placeholders ficticios.
+4. **Evolución Arquitectónica hacia Catálogo Masivo**:
+   * Cuando el negocio escale a miles de imágenes de productos (fotografías de catálogo por variante), la arquitectura evolucionará hacia un servicio de almacenamiento de objetos autohospedado compatible con S3 (**SeaweedFS** o **MinIO**), manteniendo intacto el pipeline de compresión previo con `sharp`.

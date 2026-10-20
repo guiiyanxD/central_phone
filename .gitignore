@@ -24,7 +24,10 @@ backend/coverage/
 
 # Bases de datos y almacenamiento de archivos local
 postgres_data/
-uploads/
+uploads/*
+!uploads/qr/
+!uploads/qr/qr_oficial.png
+backend/uploads/
 *.sqlite
 *.sqlite-journal
 

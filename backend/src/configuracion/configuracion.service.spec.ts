@@ -2,18 +2,34 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfiguracionService } from './configuracion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPrismaMock, MockPrismaService } from '../prisma/prisma.mock';
+import { ImageOptimizerService } from '../common/services/image-optimizer.service';
 
 describe('ConfiguracionService', () => {
   let service: ConfiguracionService;
   let prisma: MockPrismaService;
+  let imageOptimizer: Partial<ImageOptimizerService>;
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    imageOptimizer = {
+      processAndSaveQrImage: jest.fn().mockImplementation((val) =>
+        Promise.resolve({
+          dataUri: val,
+          filePath: '/app/uploads/qr/qr_oficial.png',
+          sizeBytes: 100,
+          width: 800,
+          height: 800,
+          format: 'png',
+        }),
+      ),
+      readPersistedQrImage: jest.fn().mockReturnValue(null),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConfiguracionService,
         { provide: PrismaService, useValue: prisma },
+        { provide: ImageOptimizerService, useValue: imageOptimizer },
       ],
     }).compile();
 
