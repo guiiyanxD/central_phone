@@ -19,6 +19,7 @@ import {
   ArrowDownRight,
   ShieldAlert,
   Info,
+  ArrowLeft,
 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -161,6 +162,13 @@ export default function ReportesPage() {
       {/* Encabezado Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <Link
+            href="/administracion"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-medium mb-3 transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Volver a Centro de Administración</span>
+          </Link>
           <div className="flex items-center gap-2">
             <TrendingUp className="h-6 w-6 text-slate-900" />
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">

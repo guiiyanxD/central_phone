@@ -16,6 +16,7 @@ import {
   Boxes,
   BarChart3,
   QrCode,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
@@ -36,8 +37,11 @@ export function Navbar() {
     { href: '/caja', label: 'Caja Diaria', icon: Wallet },
     { href: '/recepcion', label: 'Recepción', icon: PackagePlus },
     { href: '/inventario', label: 'Inventario', icon: Boxes },
-    ...(user?.rol === 'ADMIN' ? [{ href: '/reportes', label: 'Reportes', icon: BarChart3 }] : []),
-    { href: '/configuracion', label: 'Configuración & QR', icon: QrCode },
+    ...(user?.rol === 'ADMIN'
+      ? [
+          { href: '/administracion', label: 'Administración', icon: ShieldCheck },
+        ]
+      : []),
   ];
 
   return (
@@ -127,6 +131,19 @@ export function Navbar() {
                   <span>{user?.sucursal?.nombre}</span>
                 </div>
               </div>
+
+              {user?.rol === 'ADMIN' && (
+                <div className="py-1 border-b border-slate-100 mb-1">
+                  <Link
+                    href="/administracion"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 text-slate-700" />
+                    <span>Centro de Administración</span>
+                  </Link>
+                </div>
+              )}
 
               {/* Botón de Cierre de Sesión */}
               <div className="border-t border-slate-100 pt-1">

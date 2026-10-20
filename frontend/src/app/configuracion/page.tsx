@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import {
   ShieldCheck,
   QrCode,
@@ -11,6 +12,7 @@ import {
   AlertTriangle,
   Upload,
   Image as ImageIcon,
+  ArrowLeft,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -199,6 +201,15 @@ export default function ConfiguracionPage() {
     <div className="max-w-4xl mx-auto space-y-8 pb-16 animate-in fade-in duration-300">
       {/* Encabezado */}
       <div className="border-b border-slate-200 pb-5">
+        {isAdmin && (
+          <Link
+            href="/administracion"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-medium mb-3 transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Volver a Centro de Administración</span>
+          </Link>
+        )}
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Configuración del Negocio & QR Oficial
@@ -393,16 +404,26 @@ export default function ConfiguracionPage() {
 
       {/* SECCIÓN 2: GESTIÓN DE SUCURSALES (US04) */}
       <Card className="border-slate-200">
-        <CardHeader className="p-5 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-slate-800" />
-            <CardTitle className="text-base font-semibold text-slate-900">
-              Sucursales Operativas de CentralPhone
-            </CardTitle>
+        <CardHeader className="p-5 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-slate-800" />
+              <CardTitle className="text-base font-semibold text-slate-900">
+                Sucursales Operativas de CentralPhone
+              </CardTitle>
+            </div>
+            <CardDescription className="text-xs text-slate-500 mt-0.5">
+              Cada sucursal gestiona su propio inventario físico y sus propias sesiones de caja diaria.
+            </CardDescription>
           </div>
-          <CardDescription className="text-xs text-slate-500">
-            Cada sucursal gestiona su propio inventario físico y sus propias sesiones de caja diaria.
-          </CardDescription>
+          {isAdmin && (
+            <Link href="/sucursales">
+              <Button variant="outline" size="sm" className="text-xs font-semibold">
+                <Building2 className="mr-1.5 h-3.5 w-3.5" />
+                Gestionar Sucursales
+              </Button>
+            </Link>
+          )}
         </CardHeader>
 
         <CardContent className="p-5 space-y-3">

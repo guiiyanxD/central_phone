@@ -46,11 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function initSession() {
       const stored = typeof window !== 'undefined' ? localStorage.getItem('centralphone_token') : null;
       if (!stored) {
+        removeStoredToken();
         setUser(null);
         setToken(null);
         setIsLoading(false);
         return;
       }
+
+      // Asegurar sincronización de cookie para el Middleware de Next.js
+      setStoredToken(stored);
 
       try {
         const me = await api.auth.me();
@@ -100,6 +104,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const isPublicRoute = pathname === '/login';
+
+  // Barrera de renderizado (Defensa en profundidad):
+  // Si la ruta es protegida y aún se está verificando sesión o no hay usuario,
+  // NUNCA renderizar {children} para evitar cualquier parpadeo de contenido privado.
+  const content = (!isPublicRoute && (isLoading || !user)) ? (
+    <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-200">
+      <div className="relative h-14 w-14 rounded-2xl bg-white border border-slate-200 p-2.5 shadow-subtle flex items-center justify-center animate-pulse">
+        <img src="/logo.png" alt="CentralPhone Logo" className="object-contain" />
+      </div>
+      <p className="text-xs text-slate-500 font-medium tracking-wide">
+        Verificando sesión segura...
+      </p>
+    </div>
+  ) : (
+    children
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -111,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
       }}
     >
-      {children}
+      {content}
     </AuthContext.Provider>
   );
 }

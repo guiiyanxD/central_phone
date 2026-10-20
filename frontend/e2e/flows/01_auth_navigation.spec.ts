@@ -4,11 +4,20 @@ import * as path from 'path';
 const vendedorAuthFile = path.resolve(__dirname, '../.auth/vendedor.json');
 
 test.describe('Navegación y Autenticación en CentralPhone', () => {
-  test('Usuario no autenticado es redirigido automáticamente al login', async ({ page }) => {
+  test('Usuario no autenticado es redirigido automáticamente al login sin parpadeo del dashboard', async ({ page }) => {
     // Contexto anónimo sin sesión
     await page.goto('/');
     await page.waitForURL('/login', { timeout: 10000 });
+    // Garantizar que en ningún momento se filtre el contenido del panel privado
+    await expect(page.locator('text=Panel de Operaciones')).not.toBeVisible();
     await expect(page.locator('h1')).toContainText('CentralPhone');
+    await expect(page.locator('text=Acceso al Sistema')).toBeVisible();
+  });
+
+  test('Rutas protegidas directas (/pos, /caja) redirigen inmediatamente a /login', async ({ page }) => {
+    await page.goto('/pos');
+    await page.waitForURL('/login', { timeout: 10000 });
+    await expect(page.locator('text=Terminal de Venta')).not.toBeVisible();
     await expect(page.locator('text=Acceso al Sistema')).toBeVisible();
   });
 
