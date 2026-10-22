@@ -65,11 +65,23 @@ central_iphone/
 │   │   ├── audit-design-system.md
 │   │   ├── audit-leyes-ux.md
 │   │   ├── audit-microinteracciones.md
-│   │   └── audit-pos-ergonomia.md
+│   │   ├── audit-pos-ergonomia.md
+│   │   ├── lead-auditor-calidad.md      <-- Lead Auditor de calidad de código
+│   │   ├── orquestador-arquitectura.md  <-- Scout y mapeador de arquitectura
+│   │   ├── audit-arquitectura.md        <-- Clean Architecture feature-based
+│   │   ├── audit-solid-patrones.md      <-- SOLID y costo de extensión
+│   │   ├── audit-backend-nestjs.md      <-- Módulos, controladores y DTOs
+│   │   ├── audit-frontend-nextjs.md     <-- Server/Client, CDD y App Router
+│   │   ├── audit-datos-acid.md          <-- Prisma, PostgreSQL 16 y ACID
+│   │   ├── audit-docker-devops.md       <-- Multi-stage, compose y 12 factores
+│   │   └── audit-calidad-tests.md       <-- TypeScript estricto y pirámide tests
 │   │
 │   ├── skills/                     <-- Skills / Slash Commands (Estándar Antigravity)
 │   │   ├── auditoria-ux/
 │   │   │   └── SKILL.md            <-- Define el slash command /auditoria-ux
+│   │   │
+│   │   ├── auditoria-calidad/
+│   │   │   └── SKILL.md            <-- Define el slash command /auditoria-calidad
 │   │   │
 │   │   └── security-audit/         <-- Skill de auditoría de seguridad y validadores
 │   │       ├── SKILL.md
