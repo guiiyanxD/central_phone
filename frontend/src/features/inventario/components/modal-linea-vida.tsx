@@ -6,20 +6,15 @@ import {
   Truck,
   Building2,
   Receipt,
-  UserCheck,
   ShieldCheck,
   ShieldAlert,
   Clock,
   Ban,
-  CheckCircle2,
   DollarSign,
   Calendar,
-  Phone,
-  FileText,
   AlertTriangle,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
