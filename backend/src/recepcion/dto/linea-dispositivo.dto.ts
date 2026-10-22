@@ -42,9 +42,9 @@ export class LineaDispositivoDto {
   @IsNotEmpty({ message: 'Número de serie requerido.' })
   numeroSerie: string;
 
-  @IsString({ message: 'El IMEI 1 es obligatorio.' })
-  @IsNotEmpty({ message: 'IMEI 1 requerido.' })
-  imei1: string;
+  @IsString()
+  @IsOptional()
+  imei1?: string;
 
   @IsString()
   @IsOptional()

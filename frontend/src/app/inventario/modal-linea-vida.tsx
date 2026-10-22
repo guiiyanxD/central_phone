@@ -76,7 +76,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
       title={
         <div className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-slate-800" />
-          <span>Línea de Vida y Trazabilidad por IMEI</span>
+          <span>Línea de Vida y Trazabilidad de Hardware</span>
         </div>
       }
       className="max-w-2xl max-h-[90vh] overflow-y-auto"
@@ -92,7 +92,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
           <p className="text-sm font-semibold text-slate-900">{error}</p>
           <p className="text-xs text-slate-500">
-            Verifica que el número de IMEI sea correcto e intenta nuevamente.
+            Verifica que el número de serie o IMEI sea correcto e intenta nuevamente.
           </p>
         </div>
       ) : data ? (
@@ -111,23 +111,32 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
               </div>
               <p className="text-slate-400 text-xs mt-1">
                 {data.dispositivo.color} •{' '}
-                {data.dispositivo.capacidadGb >= 1024
-                  ? `${data.dispositivo.capacidadGb / 1024}TB`
-                  : `${data.dispositivo.capacidadGb}GB`}{' '}
+                {data.dispositivo.capacidadGb > 0
+                  ? data.dispositivo.capacidadGb >= 1024
+                    ? `${data.dispositivo.capacidadGb / 1024}TB`
+                    : `${data.dispositivo.capacidadGb}GB`
+                  : 'Sin alm.'}{' '}
                 • {data.dispositivo.tipoSim}
               </p>
               <div className="font-mono text-[11px] text-slate-300 mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                <span>
-                  <strong>IMEI 1:</strong> {data.dispositivo.imei1}
-                </span>
+                {data.dispositivo.imei1 && (
+                  <span>
+                    <strong>IMEI 1:</strong> {data.dispositivo.imei1}
+                  </span>
+                )}
                 {data.dispositivo.imei2 && (
                   <span>
                     <strong>IMEI 2:</strong> {data.dispositivo.imei2}
                   </span>
                 )}
                 <span>
-                  <strong>Serie:</strong> {data.dispositivo.numeroSerie}
+                  <strong>Serie (S/N):</strong> {data.dispositivo.numeroSerie}
                 </span>
+                {!data.dispositivo.imei1 && (
+                  <span className="text-slate-400 italic">
+                    (Identificado por Serial)
+                  </span>
+                )}
               </div>
             </div>
 

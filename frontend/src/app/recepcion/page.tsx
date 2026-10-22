@@ -35,6 +35,7 @@ interface TelefonoRow {
     tipoSim: string;
   };
   modeloNombreDisplay?: string;
+  modeloTipo?: 'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO';
   varianteDisplay?: string;
   imei1: string;
   imei2: string;
@@ -178,8 +179,20 @@ export default function RecepcionMercaderiaPage() {
               const v = m.variantes.find((x: any) => x.id === value);
               if (v) {
                 updated.modeloNombreDisplay = m.nombreModelo;
-                updated.varianteDisplay = `${v.color} • ${v.capacidadGb >= 1024 ? `${v.capacidadGb / 1024}TB` : `${v.capacidadGb}GB`} • ${v.tipoSim}`;
+                updated.modeloTipo = m.tipo || 'IPHONE';
+                const capLabel =
+                  v.capacidadGb > 0
+                    ? v.capacidadGb >= 1024
+                      ? `${v.capacidadGb / 1024}TB`
+                      : `${v.capacidadGb}GB`
+                    : 'Sin almacenamiento';
+                updated.varianteDisplay = `${v.color} • ${capLabel} • ${v.tipoSim}`;
                 updated.nuevaVariante = undefined;
+                // Si el modelo es MAC o AIRPODS, limpiar IMEI automáticamente
+                if (m.tipo === 'MAC' || m.tipo === 'AIRPODS') {
+                  updated.imei1 = '';
+                  updated.imei2 = '';
+                }
                 break;
               }
             }
@@ -225,7 +238,11 @@ export default function RecepcionMercaderiaPage() {
               tipoSim: nuevaVarSim,
             },
             modeloNombreDisplay: modeloSeleccionado?.nombreModelo || 'Modelo Personalizado',
-            varianteDisplay: `[Nueva al Vuelo] ${nuevaVarColor.trim()} • ${capDisplay} • ${nuevaVarSim}`,
+            modeloTipo: modeloSeleccionado?.tipo || 'IPHONE',
+            varianteDisplay: `[Nueva al Vuelo] ${nuevaVarColor.trim()} • ${Number(nuevaVarCapacidad) > 0 ? capDisplay : 'Sin alm.'} • ${nuevaVarSim}`,
+            ...(modeloSeleccionado?.tipo === 'MAC' || modeloSeleccionado?.tipo === 'AIRPODS'
+              ? { imei1: '', imei2: '' }
+              : {}),
           };
         }
         return t;
@@ -271,7 +288,9 @@ export default function RecepcionMercaderiaPage() {
     0
   );
   const totalCostoNotaBs = totalCostoTelefonos + totalCostoAccesorios;
-  const totalUnidadesTelefonos = telefonos.filter((t) => t.imei1.trim().length > 0).length;
+  const totalUnidadesTelefonos = telefonos.filter(
+    (t) => t.numeroSerie.trim().length > 0 || t.imei1.trim().length > 0
+  ).length;
   const totalUnidadesAccesorios = accesorios.reduce(
     (sum, a) => sum + (Number(a.cantidad) || 0),
     0
@@ -282,7 +301,7 @@ export default function RecepcionMercaderiaPage() {
     e.preventDefault();
     setErrorMessage(null);
 
-    // Validar teléfonos válidos
+    // Validar equipos válidos
     const telefonosValidos = telefonos.filter(
       (t) => t.imei1.trim().length > 0 || t.numeroSerie.trim().length > 0
     );
@@ -293,38 +312,41 @@ export default function RecepcionMercaderiaPage() {
 
     if (telefonosValidos.length === 0 && accesoriosValidos.length === 0) {
       setErrorMessage(
-        'Debes ingresar al menos un teléfono con IMEI o un lote de accesorios para registrar la nota.'
+        'Debes ingresar al menos un equipo serializado o un lote de accesorios para registrar la nota.'
       );
       return;
     }
 
-    // Validar que cada teléfono tenga variante o nuevaVariante
+    // Validar que cada equipo tenga variante o nuevaVariante
     for (const t of telefonosValidos) {
       if (!t.varianteId && !t.nuevaVariante) {
         setErrorMessage(
-          `El teléfono con serie '${t.numeroSerie || t.imei1}' no tiene un modelo/variante seleccionado.`
+          `El equipo con serie '${t.numeroSerie || t.imei1}' no tiene un modelo/variante seleccionado.`
         );
         return;
       }
-      if (!t.imei1.trim()) {
-        setErrorMessage(`Todos los teléfonos deben tener un IMEI 1 obligatorio.`);
+      if (!t.numeroSerie.trim()) {
+        setErrorMessage(`Todos los equipos deben tener un Número de Serie obligatorio.`);
         return;
       }
-      if (!t.numeroSerie.trim()) {
-        setErrorMessage(`Todos los teléfonos deben tener un Número de Serie obligatorio.`);
+      const esIphone =
+        t.modeloTipo === 'IPHONE' ||
+        (!t.modeloTipo && t.modeloNombreDisplay?.toLowerCase().includes('iphone'));
+      if (esIphone && !t.imei1.trim()) {
+        setErrorMessage(`El equipo '${t.modeloNombreDisplay || 'iPhone'}' requiere un IMEI 1 obligatorio.`);
         return;
       }
     }
 
-    // Validar duplicados locales de IMEI en el mismo formulario
-    const imeis = telefonosValidos.map((t) => t.imei1.trim());
-    const series = telefonosValidos.map((t) => t.numeroSerie.trim());
+    // Validar duplicados locales de IMEI en el mismo formulario (solo para los que tienen IMEI)
+    const imeis = telefonosValidos.map((t) => t.imei1.trim()).filter((im) => im.length > 0);
+    const series = telefonosValidos.map((t) => t.numeroSerie.trim()).filter((sr) => sr.length > 0);
     if (new Set(imeis).size !== imeis.length) {
-      setErrorMessage('Hay IMEIs duplicados dentro de la lista de teléfonos ingresados.');
+      setErrorMessage('Hay IMEIs duplicados dentro de la lista de equipos ingresados.');
       return;
     }
     if (new Set(series).size !== series.length) {
-      setErrorMessage('Hay Números de Serie duplicados dentro de la lista de teléfonos.');
+      setErrorMessage('Hay Números de Serie duplicados dentro de la lista de equipos.');
       return;
     }
 
@@ -340,7 +362,7 @@ export default function RecepcionMercaderiaPage() {
           varianteId: t.varianteId ? Number(t.varianteId) : undefined,
           nuevaVariante: t.nuevaVariante,
           numeroSerie: t.numeroSerie.trim(),
-          imei1: t.imei1.trim(),
+          imei1: t.imei1.trim() || undefined,
           imei2: t.imei2.trim() || undefined,
           condicion: t.condicion,
           costoBs: Number(t.costoBs) || 0,
@@ -565,11 +587,11 @@ export default function RecepcionMercaderiaPage() {
               <div className="flex items-center gap-2">
                 <Smartphone className="h-4 w-4 text-slate-700" />
                 <CardTitle className="text-base font-semibold text-slate-900">
-                  2. Teléfonos Físicos Recibidos
+                  2. Equipos Serializados Recibidos
                 </CardTitle>
               </div>
               <CardDescription className="text-xs text-slate-500">
-                Cada unidad debe registrar obligatoriamente su IMEI 1 y Número de Serie unívocos.
+                Identificación unívoca por Número de Serie (y obligatorio IMEI 1 en iPhone).
               </CardDescription>
             </div>
 
@@ -581,7 +603,7 @@ export default function RecepcionMercaderiaPage() {
               className="text-xs"
             >
               <Plus className="mr-1 h-3.5 w-3.5" />
-              Agregar Teléfono
+              Agregar Equipo
             </Button>
           </CardHeader>
 
@@ -623,13 +645,15 @@ export default function RecepcionMercaderiaPage() {
                       >
                         <option value="">-- Seleccionar Variante --</option>
                         {modelos.map((m) => (
-                          <optgroup key={m.id} label={m.nombreModelo}>
+                          <optgroup key={m.id} label={`${m.nombreModelo} (${m.tipo || 'IPHONE'})`}>
                             {m.variantes.map((v: any) => (
                               <option key={v.id} value={v.id}>
                                 {m.nombreModelo} - {v.color} (
-                                {v.capacidadGb >= 1024
-                                  ? `${v.capacidadGb / 1024}TB`
-                                  : `${v.capacidadGb}GB`}
+                                {v.capacidadGb > 0
+                                  ? v.capacidadGb >= 1024
+                                    ? `${v.capacidadGb / 1024}TB`
+                                    : `${v.capacidadGb}GB`
+                                  : '0 GB'}
                                 ) [{v.tipoSim}]
                               </option>
                             ))}
@@ -686,13 +710,25 @@ export default function RecepcionMercaderiaPage() {
 
                   {/* IMEI 1 */}
                   <div>
-                    <Label required>IMEI 1 (15 dígitos)</Label>
+                    <Label required={t.modeloTipo === 'IPHONE'}>
+                      IMEI 1 {t.modeloTipo === 'IPHONE' ? '(15 dígitos)' : '(Celular/Opc.)'}
+                    </Label>
                     <Input
-                      placeholder="35492811..."
-                      value={t.imei1}
+                      disabled={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'}
+                      placeholder={
+                        t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                          ? 'No Aplica (Identificado por S/N)'
+                          : '35492811...'
+                      }
+                      value={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS' ? '' : t.imei1}
                       maxLength={20}
                       onChange={(e) =>
                         handleUpdateTelefono(t.id, 'imei1', e.target.value)
+                      }
+                      className={
+                        t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : ''
                       }
                     />
                   </div>
@@ -701,11 +737,21 @@ export default function RecepcionMercaderiaPage() {
                   <div>
                     <Label>IMEI 2 (Dual SIM / eSIM)</Label>
                     <Input
-                      placeholder="Opcional..."
-                      value={t.imei2}
+                      disabled={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'}
+                      placeholder={
+                        t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                          ? 'No Aplica'
+                          : 'Opcional...'
+                      }
+                      value={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS' ? '' : t.imei2}
                       maxLength={20}
                       onChange={(e) =>
                         handleUpdateTelefono(t.id, 'imei2', e.target.value)
+                      }
+                      className={
+                        t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : ''
                       }
                     />
                   </div>
@@ -950,7 +996,7 @@ export default function RecepcionMercaderiaPage() {
             >
               {modelos.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.nombreModelo}
+                  {m.nombreModelo} ({m.tipo || 'IPHONE'})
                 </option>
               ))}
             </Select>
@@ -959,7 +1005,7 @@ export default function RecepcionMercaderiaPage() {
           <div>
             <Label required>Color</Label>
             <Input
-              placeholder="Ej: Midnight Blue, Rose Gold, Verde Alpino"
+              placeholder="Ej: Midnight Blue, Space Gray, Blanco, Titanio Natural"
               value={nuevaVarColor}
               onChange={(e) => setNuevaVarColor(e.target.value)}
             />
@@ -972,6 +1018,7 @@ export default function RecepcionMercaderiaPage() {
                 value={nuevaVarCapacidad}
                 onChange={(e) => setNuevaVarCapacidad(Number(e.target.value))}
               >
+                <option value="0">0 GB (Sin almacenamiento / AirPods / Watch)</option>
                 <option value="64">64 GB</option>
                 <option value="128">128 GB</option>
                 <option value="256">256 GB</option>
@@ -982,7 +1029,7 @@ export default function RecepcionMercaderiaPage() {
             </div>
 
             <div>
-              <Label required>Tipo SIM</Label>
+              <Label required>Conectividad / SIM</Label>
               <Select
                 value={nuevaVarSim}
                 onChange={(e) => setNuevaVarSim(e.target.value)}
@@ -990,6 +1037,9 @@ export default function RecepcionMercaderiaPage() {
                 <option value="SIM Físico">SIM Físico</option>
                 <option value="eSIM Exclusivo">eSIM Exclusivo</option>
                 <option value="Dual SIM Físico">Dual SIM Físico</option>
+                <option value="No Aplica">No Aplica (Mac / AirPods / Wi-Fi)</option>
+                <option value="GPS Only">GPS Only (Apple Watch)</option>
+                <option value="GPS + Cellular">GPS + Cellular (Apple Watch)</option>
               </Select>
             </div>
           </div>

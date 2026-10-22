@@ -215,6 +215,72 @@ describe('RecepcionService', () => {
       );
       expect(res.id).toBe(50);
     });
+
+    it('debe permitir registrar una MacBook con número de serie y sin IMEI si el modelo es de tipo MAC', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        modelo: { id: 5, nombreModelo: 'MacBook Air 13 M3', tipo: 'MAC' },
+      } as any);
+      prisma.dispositivo.findUnique.mockResolvedValue(null);
+      prisma.notaIngreso.create.mockResolvedValue({ id: 55 } as any);
+      prisma.dispositivo.create.mockResolvedValue({ id: 101 } as any);
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 55,
+        dispositivos: [{ id: 101, numeroSerie: 'C02G9999MD6R', imei1: null }],
+        lotesAccesorio: [],
+      } as any);
+
+      const res = await service.createNotaIngreso(
+        {
+          ...baseDto,
+          dispositivos: [
+            {
+              varianteId: 10,
+              numeroSerie: 'C02G9999MD6R',
+              costoBs: 8000,
+              costoUsd: 1150,
+              precioVentaSugeridoBs: 9500,
+            },
+          ],
+        },
+        usuarioId
+      );
+
+      expect(prisma.dispositivo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            numeroSerie: 'C02G9999MD6R',
+            imei1: null,
+          }),
+        })
+      );
+      expect(res.id).toBe(55);
+    });
+
+    it('debe lanzar BadRequestException si se intenta registrar un IPHONE sin IMEI 1', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 11,
+        modelo: { id: 6, nombreModelo: 'iPhone 15 Pro', tipo: 'IPHONE' },
+      } as any);
+      prisma.dispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.createNotaIngreso(
+          {
+            ...baseDto,
+            dispositivos: [
+              {
+                varianteId: 11,
+                numeroSerie: 'F2LZ9999XXXX',
+                costoBs: 5000,
+                costoUsd: 720,
+              },
+            ],
+          },
+          usuarioId
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('findOne', () => {
@@ -224,20 +290,113 @@ describe('RecepcionService', () => {
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
 
-    it('debe retornar la nota de ingreso existente', async () => {
-      prisma.notaIngreso.findUnique.mockResolvedValue({ id: 25 } as any);
+    it('debe retornar la nota de ingreso existente con costos y resumen financiero si es ADMIN', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 25,
+        totalCostoBs: 4300,
+        dispositivos: [
+          {
+            id: 1,
+            costoBs: 4000,
+            costoUsd: 580,
+            precioVentaSugeridoBs: 5000,
+            estadoInventario: 'VENDIDO',
+            detalleVentas: [{ id: 10, subtotalBs: 5000 }],
+          },
+        ],
+        lotesAccesorio: [
+          {
+            id: 1,
+            cantidadInicial: 10,
+            stockActual: 8,
+            costoUnitarioBs: 30,
+            precioVentaBs: 60,
+            detalleVentas: [{ id: 20, cantidad: 2, subtotalBs: 120 }],
+          },
+        ],
+      } as any);
 
-      const res = await service.findOne(25);
+      const res = await service.findOne(25, 'ADMIN');
       expect(res.id).toBe(25);
+      expect(res.dispositivos[0].costoBs).toBe(4000);
+      expect(res.lotesAccesorio[0].costoUnitarioBs).toBe(30);
+
+      // Métricas financieras calculadas
+      expect(res.resumenFinanciero).toBeDefined();
+      expect(res.resumenFinanciero.totalCostoBs).toBe(4300);
+      expect(res.resumenFinanciero.totalCostoUsd).toBe(580);
+      expect(res.resumenFinanciero.totalDispositivos).toBe(1);
+      expect(res.resumenFinanciero.totalAccesorios).toBe(10);
+      expect(res.resumenFinanciero.totalUnidadesIngresadas).toBe(11);
+      expect(res.resumenFinanciero.totalUnidadesVendidas).toBe(3); // 1 disp + 2 accesorios
+      expect(res.resumenFinanciero.totalVentaProyectadaBs).toBe(5600); // 5000 + (10 * 60)
+      expect(res.resumenFinanciero.totalVentaRealizadaBs).toBe(5120); // 5000 + 120
+      expect(res.resumenFinanciero.porcentajeVentaRealizada).toBeGreaterThan(90);
+      expect(res.resumenFinanciero.margenRealizadoBs).toBe(1060); // 5120 - (4000 + 2*30) = 1060
+    });
+
+    it('debe purgar costos mayoristas si quien consulta no es ADMIN (CENTRALPHONE-CONF-003)', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 25,
+        totalCostoBs: 4300,
+        dispositivos: [{ id: 1, costoBs: 4000, costoUsd: 580, precioVentaSugeridoBs: 5000 }],
+        lotesAccesorio: [{ id: 1, cantidadInicial: 10, stockActual: 10, costoUnitarioBs: 30, precioVentaBs: 60 }],
+      } as any);
+
+      const res = await service.findOne(25, 'VENDEDOR');
+      expect(res.id).toBe(25);
+      expect((res.dispositivos[0] as any).costoBs).toBeUndefined();
+      expect((res.dispositivos[0] as any).costoUsd).toBeUndefined();
+      expect((res.lotesAccesorio[0] as any).costoUnitarioBs).toBeUndefined();
+      expect((res.resumenFinanciero as any).totalCostoBs).toBeUndefined();
+      expect((res.resumenFinanciero as any).margenProyectadoBs).toBeUndefined();
     });
   });
 
   describe('findAll', () => {
-    it('debe retornar el listado de notas de ingreso', async () => {
+    it('debe retornar el listado paginado de notas de ingreso con meta', async () => {
       prisma.notaIngreso.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }] as any);
+      prisma.notaIngreso.count.mockResolvedValue(2);
 
       const res = await service.findAll();
-      expect(res).toHaveLength(2);
+      expect(res.data).toHaveLength(2);
+      expect(res.meta.total).toBe(2);
+      expect(res.meta.page).toBe(1);
+      expect(res.meta.limit).toBe(10);
+    });
+
+    it('debe aplicar filtros de búsqueda, fechas, proveedor y sucursal', async () => {
+      prisma.notaIngreso.findMany.mockResolvedValue([{ id: 1 }] as any);
+      prisma.notaIngreso.count.mockResolvedValue(1);
+
+      const res = await service.findAll(
+        {
+          sucursalId: 1,
+          proveedorId: 2,
+          fechaDesde: '2026-10-01',
+          fechaHasta: '2026-10-31',
+          search: 'FACT-99',
+          page: 2,
+          limit: 5,
+        },
+        'ADMIN'
+      );
+
+      expect(res.data).toHaveLength(1);
+      expect(res.meta.page).toBe(2);
+      expect(res.meta.limit).toBe(5);
+      expect(prisma.notaIngreso.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 5,
+          take: 5,
+          where: expect.objectContaining({
+            sucursalId: 1,
+            proveedorId: 2,
+            fechaIngreso: expect.any(Object),
+            OR: expect.any(Array),
+          }),
+        })
+      );
     });
   });
 });

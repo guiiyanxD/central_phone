@@ -132,11 +132,21 @@ model NotaIngreso {
 // CATÁLOGO E INVENTARIO DE DISPOSITIVOS
 // ------------------------------------------
 
+enum TipoDispositivo {
+  IPHONE
+  IPAD
+  MAC
+  WATCH
+  AIRPODS
+  OTRO
+}
+
 model ModeloDispositivo {
-  id           Int      @id @default(autoincrement())
-  marca        String   @default("Apple") @db.VarChar(50)
-  nombreModelo String   @map("nombre_modelo") @db.VarChar(100)
-  descripcion  String?  @db.VarChar(255)
+  id           Int             @id @default(autoincrement())
+  marca        String          @default("Apple") @db.VarChar(50)
+  nombreModelo String          @map("nombre_modelo") @db.VarChar(100)
+  tipo         TipoDispositivo @default(IPHONE)
+  descripcion  String?         @db.VarChar(255)
 
   variantes VarianteDispositivo[]
 
@@ -177,7 +187,7 @@ model Dispositivo {
   sucursalId       Int                  @map("sucursal_id")
   notaIngresoId    Int                  @map("nota_ingreso_id")
   numeroSerie      String               @unique @map("numero_serie") @db.VarChar(50)
-  imei1            String               @unique @map("imei_1") @db.VarChar(20)
+  imei1            String?              @unique @map("imei_1") @db.VarChar(20)
   imei2            String?              @unique @map("imei_2") @db.VarChar(20)
   condicion        CondicionDispositivo @default(NUEVO)
   costoBs               Decimal              @map("costo_bs") @db.Decimal(10, 2)

@@ -34,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { cn, formatNombreCaja } from '@/lib/utils';
 
 interface CartItem {
   cartId: string;
@@ -113,12 +113,12 @@ export default function PosPage() {
     try {
       const [cajaRes, dispRes, accRes, configRes] = await Promise.all([
         api.caja.getActiva(),
-        api.modelos.getDispositivos({ estado: 'DISPONIBLE' }),
+        api.modelos.getDispositivos({ estado: 'DISPONIBLE', limit: 100 }),
         api.accesorios.getAll(),
         api.configuracion.get(),
       ]);
       setSessionData(cajaRes);
-      setDispositivos(dispRes);
+      setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
       setConfiguracion(configRes);
     } catch {
@@ -134,11 +134,11 @@ export default function PosPage() {
     try {
       const [cajaRes, dispRes, accRes] = await Promise.all([
         api.caja.getActiva(),
-        api.modelos.getDispositivos({ estado: 'DISPONIBLE' }),
+        api.modelos.getDispositivos({ estado: 'DISPONIBLE', limit: 100 }),
         api.accesorios.getAll(),
       ]);
       setSessionData(cajaRes);
-      setDispositivos(dispRes);
+      setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
     } catch {
       // Silencioso
@@ -203,8 +203,14 @@ export default function PosPage() {
       tipo: 'DISPOSITIVO',
       dispositivoId: disp.id,
       nombre: disp.variante?.modelo?.nombreModelo,
-      subtitulo: `${disp.variante?.color} • ${disp.variante?.capacidadGb >= 1024 ? `${disp.variante?.capacidadGb / 1024}TB` : `${disp.variante?.capacidadGb}GB`} [${disp.condicion}]`,
-      imei: disp.imei1,
+      subtitulo: `${disp.variante?.color} • ${
+        disp.variante?.capacidadGb > 0
+          ? disp.variante?.capacidadGb >= 1024
+            ? `${disp.variante?.capacidadGb / 1024}TB`
+            : `${disp.variante?.capacidadGb}GB`
+          : '0 GB'
+      } [${disp.condicion}]`,
+      imei: disp.imei1 || undefined,
       serie: disp.numeroSerie,
       cantidad: 1,
       precioUnitarioBs: precioSugerido,
@@ -296,18 +302,18 @@ export default function PosPage() {
       // 1. Buscar coincidencia exacta por IMEI 1, IMEI 2 o Serie
       const exactMatch = dispositivos.find(
         (d) =>
-          d.imei1.toLowerCase() === q ||
+          (d.imei1 && d.imei1.toLowerCase() === q) ||
           (d.imei2 && d.imei2.toLowerCase() === q) ||
-          d.numeroSerie.toLowerCase() === q
+          (d.numeroSerie && d.numeroSerie.toLowerCase() === q)
       );
 
       if (exactMatch) {
         if (cart.some((i) => i.dispositivoId === exactMatch.id)) {
-          setScanFeedback(`El equipo (${exactMatch.imei1}) ya está en el ticket.`);
+          setScanFeedback(`El equipo (${exactMatch.imei1 || exactMatch.numeroSerie}) ya está en el ticket.`);
         } else {
           handleAddPhoneToCart(exactMatch);
           playScanBeep();
-          setScanFeedback(`✓ Escaneado: ${exactMatch.variante?.modelo?.nombreModelo} (${exactMatch.imei1})`);
+          setScanFeedback(`✓ Escaneado: ${exactMatch.variante?.modelo?.nombreModelo} (${exactMatch.imei1 || exactMatch.numeroSerie})`);
           setSearchPhone('');
         }
         setTimeout(() => setScanFeedback(null), 3000);
@@ -322,7 +328,7 @@ export default function PosPage() {
         } else {
           handleAddPhoneToCart(single);
           playScanBeep();
-          setScanFeedback(`✓ Agregado: ${single.variante?.modelo?.nombreModelo} (${single.imei1})`);
+          setScanFeedback(`✓ Agregado: ${single.variante?.modelo?.nombreModelo} (${single.imei1 || single.numeroSerie})`);
           setSearchPhone('');
         }
         setTimeout(() => setScanFeedback(null), 3000);
@@ -406,7 +412,7 @@ export default function PosPage() {
               : `${det.loteAccesorio?.accesorio?.nombre || 'Accesorio'} [${det.loteAccesorio?.nombreDiferenciador || ''}]`;
 
           const imeiHtml = det.dispositivo
-            ? `<div style="font-size:9px;color:#222;margin-top:1px;">IMEI 1: ${det.dispositivo.imei1}${det.dispositivo.imei2 ? '<br>IMEI 2: ' + det.dispositivo.imei2 : ''}<br>SERIE: ${det.dispositivo.numeroSerie}</div>`
+            ? `<div style="font-size:9px;color:#222;margin-top:1px;">${det.dispositivo.imei1 ? 'IMEI 1: ' + det.dispositivo.imei1 + (det.dispositivo.imei2 ? '<br>IMEI 2: ' + det.dispositivo.imei2 : '') + '<br>' : ''}SERIE: ${det.dispositivo.numeroSerie}</div>`
             : '';
 
           const cantHtml =
@@ -623,10 +629,10 @@ export default function PosPage() {
     if (!searchPhone.trim()) return true;
     const q = searchPhone.toLowerCase();
     return (
-      d.imei1.toLowerCase().includes(q) ||
-      d.numeroSerie.toLowerCase().includes(q) ||
-      d.variante?.modelo?.nombreModelo.toLowerCase().includes(q) ||
-      d.variante?.color.toLowerCase().includes(q)
+      (d.imei1 && d.imei1.toLowerCase().includes(q)) ||
+      (d.numeroSerie && d.numeroSerie.toLowerCase().includes(q)) ||
+      (d.variante?.modelo?.nombreModelo && d.variante.modelo.nombreModelo.toLowerCase().includes(q)) ||
+      (d.variante?.color && d.variante.color.toLowerCase().includes(q))
     );
   });
 
@@ -666,14 +672,14 @@ export default function PosPage() {
               Terminal de Venta Bloqueado
             </h2>
             <p className="text-xs text-slate-600 max-w-sm mx-auto">
-              Por regla inmutable de seguridad y cuadre financiero, no puedes procesar ventas en mostrador sin antes abrir tu turno de caja.
+              Por regla inmutable de seguridad y cuadre financiero, no puedes procesar ventas en mostrador sin antes abrir la caja de {user?.sucursal?.nombre || 'la sucursal'}.
             </p>
           </div>
 
           <Link href="/caja">
             <Button className="w-full mt-2">
               <Unlock className="mr-2 h-4 w-4" />
-              Abrir Turno de Caja Ahora
+              Abrir Caja Ahora
             </Button>
           </Link>
         </Card>
@@ -690,7 +696,14 @@ export default function PosPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Punto de Venta (POS Mostrador)
             </h1>
-            <Badge variant="success">Turno #{sessionData.caja.id} Activo</Badge>
+            <Badge variant="success" className="gap-1.5 font-medium">
+              <Building2 className="h-3 w-3" />
+              {formatNombreCaja(
+                sessionData.caja.fechaApertura,
+                sessionData.caja.sucursal?.nombre || user?.sucursal?.nombre,
+                'badge'
+              )}
+            </Badge>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Escanear IMEI o seleccionar lotes de accesorios con cobro en efectivo o QR Corporativo BCP.
@@ -701,7 +714,11 @@ export default function PosPage() {
           <Button variant="outline" size="sm" className="text-xs">
             {isAdmin
               ? `Ver Balance de Caja (Bs ${sessionData.resumenFinanciero?.saldoEfectivoEnCaja?.toFixed(2)})`
-              : `Ver Turno de Caja (#${sessionData.caja.id})`}
+              : `Ver ${formatNombreCaja(
+                  sessionData.caja.fechaApertura,
+                  sessionData.caja.sucursal?.nombre || user?.sucursal?.nombre,
+                  'compact'
+                )}`}
           </Button>
         </Link>
       </div>
@@ -788,12 +805,14 @@ export default function PosPage() {
                           </div>
                           <p className="text-[11px] text-slate-500 mt-0.5">
                             {d.variante?.color} •{' '}
-                            {d.variante?.capacidadGb >= 1024
-                              ? `${d.variante?.capacidadGb / 1024}TB`
-                              : `${d.variante?.capacidadGb}GB`}
+                            {d.variante?.capacidadGb > 0
+                              ? d.variante?.capacidadGb >= 1024
+                                ? `${d.variante?.capacidadGb / 1024}TB`
+                                : `${d.variante?.capacidadGb}GB`
+                              : '0 GB'}
                           </p>
                           <p className="font-mono text-[10px] text-slate-600 mt-1 truncate">
-                            IMEI: {d.imei1}
+                            {d.imei1 ? `IMEI: ${d.imei1}` : `S/N: ${d.numeroSerie}`}
                           </p>
                         </div>
 
@@ -931,11 +950,15 @@ export default function PosPage() {
                         <p className="text-[10px] text-slate-500 truncate">
                           {item.subtitulo}
                         </p>
-                        {item.imei && (
+                        {item.imei ? (
                           <p className="font-mono text-[9px] text-slate-600 font-medium">
                             IMEI: {item.imei}
                           </p>
-                        )}
+                        ) : item.serie ? (
+                          <p className="font-mono text-[9px] text-slate-600 font-medium">
+                            S/N: {item.serie}
+                          </p>
+                        ) : null}
                       </div>
 
                       {/* Control de Cantidad accesible para tablet y PC (ID-A11Y-001) */}
@@ -1380,8 +1403,8 @@ export default function PosPage() {
                           : det.loteAccesorio?.accesorio?.nombre}
                       </p>
                       {det.dispositivo && (
-                        <p className="text-[9px] text-slate-500">
-                          IMEI: {det.dispositivo.imei1}
+                        <p className="text-[9px] text-slate-500 font-mono">
+                          {det.dispositivo.imei1 ? `IMEI: ${det.dispositivo.imei1}` : `S/N: ${det.dispositivo.numeroSerie}`}
                         </p>
                       )}
                     </div>
