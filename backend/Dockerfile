@@ -42,5 +42,5 @@ ENV NODE_ENV=production
 # Render asigna dinámicamente PORT (por defecto 10000 o 4000)
 EXPOSE 4000 10000
 
-# En el arranque de producción: sincronizar esquema en PostgreSQL y arrancar servidor compilado
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main.js"]
+# En el arranque de producción: aplicar migraciones deterministas en PostgreSQL y arrancar servidor compilado
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
