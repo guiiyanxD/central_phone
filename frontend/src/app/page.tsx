@@ -225,7 +225,7 @@ export default function WelcomeHubPage() {
               <div className="h-11 w-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
                 <Receipt className="h-5 w-5" />
               </div>
-              <Badge variant="outline">Turno Activo</Badge>
+              <Badge variant="outline">Caja Activa</Badge>
             </div>
             <CardTitle className="text-lg font-semibold text-slate-900">
               Caja Diaria & Arqueo
@@ -242,7 +242,7 @@ export default function WelcomeHubPage() {
               loadingText="Cargando balance..."
               onClick={() => handleLaunchFlow('caja')}
             >
-              <span>Gestionar Turno de Caja</span>
+              <span>Gestionar Caja Diaria</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </CardContent>

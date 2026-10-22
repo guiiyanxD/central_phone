@@ -10,8 +10,12 @@ import {
 } from '@nestjs/common';
 import { RecepcionService } from './recepcion.service';
 import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
+import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RolUsuario } from '@prisma/client';
 
 @Controller('recepcion')
 @UseGuards(JwtAuthGuard)
@@ -27,18 +31,22 @@ export class RecepcionController {
   }
 
   @Get('notas-ingreso')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
   async findAll(
-    @Query('sucursalId') sucursalId?: string,
-    @Query('proveedorId') proveedorId?: string,
+    @Query() query: QueryNotasIngresoDto,
+    @CurrentUser('rol') userRole?: string,
   ) {
-    return this.recepcionService.findAll(
-      sucursalId ? parseInt(sucursalId, 10) : undefined,
-      proveedorId ? parseInt(proveedorId, 10) : undefined,
-    );
+    return this.recepcionService.findAll(query, userRole);
   }
 
   @Get('notas-ingreso/:id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.recepcionService.findOne(id);
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('rol') userRole?: string,
+  ) {
+    return this.recepcionService.findOne(id, userRole);
   }
 }
