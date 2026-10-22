@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SucursalesModule } from './sucursales/sucursales.module';
@@ -10,6 +11,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { RecepcionModule } from './recepcion/recepcion.module';
 import { CajaModule } from './caja/caja.module';
 import { VentasModule } from './ventas/ventas.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -17,7 +19,14 @@ import { VentasModule } from './ventas/ventas.module';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
     PrismaModule,
+    HealthModule,
     AuthModule,
     SucursalesModule,
     ConfiguracionModule,
