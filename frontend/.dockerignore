@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env*
+e2e
+playwright-report
+test-results
+*.spec.ts
+*.test.ts
+*.spec.tsx
+*.test.tsx
+coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

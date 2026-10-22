@@ -42,7 +42,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build -- --no-lint
+RUN NODE_OPTIONS="--max-old-space-size=400" npm run build -- --no-lint
 
 # ------------------------------------------
 # STAGE 4: PRODUCCIÓN (RUNNER ULTRA-LIGERO)

@@ -88,3 +88,32 @@ export function playSaleSuccessSound() {
     // Silencioso en caso de bloqueo de permisos
   }
 }
+
+/**
+ * Tono grave disonante de escaneo fallido o producto no encontrado / duplicado.
+ * Emula la retroalimentación de error de terminales de escaneo profesionales (onda sierra 220Hz -> 160Hz).
+ */
+export function playScanErrorSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(150, ctx.currentTime + 0.16);
+
+    gain.gain.setValueAtTime(0.14, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.17);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.18);
+  } catch {
+    // Silencioso en caso de bloqueo de permisos
+  }
+}

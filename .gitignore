@@ -53,3 +53,16 @@ e2e/.auth/
 frontend/playwright-report/
 frontend/test-results/
 frontend/e2e/.auth/
+
+# Documentación privada y requerimientos de negocio
+docs/
+DESIGN.md
+PRODUCT.md
+
+# Agentes de IA y auditorías locales
+.agents/
+.impeccable/
+
+# Scripts auxiliares de desarrollo local
+scripts/
+

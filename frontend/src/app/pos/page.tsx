@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { playScanBeep, playSaleSuccessSound } from '@/lib/sound';
+import { playScanBeep, playSaleSuccessSound, playScanErrorSound } from '@/lib/sound';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 
 import { CartItem } from '@/features/pos/types';
@@ -53,9 +53,10 @@ export default function PosPage() {
   const [clienteCiNit, setClienteCiNit] = useState('');
 
   // Método de pago y checkout
-  const [metodoPagoCodigo, setMetodoPagoCodigo] = useState<'EFECTIVO' | 'QR_SIMPLE' | 'TRANSFERENCIA'>('EFECTIVO');
+  const [metodoPagoCodigo, setMetodoPagoCodigo] = useState<'EFECTIVO' | 'QR_SIMPLE' | 'TRANSFERENCIA' | 'MIXTO'>('EFECTIVO');
   const [comprobanteRef, setComprobanteRef] = useState('');
   const [montoRecibidoBs, setMontoRecibidoBs] = useState<number | ''>('');
+  const [montoEfectivoMixtoBs, setMontoEfectivoMixtoBs] = useState<number | ''>('');
   const [isSubmittingSale, setIsSubmittingSale] = useState(false);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [priceWarning, setPriceWarning] = useState<string | null>(null);
@@ -128,6 +129,9 @@ export default function PosPage() {
         e.preventDefault();
         setMetodoPagoCodigo('QR_SIMPLE');
         setModalQrOpen(true);
+      } else if (e.key === 'F12' || (e.ctrlKey && e.key === 'Enter')) {
+        e.preventDefault();
+        handleProcessCheckout();
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
         if (lastRemovedItem) {
           e.preventDefault();
@@ -142,7 +146,12 @@ export default function PosPage() {
 
   // Manejadores de Carrito
   const handleAddPhoneToCart = (disp: any) => {
-    if (cart.some((item) => item.dispositivoId === disp.id)) return;
+    if (cart.some((item) => item.dispositivoId === disp.id)) {
+      playScanErrorSound();
+      setScanFeedback(`El equipo ${disp.variante?.modelo?.nombreModelo} (${disp.imei1 || disp.numeroSerie}) ya está en el ticket.`);
+      setTimeout(() => setScanFeedback(null), 3000);
+      return;
+    }
     const precioSugerido = getPhoneDisplayPrice(disp);
 
     const newItem: CartItem = {
@@ -315,11 +324,16 @@ export default function PosPage() {
 
       if (match) {
         if (cart.some((i) => i.dispositivoId === match.id)) {
+          playScanErrorSound();
           setScanFeedback(`El equipo (${match.imei1 || match.numeroSerie}) ya está en el ticket.`);
         } else {
           handleAddPhoneToCart(match);
           setScanFeedback(`✓ Escaneado: ${match.variante?.modelo?.nombreModelo} (${match.imei1 || match.numeroSerie})`);
         }
+        setTimeout(() => setScanFeedback(null), 3000);
+      } else {
+        playScanErrorSound();
+        setScanFeedback(`No se encontró el equipo con código: ${scannedCode}`);
         setTimeout(() => setScanFeedback(null), 3000);
       }
     },
@@ -342,6 +356,7 @@ export default function PosPage() {
 
       if (exactMatch) {
         if (cart.some((i) => i.dispositivoId === exactMatch.id)) {
+          playScanErrorSound();
           setScanFeedback(`El equipo (${exactMatch.imei1 || exactMatch.numeroSerie}) ya está en el ticket.`);
         } else {
           handleAddPhoneToCart(exactMatch);
@@ -355,6 +370,7 @@ export default function PosPage() {
       if (filteredPhones.length === 1) {
         const single = filteredPhones[0];
         if (cart.some((i) => i.dispositivoId === single.id)) {
+          playScanErrorSound();
           setScanFeedback(`El equipo ya está en el ticket.`);
         } else {
           handleAddPhoneToCart(single);
@@ -362,6 +378,11 @@ export default function PosPage() {
           setSearchPhone('');
         }
         setTimeout(() => setScanFeedback(null), 3000);
+        return;
+      }
+
+      if (filteredPhones.length === 0) {
+        playScanErrorSound();
       }
     }
   };
@@ -394,12 +415,44 @@ export default function PosPage() {
       return;
     }
 
+    if (metodoPagoCodigo === 'MIXTO') {
+      if (!montoEfectivoMixtoBs || Number(montoEfectivoMixtoBs) <= 0) {
+        setSaleError('En pago mixto, debes ingresar el monto de anticipo en efectivo recibido.');
+        return;
+      }
+      if (Number(montoEfectivoMixtoBs) >= totalBs) {
+        setSaleError('En pago mixto, el anticipo en efectivo debe ser menor al total (usa Efectivo puro).');
+        return;
+      }
+      if (!comprobanteRef || comprobanteRef.trim().length === 0) {
+        setSaleError('En pago mixto, es obligatorio ingresar el número de comprobante QR del saldo.');
+        return;
+      }
+    }
+
+    if (
+      metodoPagoCodigo === 'EFECTIVO' &&
+      typeof montoRecibidoBs === 'number' &&
+      montoRecibidoBs > 0 &&
+      montoRecibidoBs < totalBs
+    ) {
+      setSaleError(`El efectivo entregado (Bs ${montoRecibidoBs}) es menor al total a cobrar (Bs ${totalBs.toFixed(2)}).`);
+      return;
+    }
+
     setIsSubmittingSale(true);
 
     try {
+      const refText =
+        metodoPagoCodigo === 'MIXTO'
+          ? `MIXTO: Ef. Bs ${Number(montoEfectivoMixtoBs).toFixed(2)} + QR Bs ${(totalBs - Number(montoEfectivoMixtoBs)).toFixed(2)} [Ref: ${comprobanteRef.trim()}]`
+          : comprobanteRef.trim() || undefined;
+
+      const backendMetodoPago = metodoPagoCodigo === 'MIXTO' ? 'QR_SIMPLE' : metodoPagoCodigo;
+
       const payload = {
-        metodoPagoCodigo,
-        comprobanteReferencia: comprobanteRef.trim() || undefined,
+        metodoPagoCodigo: backendMetodoPago,
+        comprobanteReferencia: refText,
         cliente: {
           nombreCompleto: clienteNombre.trim(),
           telefono: clienteTelefono.trim(),
@@ -429,6 +482,8 @@ export default function PosPage() {
       setClienteCiNit('');
       setComprobanteRef('');
       setMontoRecibidoBs('');
+      setMontoEfectivoMixtoBs('');
+      setModalQrOpen(false);
       await silentRefresh();
     } catch (err: any) {
       setSaleError(err.message || 'Error al procesar la venta.');
@@ -524,8 +579,8 @@ export default function PosPage() {
           )}
         </div>
 
-        {/* PANEL DERECHO: CARRITO & CHECKOUT (5 COLUMNAS) */}
-        <div className="md:col-span-5">
+        {/* PANEL DERECHO: CARRITO & CHECKOUT (5 COLUMNAS - STICKY EN DESKTOP) */}
+        <div className="md:col-span-5 md:sticky md:top-4 md:self-start">
           <PosCartPanel
             cart={cart}
             totalBs={totalBs}
@@ -545,6 +600,8 @@ export default function PosPage() {
             setMetodoPagoCodigo={setMetodoPagoCodigo}
             montoRecibidoBs={montoRecibidoBs}
             setMontoRecibidoBs={setMontoRecibidoBs}
+            montoEfectivoMixtoBs={montoEfectivoMixtoBs}
+            setMontoEfectivoMixtoBs={setMontoEfectivoMixtoBs}
             comprobanteRef={comprobanteRef}
             setComprobanteRef={setComprobanteRef}
             configuracion={configuracion}
@@ -556,12 +613,25 @@ export default function PosPage() {
         </div>
       </div>
 
-      {/* Modal QR Oficial */}
+      {/* Modal QR Oficial con Split Projection Mode */}
       <ModalQrOficial
         isOpen={modalQrOpen}
         onClose={() => setModalQrOpen(false)}
         configuracion={configuracion}
         totalBs={totalBs}
+        cart={cart}
+        clienteNombre={clienteNombre}
+        comprobanteRef={comprobanteRef}
+        setComprobanteRef={setComprobanteRef}
+        isMixto={metodoPagoCodigo === 'MIXTO'}
+        montoEfectivoMixtoBs={montoEfectivoMixtoBs}
+        saldoQrBs={
+          metodoPagoCodigo === 'MIXTO' && typeof montoEfectivoMixtoBs === 'number'
+            ? Math.max(0, totalBs - montoEfectivoMixtoBs)
+            : totalBs
+        }
+        isSubmittingSale={isSubmittingSale}
+        onConfirmCheckout={handleProcessCheckout}
       />
 
       {/* Modal Ticket de Venta */}

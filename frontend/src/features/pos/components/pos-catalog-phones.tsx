@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CartItem } from '../types';
+import { getImeiTerminalParts } from '../utils/formatters';
 
 interface PosCatalogPhonesProps {
   searchPhone: string;
@@ -82,7 +83,14 @@ export function PosCatalogPhones({
                     <span className="font-bold text-slate-900">
                       {d.variante?.modelo?.nombreModelo}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 rounded">
+                    <span
+                      className={cn(
+                        'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
+                        d.condicion === 'NUEVO'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-slate-100 text-slate-800 border-slate-200'
+                      )}
+                    >
                       {d.condicion}
                     </span>
                   </div>
@@ -94,9 +102,27 @@ export function PosCatalogPhones({
                         : `${d.variante?.capacidadGb}GB`
                       : '0 GB'}
                   </p>
-                  <p className="font-mono text-[10px] text-slate-600 mt-1 truncate">
-                    {d.imei1 ? `IMEI: ${d.imei1}` : `S/N: ${d.numeroSerie}`}
-                  </p>
+                  <div className="mt-1.5 flex items-center gap-1 font-mono text-[10px] text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 w-fit select-all">
+                    {d.imei1 ? (
+                      (() => {
+                        const { prefix, terminal } = getImeiTerminalParts(d.imei1);
+                        return (
+                          <span>
+                            <span className="text-slate-400 font-sans text-[9px] mr-1">IMEI</span>
+                            <span className="text-slate-600">{prefix}</span>
+                            <strong className="font-bold text-slate-900 bg-white px-1 py-0.5 rounded shadow-subtle border border-slate-200">
+                              {terminal}
+                            </strong>
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span>
+                        <span className="text-slate-400 font-sans text-[9px] mr-1">S/N</span>
+                        <strong className="font-bold text-slate-800">{d.numeroSerie}</strong>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">

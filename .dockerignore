@@ -6,3 +6,13 @@ uploads/qr/*.tmp
 dist
 .next
 coverage
+
+# Documentación, reportes y herramientas locales (no necesarios en Docker)
+docs
+.agents
+.impeccable
+scripts
+test-results
+playwright-report
+DESIGN.md
+PRODUCT.md
