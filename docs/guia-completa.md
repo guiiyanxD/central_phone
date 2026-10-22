@@ -55,11 +55,11 @@ flowchart TD
 
 ## 2. Estructura de Directorios del Proyecto
 
-Antigravity busca personalizaciones recorriendo desde el directorio actual hacia la raíz del repositorio. Las carpetas estándar admitidas son `.agents/` (estándar plural moderno) o `.agent/` (singular compatible):
+Antigravity busca personalizaciones recorriendo desde el directorio actual hacia la raíz del repositorio. La carpeta canónica oficial es `.agents/`:
 
 ```text
 central_iphone/
-├── .agent/  (o .agents/)
+├── .agents/                        <-- Directorio canónico oficial de Antigravity
 │   ├── agents/                     <-- Subagentes especializados (*.md)
 │   │   ├── audit-accesibilidad.md
 │   │   ├── audit-design-system.md
@@ -68,25 +68,20 @@ central_iphone/
 │   │   └── audit-pos-ergonomia.md
 │   │
 │   ├── skills/                     <-- Skills / Slash Commands (Estándar Antigravity)
-│   │   └── auditoria-ux/
-│   │       ├── SKILL.md            <-- Define el slash command /auditoria-ux
-│   │       ├── scripts/            <-- (Opcional) Scripts auxiliares (.sh, .cmd, .py)
-│   │       └── references/         <-- (Opcional) Documentación extendida
+│   │   ├── auditoria-ux/
+│   │   │   └── SKILL.md            <-- Define el slash command /auditoria-ux
+│   │   │
+│   │   └── security-audit/         <-- Skill de auditoría de seguridad y validadores
+│   │       ├── SKILL.md
+│   │       └── validate-*.cjs
 │   │
-│   ├── workflows/                  <-- Workflows Markdown (Compatibilidad legacy)
-│   │   └── auditoria-ux.md
-│   │
-│   └── rules/                      <-- Reglas modulares por contexto (*.md)
-│
-├── .gemini/
-│   └── commands/                   <-- Comandos TOML (Exclusivo para Gemini CLI)
-│       └── auditoria-ux.toml
+│   └── rules/                      <-- (Opcional) Reglas modulares por contexto (*.md)
 │
 └── GEMINI.md                       <-- Reglas inmutables globales del proyecto
 ```
 
-> [!CAUTION]
-> **Error Común Detectado**: Colocar archivos `.toml` dentro de `.agent/commands/` **NO funciona**. Antigravity no indexa carpetas `commands/` dentro de `.agent/`, y Gemini CLI solo busca archivos `.toml` dentro de `.gemini/commands/`.
+> [!NOTE]
+> **Consolidación Canónica**: La carpeta canónica del proyecto es `.agents/` (plural). Se eliminaron las carpetas redundantes `.agent/` (alias legacy), `.gemini/` (reservada para el perfil de usuario global `~/.gemini`), así como los formatos obsoletos `commands/*.toml` y `workflows/*.md` en favor de los `SKILL.md` nativos.
 
 ---
 
@@ -94,11 +89,9 @@ central_iphone/
 
 | Tipo | Dónde se define | Cómo se invoca | Para qué se usa |
 | :--- | :--- | :--- | :--- |
-| **Subagente** | `.agent/agents/<nombre>.md` | Por el modelo con `invoke_subagent`, en terminal con `agy --agent <nombre>`, o en chat con `@<nombre>` | Tareas especializadas en contexto aislado (auditorías, generación de imágenes, tests). |
-| **Skill (Slash Command)** | `.agent/skills/<nombre>/SKILL.md` o `.agents/skills/...` | El usuario escribe `/<nombre>` en el chat / CLI | Procedimientos paso a paso, orquestación de tareas complejas, runbooks. Registra automáticamente el slash command `/<nombre>`. |
-| **Workflow** | `.agent/workflows/<nombre>.md` | El usuario escribe `/<nombre>` | Secuencia de pasos legacy en markdown monolítico. En Antigravity se recomienda migrar a Skills. |
-| **Comando Gemini CLI** | `.gemini/commands/<nombre>.toml` | El usuario escribe `/<nombre>` en Gemini CLI | Comandos de prompt personalizados nativos de la CLI de Gemini tradicional. |
-| **Regla** | `GEMINI.md` o `.agent/rules/*.md` | Automático por contexto o siempre activa | Restricciones arquitectónicas, estilo de código y directrices de seguridad inmutables. |
+| **Subagente** | `.agents/agents/<nombre>.md` | Por el modelo con `invoke_subagent`, en terminal con `agy --agent <nombre>`, o en chat con `@<nombre>` | Tareas especializadas en contexto aislado (auditorías, generación de imágenes, tests). |
+| **Skill (Slash Command)** | `.agents/skills/<nombre>/SKILL.md` | El usuario escribe `/<nombre>` en el chat / CLI | Procedimientos paso a paso, orquestación de tareas complejas, runbooks. Registra automáticamente el slash command `/<nombre>`. |
+| **Regla** | `GEMINI.md` o `.agents/rules/*.md` | Automático por contexto o siempre activa | Restricciones arquitectónicas, estilo de código y directrices de seguridad inmutables. |
 
 ---
 
@@ -107,7 +100,7 @@ central_iphone/
 Los subagentes son mini-agentes independientes con su propio System Prompt, configuración de temperatura y lista restringida de herramientas.
 
 ### Paso 4.1: Crear el archivo
-Crea el archivo `.agent/agents/<nombre-subagente>.md`. El nombre del archivo (sin la extensión `.md`) será el identificador único del agente.
+Crea el archivo `.agents/agents/<nombre-subagente>.md`. El nombre del archivo (sin la extensión `.md`) será el identificador único del agente.
 
 ### Paso 4.2: Definir el Frontmatter YAML y el System Prompt
 El archivo debe comenzar obligatoriamente con un bloque YAML delimitado por `---`:
@@ -241,18 +234,18 @@ Actúa como Lead UX Auditor de esta sesión. Alcance de la auditoría indicado p
 
 | Síntoma | Causa Raíz | Solución |
 | :--- | :--- | :--- |
-| Escribo `/mi-comando` y no aparece en la lista de autocompletado. | El archivo se colocó en `.agent/commands/` o tiene sintaxis YAML rota en el frontmatter. | Mover a `.agent/skills/<nombre>/SKILL.md` o verificar que el frontmatter contenga `name` y `description` válidos. |
+| Escribo `/mi-comando` y no aparece en la lista de autocompletado. | El archivo no tiene sintaxis YAML válida en el frontmatter. | Colocar en `.agents/skills/<nombre>/SKILL.md` y verificar que el frontmatter contenga `name` y `description` válidos. |
 | El comando recién creado no aparece de inmediato. | El índice de autocompletado de la sesión en curso está en caché. | Recargar ventana de VS Code (`Ctrl+Shift+P` → *Developer: Reload Window*) o abrir una nueva conversación. |
-| Ejecuto `agy agents` y mi subagente no figura. | Falta `name:` en el frontmatter o el archivo no tiene extensión `.md` dentro de `.agent/agents/`. | Verificar que el archivo esté en `.agent/agents/<nombre>.md` y contenga `name: <nombre>`. |
+| Ejecuto `agy agents` y mi subagente no figura. | Falta `name:` en el frontmatter o el archivo no tiene extensión `.md` dentro de `.agents/agents/`. | Verificar que el archivo esté en `.agents/agents/<nombre>.md` y contenga `name: <nombre>`. |
 | Un subagente dice que no puede llamar a otro subagente. | Restricción por diseño de sandboxing. | Los subagentes no deben coordinar; la coordinación debe hacerse desde la sesión principal mediante un Skill o Comando. |
-| Los argumentos después del `/comando` no se leen. | Discrepancia de sintaxis en el archivo. | Usar `$ARGUMENTS` en archivos `SKILL.md` o `{{args}}` en archivos `.toml`. |
+| Los argumentos después del `/comando` no se leen. | Discrepancia de sintaxis en el archivo. | Usar `$ARGUMENTS` en archivos `SKILL.md`. |
 
 ---
 
 ## 9. Plantillas Rápidas (Boilerplates)
 
 ### Plantilla A: Nuevo Subagente Especialista
-**Archivo:** `.agent/agents/nuevo-especialista.md`
+**Archivo:** `.agents/agents/nuevo-especialista.md`
 ```markdown
 ---
 name: nuevo-especialista
@@ -282,7 +275,7 @@ Para cada problema encontrado, proporciona:
 ```
 
 ### Plantilla B: Nuevo Slash Command (Skill de Antigravity)
-**Archivo:** `.agent/skills/nuevo-comando/SKILL.md`
+**Archivo:** `.agents/skills/nuevo-comando/SKILL.md`
 ```markdown
 ---
 name: nuevo-comando
@@ -297,18 +290,4 @@ Objetivo del usuario: $ARGUMENTS
 1. Inspeccionar el estado de los archivos relevantes.
 2. Ejecutar las validaciones necesarias.
 3. Presentar un resumen estructurado al usuario.
-```
-
-### Plantilla C: Comando para Gemini CLI
-**Archivo:** `.gemini/commands/nuevo-comando.toml`
-```toml
-description = "Ejecuta una rutina de [descripción de la tarea]"
-prompt = '''
-Objetivo del usuario: {{args}}
-
-Sigue estos pasos para completar la tarea:
-1. Inspeccionar el estado de los archivos relevantes.
-2. Ejecutar las validaciones necesarias.
-3. Presentar un resumen estructurado al usuario.
-'''
 ```
