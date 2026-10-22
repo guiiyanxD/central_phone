@@ -12,5 +12,7 @@ export const createPrismaMock = (): any => {
     }
     return callback;
   });
+  mock.dispositivo.updateMany.mockResolvedValue({ count: 1 } as any);
+  mock.loteAccesorio.updateMany.mockResolvedValue({ count: 1 } as any);
   return mock;
 };

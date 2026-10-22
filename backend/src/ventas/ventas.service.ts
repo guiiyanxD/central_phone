@@ -10,10 +10,15 @@ import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
 import { EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
+import { VentaResponseMapper } from './mappers/venta-response.mapper';
+import { PaymentStrategyRegistry } from './strategies';
 
 @Injectable()
 export class VentasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentRegistry: PaymentStrategyRegistry,
+  ) {}
 
   // 1. Procesar Venta en Mostrador POS (US14, US15 con Transacción ACID e Invariantes)
   async createVenta(
@@ -100,22 +105,32 @@ export class VentasService {
       );
     }
 
-    const esPagoDigital =
-      dto.metodoPagoCodigo === 'QR_SIMPLE' ||
-      dto.metodoPagoCodigo === 'QR_ESTATICO' ||
-      dto.metodoPagoCodigo === 'TRANSFERENCIA';
-
-    if (
-      esPagoDigital &&
-      (!dto.comprobanteReferencia || dto.comprobanteReferencia.trim().length === 0)
-    ) {
-      throw new BadRequestException(
-        'Para cobros mediante QR Oficial o Transferencia Bancaria, es obligatorio registrar el número de comprobante o referencia bancaria.'
-      );
+    // Regla Inmutable 5 y OCP: Validación desacoplada mediante PaymentStrategyRegistry
+    const paymentValidation = this.paymentRegistry.validatePayment(
+      dto.metodoPagoCodigo,
+      dto,
+    );
+    if (!paymentValidation.isValid) {
+      throw new BadRequestException(paymentValidation.errorMessage);
     }
 
     // Ejecutar Transacción ACID
     return this.prisma.$transaction(async (tx) => {
+      // Regla Inmutable 7 (Protección ACID/TOCTOU): Verificar que la caja siga ABIERTA dentro de la transacción
+      const cajaTransaccional = await tx.cajaDiaria.findFirst({
+        where: {
+          id: cajaId,
+          sucursalId,
+          estado: EstadoCaja.ABIERTA,
+        },
+      });
+
+      if (!cajaTransaccional) {
+        throw new ConflictException(
+          'La sesión de caja fue cerrada o no está activa en esta sucursal al momento de confirmar la venta.',
+        );
+      }
+
       // 1. Cliente (Registro o vinculación obligatoria para trazabilidad)
       let cliente = await tx.cliente.findFirst({
         where: { telefono: dto.cliente.telefono.trim() },
@@ -192,11 +207,20 @@ export class VentasService {
           );
         }
 
-        // Marcar dispositivo como VENDIDO
-        await tx.dispositivo.update({
-          where: { id: disp.id },
+        // Marcar dispositivo como VENDIDO de forma atómica y condicional (ACID-003)
+        const updatedDisp = await tx.dispositivo.updateMany({
+          where: {
+            id: disp.id,
+            estadoInventario: EstadoInventario.DISPONIBLE,
+          },
           data: { estadoInventario: EstadoInventario.VENDIDO },
         });
+
+        if (updatedDisp.count === 0) {
+          throw new ConflictException(
+            `El equipo '${disp.variante.modelo.nombreModelo}' (IMEI: ${disp.imei1}) acaba de ser vendido o reservado por otra terminal concurrente.`,
+          );
+        }
 
         const subtotal = roundMoney(precioUnitarioBs);
         totalVentaBs = roundMoney(totalVentaBs + subtotal);
@@ -248,13 +272,24 @@ export class VentasService {
           );
         }
 
-        // Descontar inventario del lote
-        await tx.loteAccesorio.update({
-          where: { id: lote.id },
+        // Descontar inventario del lote de forma atómica en SQL (Cero Read-Modify-Write / ACID-002)
+        const updatedLote = await tx.loteAccesorio.updateMany({
+          where: {
+            id: lote.id,
+            stockActual: { gte: item.cantidad },
+          },
           data: {
-            stockActual: lote.stockActual - item.cantidad,
+            stockActual: {
+              decrement: item.cantidad,
+            },
           },
         });
+
+        if (updatedLote.count === 0) {
+          throw new ConflictException(
+            `Stock insuficiente para el accesorio '${lote.accesorio.nombre}' [${lote.nombreDiferenciador}]. Fue agotado por otra terminal concurrente.`,
+          );
+        }
 
         const subtotal = roundMoney(precioUnitarioBs * item.cantidad);
         totalVentaBs = roundMoney(totalVentaBs + subtotal);
@@ -425,33 +460,8 @@ export class VentasService {
       take: 50,
     });
 
-    // Calcular ganancia neta en 3FN: subtotal_bs - (costo_unitario_bs * cantidad)
-    return ventas.map((v) => {
-      let costoTotalBs = 0;
-      for (const d of v.detalles) {
-        costoTotalBs += Number(d.costoUnitarioBs) * d.cantidad;
-      }
-      const totalVentaBs = Number(v.totalVentaBs);
-      const gananciaNetaBs = totalVentaBs - costoTotalBs;
-
-      // Confidencialidad Financiera RBAC (CENTRALPHONE-CONF-001):
-      if (userRole !== 'ADMIN') {
-        const { detalles, ...restoVenta } = v;
-        const safeDetalles = detalles.map(
-          ({ costoUnitarioBs, ...restoDetalle }) => restoDetalle,
-        );
-        return {
-          ...restoVenta,
-          detalles: safeDetalles,
-        };
-      }
-
-      return {
-        ...v,
-        costoTotalBs: roundMoney(costoTotalBs),
-        gananciaNetaBs: roundMoney(gananciaNetaBs),
-      };
-    });
+    // Calcular ganancia neta en 3FN y aplicar confidencialidad RBAC (CENTRALPHONE-CONF-001)
+    return VentaResponseMapper.toManyResponse(ventas, userRole);
   }
 
   // 4. Reporte Financiero de Rentabilidad Neta Consolidada (US17)
@@ -664,29 +674,8 @@ export class VentasService {
       throw new NotFoundException(`La venta con ID ${id} no existe.`);
     }
 
-    // Confidencialidad Financiera RBAC (CENTRALPHONE-CONF-001):
-    if (userRole !== 'ADMIN') {
-      const { detalles, ...restoVenta } = venta;
-      const safeDetalles = detalles.map(
-        ({ costoUnitarioBs, ...restoDetalle }) => restoDetalle,
-      );
-      return {
-        ...restoVenta,
-        detalles: safeDetalles,
-      };
-    }
-
-    let costoTotalBs = 0;
-    for (const d of venta.detalles) {
-      costoTotalBs += Number(d.costoUnitarioBs) * d.cantidad;
-    }
-    const gananciaNetaBs = Number(venta.totalVentaBs) - costoTotalBs;
-
-    return {
-      ...venta,
-      costoTotalBs: roundMoney(costoTotalBs),
-      gananciaNetaBs: roundMoney(gananciaNetaBs),
-    };
+    // Confidencialidad Financiera RBAC (CENTRALPHONE-CONF-001) y cálculo en 3FN
+    return VentaResponseMapper.toResponse(venta, userRole);
   }
 
   // 4. Métodos de Pago Activos

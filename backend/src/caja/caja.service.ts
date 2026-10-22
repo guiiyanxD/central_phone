@@ -10,12 +10,16 @@ import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { CerrarCajaDto } from './dto/cerrar-caja.dto';
 import { RegistrarGastoDto } from './dto/registrar-gasto.dto';
 import { QueryHistorialDto } from './dto/query-historial.dto';
-import { EstadoCaja } from '@prisma/client';
+import { EstadoCaja, Prisma } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
+import { PaymentStrategyRegistry } from '../ventas/strategies';
 
 @Injectable()
 export class CajaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentRegistry: PaymentStrategyRegistry,
+  ) {}
 
   // 1. Obtener la sesión de caja actualmente ABIERTA de la sucursal
   async getSesionActiva(sucursalId?: number) {
@@ -80,7 +84,7 @@ export class CajaService {
     for (const v of caja.ventas) {
       if (v.estado === 'ANULADA') continue;
       const monto = Number(v.totalVentaBs) || 0;
-      if (v.metodoPago.codigo === 'EFECTIVO') {
+      if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
         totalVentasEfectivo = roundMoney(totalVentasEfectivo + monto);
       } else {
         totalVentasDigitales = roundMoney(totalVentasDigitales + monto);
@@ -92,7 +96,7 @@ export class CajaService {
 
     for (const g of caja.gastosOperativos) {
       const monto = Number(g.montoBs) || 0;
-      if (g.metodoPago.codigo === 'EFECTIVO') {
+      if (this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo)) {
         totalGastosEfectivo = roundMoney(totalGastosEfectivo + monto);
       } else {
         totalGastosOtros = roundMoney(totalGastosOtros + monto);
@@ -153,21 +157,33 @@ export class CajaService {
       );
     }
 
-    return this.prisma.cajaDiaria.create({
-      data: {
-        sucursalId,
-        usuarioAperturaId: usuarioId,
-        montoInicialEfectivo: dto.montoInicialEfectivo,
-        estado: EstadoCaja.ABIERTA,
-        observaciones: dto.observaciones,
-      },
-      include: {
-        sucursal: true,
-        usuarioApertura: {
-          select: { id: true, nombre: true, email: true },
+    try {
+      return await this.prisma.cajaDiaria.create({
+        data: {
+          sucursalId,
+          usuarioAperturaId: usuarioId,
+          montoInicialEfectivo: dto.montoInicialEfectivo,
+          estado: EstadoCaja.ABIERTA,
+          observaciones: dto.observaciones,
         },
-      },
-    });
+        include: {
+          sucursal: true,
+          usuarioApertura: {
+            select: { id: true, nombre: true, email: true },
+          },
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Ya existe una caja ABIERTA en esta sucursal (detectada condición de carrera en la base de datos). Todos los vendedores de esta tienda deben operar sobre ella.',
+        );
+      }
+      throw error;
+    }
   }
 
   // 3. Cierre de caja con Arqueo Físico a Ciegas (US12)
@@ -207,13 +223,13 @@ export class CajaService {
     const montoInicial = roundMoney(caja.montoInicialEfectivo);
     const ventasEfectivo = roundMoney(
       caja.ventas
-        .filter((v) => v.estado !== 'ANULADA' && v.metodoPago.codigo === 'EFECTIVO')
+        .filter((v) => v.estado !== 'ANULADA' && this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo))
         .reduce((sum, v) => sum + Number(v.totalVentaBs), 0)
     );
 
     const gastosEfectivo = roundMoney(
       caja.gastosOperativos
-        .filter((g) => g.metodoPago.codigo === 'EFECTIVO')
+        .filter((g) => this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
         .reduce((sum, g) => sum + Number(g.montoBs), 0)
     );
 
@@ -299,15 +315,15 @@ export class CajaService {
       where: { id: metodoPagoId },
     });
 
-    // Control de saldo suficiente si es gasto en efectivo (US13)
-    if (metodoPago?.codigo === 'EFECTIVO') {
+    // Control de saldo suficiente si es gasto en método que afecta arqueo en caja (US13)
+    if (this.paymentRegistry.impactsCashDrawer(metodoPago?.codigo || '')) {
       const montoInicial = Number(caja.montoInicialEfectivo) || 0;
       const ventasEfectivo = caja.ventas
-        .filter((v) => v.metodoPago.codigo === 'EFECTIVO')
+        .filter((v) => v.metodoPago.codigo === 'EFECTIVO' || this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo))
         .reduce((sum, v) => sum + Number(v.totalVentaBs), 0);
 
       const gastosEfectivo = caja.gastosOperativos
-        .filter((g) => g.metodoPago.codigo === 'EFECTIVO')
+        .filter((g) => g.metodoPago.codigo === 'EFECTIVO' || this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
         .reduce((sum, g) => sum + Number(g.montoBs), 0);
 
       const saldoDisponible = montoInicial + ventasEfectivo - gastosEfectivo;
@@ -543,7 +559,7 @@ export class CajaService {
       const gananciaNetaBs = roundMoney(totalVentaBs - costoVentaBs);
 
       if (v.estado !== 'ANULADA') {
-        if (v.metodoPago.codigo === 'EFECTIVO') {
+        if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
           totalVentasEfectivo = roundMoney(totalVentasEfectivo + totalVentaBs);
         } else {
           totalVentasDigitales = roundMoney(totalVentasDigitales + totalVentaBs);
@@ -571,7 +587,7 @@ export class CajaService {
 
     for (const g of caja.gastosOperativos) {
       const monto = Number(g.montoBs) || 0;
-      if (g.metodoPago.codigo === 'EFECTIVO') {
+      if (this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo)) {
         totalGastosEfectivo = roundMoney(totalGastosEfectivo + monto);
       } else {
         totalGastosOtros = roundMoney(totalGastosOtros + monto);

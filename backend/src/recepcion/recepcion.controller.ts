@@ -23,6 +23,8 @@ export class RecepcionController {
   constructor(private readonly recepcionService: RecepcionService) {}
 
   @Post('notas-ingreso')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
   async createNotaIngreso(
     @Body() dto: CreateNotaIngresoDto,
     @CurrentUser('id') usuarioId: number,

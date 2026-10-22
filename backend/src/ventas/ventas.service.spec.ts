@@ -9,6 +9,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
+import {
+  CashPaymentStrategy,
+  QrPaymentStrategy,
+  TransferPaymentStrategy,
+  PosCardPaymentStrategy,
+  PaymentStrategyRegistry,
+} from './strategies';
 
 describe('VentasService', () => {
   let service: VentasService;
@@ -23,6 +30,11 @@ describe('VentasService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VentasService,
+        CashPaymentStrategy,
+        QrPaymentStrategy,
+        TransferPaymentStrategy,
+        PosCardPaymentStrategy,
+        PaymentStrategyRegistry,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -338,17 +350,82 @@ describe('VentasService', () => {
         accesorios: [{ loteAccesorioId: 20, cantidad: 1, precioVentaBs: 100 }],
       });
 
-      expect(prisma.dispositivo.update).toHaveBeenCalledWith({
-        where: { id: 10 },
+      expect(prisma.dispositivo.updateMany).toHaveBeenCalledWith({
+        where: { id: 10, estadoInventario: EstadoInventario.DISPONIBLE },
         data: { estadoInventario: EstadoInventario.VENDIDO },
       });
 
-      expect(prisma.loteAccesorio.update).toHaveBeenCalledWith({
-        where: { id: 20 },
-        data: { stockActual: 9 },
+      expect(prisma.loteAccesorio.updateMany).toHaveBeenCalledWith({
+        where: { id: 20, stockActual: { gte: 1 } },
+        data: { stockActual: { decrement: 1 } },
       });
 
       expect(result.id).toBe(101);
+    });
+
+    it('debe lanzar ConflictException si ocurre una colisión concurrente al vender el dispositivo (count = 0)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 1,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 4000,
+        variante: { modelo: { nombreModelo: 'iPhone 15' } },
+      } as any);
+
+      // Simular que otra transacción concurrente ganó y actualizó el estado primero
+      prisma.dispositivo.updateMany.mockResolvedValue({ count: 0 } as any);
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 4500 }],
+        })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar ConflictException si ocurre una colisión concurrente al descontar stock del accesorio (count = 0)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.loteAccesorio.findUnique.mockResolvedValue({
+        id: 20,
+        sucursalId: 1,
+        stockActual: 5,
+        costoUnitarioBs: 30,
+        nombreDiferenciador: 'MagSafe',
+        accesorio: { nombre: 'Funda Pro' },
+      } as any);
+
+      // Simular que otra transacción concurrente agotó el stock primero
+      prisma.loteAccesorio.updateMany.mockResolvedValue({ count: 0 } as any);
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          accesorios: [{ loteAccesorioId: 20, cantidad: 1, precioVentaBs: 100 }],
+        })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar ConflictException si la caja fue cerrada entre la validación inicial y la transacción (TOCTOU)', async () => {
+      // Primera lectura fuera de la transacción ve la caja abierta
+      prisma.cajaDiaria.findFirst
+        .mockResolvedValueOnce({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any)
+        // Segunda lectura dentro de la transacción ve que fue cerrada
+        .mockResolvedValueOnce(null);
+
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 4500 }],
+        })
+      ).rejects.toThrow(ConflictException);
     });
   });
 

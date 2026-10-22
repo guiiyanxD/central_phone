@@ -8,7 +8,14 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoCaja } from '@prisma/client';
+import { EstadoCaja, Prisma } from '@prisma/client';
+import {
+  CashPaymentStrategy,
+  QrPaymentStrategy,
+  TransferPaymentStrategy,
+  PosCardPaymentStrategy,
+  PaymentStrategyRegistry,
+} from '../ventas/strategies';
 
 describe('CajaService', () => {
   let service: CajaService;
@@ -20,6 +27,11 @@ describe('CajaService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CajaService,
+        CashPaymentStrategy,
+        QrPaymentStrategy,
+        TransferPaymentStrategy,
+        PosCardPaymentStrategy,
+        PaymentStrategyRegistry,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -87,6 +99,19 @@ describe('CajaService', () => {
       const res = await service.abrirCaja(1, 1, { sucursalId: 1, montoInicialEfectivo: 150 }, 'VENDEDOR');
       expect(res.id).toBe(12);
       expect(prisma.cajaDiaria.create).toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException si ocurre una colisión concurrente al abrir caja (código P2002)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue(null);
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on idx_cajas_diarias_unica_abierta_sucursal',
+        { code: 'P2002', clientVersion: '5.x' },
+      );
+      prisma.cajaDiaria.create.mockRejectedValue(p2002Error);
+
+      await expect(
+        service.abrirCaja(1, 1, { sucursalId: 1, montoInicialEfectivo: 150 }, 'VENDEDOR')
+      ).rejects.toThrow(ConflictException);
     });
   });
 
