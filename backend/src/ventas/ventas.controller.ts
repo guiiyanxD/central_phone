@@ -48,7 +48,7 @@ export class VentasController {
   // Registrar venta en mostrador POS
   @Post()
   async createVenta(@CurrentUser() user: any, @Body() dto: CreateVentaDto) {
-    return this.ventasService.createVenta(user.id, user.sucursalId, dto);
+    return this.ventasService.createVenta(user.id, user.sucursalId, dto, user.rol);
   }
 
   // Anulación atómica de venta con rollback de stock (US19 - Exclusivo ADMIN)
@@ -63,9 +63,10 @@ export class VentasController {
     return this.ventasService.anularVenta(id, adminId, dto);
   }
 
-  // Listar ventas realizadas con ganancia en 3FN
+  // Listar ventas realizadas con ganancia en 3FN (sanitizado por rol)
   @Get()
   async findAll(
+    @CurrentUser('rol') userRole: string,
     @Query('cajaId') cajaId?: string,
     @Query('sucursalId') sucursalId?: string,
     @Query('estado') estado?: EstadoVenta,
@@ -74,12 +75,16 @@ export class VentasController {
       cajaId ? parseInt(cajaId, 10) : undefined,
       sucursalId ? parseInt(sucursalId, 10) : undefined,
       estado,
+      userRole,
     );
   }
 
-  // Consultar recibo de venta individual
+  // Consultar recibo de venta individual (sanitizado por rol)
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.ventasService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('rol') userRole: string,
+  ) {
+    return this.ventasService.findOne(id, userRole);
   }
 }

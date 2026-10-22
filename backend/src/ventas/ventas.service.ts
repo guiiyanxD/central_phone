@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
@@ -15,34 +16,48 @@ export class VentasService {
   constructor(private readonly prisma: PrismaService) {}
 
   // 1. Procesar Venta en Mostrador POS (US14, US15 con Transacción ACID e Invariantes)
-  async createVenta(usuarioId: number, userSucursalId: number, dto: CreateVentaDto) {
-    const sucursalId = dto.sucursalId || userSucursalId;
-
-    // Regla Inmutable 7: Control Obligatorio de Caja Diaria
-    let cajaId = dto.cajaId;
-    if (!cajaId) {
-      const cajaActiva = await this.prisma.cajaDiaria.findFirst({
-        where: {
-          usuarioAperturaId: usuarioId,
-          sucursalId,
-          estado: EstadoCaja.ABIERTA,
-        },
-      });
-
-      if (!cajaActiva) {
-        throw new BadRequestException(
-          'No es posible procesar ventas sin una sesión de caja ABIERTA en esta sucursal. Por favor, abre tu turno de caja antes de cobrar.'
-        );
-      }
-      cajaId = cajaActiva.id;
-    } else {
-      const caja = await this.prisma.cajaDiaria.findUnique({
-        where: { id: cajaId },
-      });
-      if (!caja || caja.estado !== EstadoCaja.ABIERTA) {
-        throw new BadRequestException('La caja especificada no se encuentra ABIERTA.');
-      }
+  async createVenta(
+    usuarioId: number,
+    userSucursalId: number,
+    dto: CreateVentaDto,
+    userRole?: string,
+  ) {
+    // Regla de Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-006):
+    if (userRole !== 'ADMIN' && dto.sucursalId && dto.sucursalId !== userSucursalId) {
+      throw new ForbiddenException(
+        'Los vendedores no pueden registrar ventas en una sucursal distinta a la suya.',
+      );
     }
+    const sucursalId =
+      userRole === 'ADMIN' && dto.sucursalId ? dto.sucursalId : userSucursalId;
+
+    if (!sucursalId) {
+      throw new BadRequestException(
+        'Debes especificar o tener asignada una sucursal para procesar la venta.',
+      );
+    }
+
+    // Regla Inmutable 7: Control Obligatorio de Caja de la Sucursal
+    const cajaActiva = await this.prisma.cajaDiaria.findFirst({
+      where: {
+        sucursalId,
+        estado: EstadoCaja.ABIERTA,
+      },
+    });
+
+    if (!cajaActiva) {
+      throw new BadRequestException(
+        'No es posible procesar ventas sin una caja ABIERTA en esta sucursal. Por favor, abre la caja de la tienda antes de cobrar.',
+      );
+    }
+
+    if (dto.cajaId && dto.cajaId !== cajaActiva.id) {
+      throw new BadRequestException(
+        'La caja especificada no corresponde a la sesión activa de esta sucursal.',
+      );
+    }
+
+    const cajaId = cajaActiva.id;
 
     const dispositivos = dto.dispositivos || [];
     const accesorios = dto.accesorios || [];
@@ -154,6 +169,13 @@ export class VentasService {
           );
         }
 
+        // Regla de Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-006):
+        if (disp.sucursalId !== sucursalId) {
+          throw new BadRequestException(
+            `El equipo '${disp.variante.modelo.nombreModelo}' (IMEI: ${disp.imei1}) pertenece a otra sucursal y no puede venderse en esta tienda.`,
+          );
+        }
+
         if (disp.estadoInventario !== EstadoInventario.DISPONIBLE) {
           throw new ConflictException(
             `El equipo '${disp.variante.modelo.nombreModelo}' (IMEI: ${disp.imei1}) no está disponible para venta (Estado actual: ${disp.estadoInventario}).`
@@ -200,6 +222,13 @@ export class VentasService {
         if (!lote) {
           throw new NotFoundException(
             `El lote de accesorio con ID ${item.loteAccesorioId} no existe.`
+          );
+        }
+
+        // Regla de Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-006):
+        if (lote.sucursalId !== sucursalId) {
+          throw new BadRequestException(
+            `El lote de accesorio '${lote.accesorio.nombre}' [${lote.nombreDiferenciador}] pertenece a otra sucursal y no puede venderse en esta tienda.`,
           );
         }
 
@@ -357,7 +386,12 @@ export class VentasService {
   }
 
   // 3. Consultar listado de ventas (con cálculo dinámico de ganancia neta en 3FN)
-  async findAll(cajaId?: number, sucursalId?: number, estado?: EstadoVenta) {
+  async findAll(
+    cajaId?: number,
+    sucursalId?: number,
+    estado?: EstadoVenta,
+    userRole?: string,
+  ) {
     const ventas = await this.prisma.venta.findMany({
       where: {
         ...(cajaId ? { cajaId } : {}),
@@ -399,6 +433,18 @@ export class VentasService {
       }
       const totalVentaBs = Number(v.totalVentaBs);
       const gananciaNetaBs = totalVentaBs - costoTotalBs;
+
+      // Confidencialidad Financiera RBAC (CENTRALPHONE-CONF-001):
+      if (userRole !== 'ADMIN') {
+        const { detalles, ...restoVenta } = v;
+        const safeDetalles = detalles.map(
+          ({ costoUnitarioBs, ...restoDetalle }) => restoDetalle,
+        );
+        return {
+          ...restoVenta,
+          detalles: safeDetalles,
+        };
+      }
 
       return {
         ...v,
@@ -587,7 +633,7 @@ export class VentasService {
   }
 
   // 3. Consultar una venta individual (Ticket de Compra)
-  async findOne(id: number) {
+  async findOne(id: number, userRole?: string) {
     const venta = await this.prisma.venta.findUnique({
       where: { id },
       include: {
@@ -616,6 +662,18 @@ export class VentasService {
 
     if (!venta) {
       throw new NotFoundException(`La venta con ID ${id} no existe.`);
+    }
+
+    // Confidencialidad Financiera RBAC (CENTRALPHONE-CONF-001):
+    if (userRole !== 'ADMIN') {
+      const { detalles, ...restoVenta } = venta;
+      const safeDetalles = detalles.map(
+        ({ costoUnitarioBs, ...restoDetalle }) => restoDetalle,
+      );
+      return {
+        ...restoVenta,
+        detalles: safeDetalles,
+      };
     }
 
     let costoTotalBs = 0;

@@ -37,8 +37,8 @@ export class AccesoriosService {
   }
 
   // --- ACCESORIOS BASE & LOTES ---
-  async findAll(categoriaId?: number, sucursalId?: number) {
-    return this.prisma.accesorio.findMany({
+  async findAll(categoriaId?: number, sucursalId?: number, userRole?: string) {
+    const accesorios = await this.prisma.accesorio.findMany({
       where: categoriaId ? { categoriaId } : {},
       orderBy: { nombre: 'asc' },
       include: {
@@ -59,9 +59,19 @@ export class AccesoriosService {
         },
       },
     });
+
+    if (userRole !== 'ADMIN') {
+      accesorios.forEach((acc) => {
+        acc.lotes?.forEach((lote: any) => {
+          delete lote.costoUnitarioBs;
+        });
+      });
+    }
+
+    return accesorios;
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, userRole?: string) {
     const accesorio = await this.prisma.accesorio.findUnique({
       where: { id },
       include: {
@@ -86,6 +96,12 @@ export class AccesoriosService {
 
     if (!accesorio) {
       throw new NotFoundException(`El accesorio con ID ${id} no fue encontrado.`);
+    }
+
+    if (userRole !== 'ADMIN') {
+      accesorio.lotes?.forEach((lote: any) => {
+        delete lote.costoUnitarioBs;
+      });
     }
 
     return accesorio;

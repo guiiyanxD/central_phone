@@ -66,6 +66,37 @@ describe('AccesoriosService', () => {
     });
   });
 
+  describe('findAll', () => {
+    const lotesMock = [
+      {
+        id: 1,
+        nombreDiferenciador: 'Transparente',
+        costoUnitarioBs: 25,
+        precioVentaBs: 50,
+        stockActual: 10,
+      },
+    ];
+
+    it('debe mantener costoUnitarioBs en los lotes si el usuario es ADMIN', async () => {
+      prisma.accesorio.findMany.mockResolvedValue([
+        { id: 1, nombre: 'Funda iPhone 15', lotes: [...lotesMock] },
+      ] as any);
+
+      const res = await service.findAll(undefined, undefined, 'ADMIN');
+      expect(res[0].lotes[0].costoUnitarioBs).toBe(25);
+    });
+
+    it('debe purgar costoUnitarioBs en los lotes si el usuario es VENDEDOR (CENTRALPHONE-CONF-002)', async () => {
+      prisma.accesorio.findMany.mockResolvedValue([
+        { id: 1, nombre: 'Funda iPhone 15', lotes: [{ ...lotesMock[0] }] },
+      ] as any);
+
+      const res = await service.findAll(undefined, undefined, 'VENDEDOR');
+      expect((res[0].lotes[0] as any).costoUnitarioBs).toBeUndefined();
+      expect(res[0].lotes[0].precioVentaBs).toBe(50);
+    });
+  });
+
   describe('findOne', () => {
     it('debe lanzar NotFoundException si el accesorio no existe', async () => {
       prisma.accesorio.findUnique.mockResolvedValue(null);
@@ -73,11 +104,33 @@ describe('AccesoriosService', () => {
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
 
-    it('debe retornar el accesorio encontrado', async () => {
-      prisma.accesorio.findUnique.mockResolvedValue({ id: 5, nombre: 'MagSafe' } as any);
+    it('debe retornar el accesorio encontrado con costoUnitarioBs si es ADMIN', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue({
+        id: 5,
+        nombre: 'MagSafe',
+        lotes: [
+          { id: 1, nombreDiferenciador: 'OEM', costoUnitarioBs: 40, precioVentaBs: 90 },
+        ],
+      } as any);
 
-      const res = await service.findOne(5);
+      const res = await service.findOne(5, 'ADMIN');
       expect(res.id).toBe(5);
+      expect(res.lotes[0].costoUnitarioBs).toBe(40);
+    });
+
+    it('debe purgar costoUnitarioBs en los lotes si quien consulta es VENDEDOR (CENTRALPHONE-CONF-002)', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue({
+        id: 5,
+        nombre: 'MagSafe',
+        lotes: [
+          { id: 1, nombreDiferenciador: 'OEM', costoUnitarioBs: 40, precioVentaBs: 90 },
+        ],
+      } as any);
+
+      const res = await service.findOne(5, 'VENDEDOR');
+      expect(res.id).toBe(5);
+      expect((res.lotes[0] as any).costoUnitarioBs).toBeUndefined();
+      expect(res.lotes[0].precioVentaBs).toBe(90);
     });
   });
 });

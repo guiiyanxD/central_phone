@@ -14,6 +14,7 @@ import { CreateAccesorioDto } from './dto/create-accesorio.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RolUsuario } from '@prisma/client';
 
 @Controller('accesorios')
@@ -37,18 +38,23 @@ export class AccesoriosController {
   // --- ACCESORIOS BASE ---
   @Get()
   async findAll(
+    @CurrentUser('rol') userRole?: string,
     @Query('categoriaId') categoriaId?: string,
     @Query('sucursalId') sucursalId?: string,
   ) {
     return this.accesoriosService.findAll(
       categoriaId ? parseInt(categoriaId, 10) : undefined,
       sucursalId ? parseInt(sucursalId, 10) : undefined,
+      userRole,
     );
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.accesoriosService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('rol') userRole?: string,
+  ) {
+    return this.accesoriosService.findOne(id, userRole);
   }
 
   @Post()

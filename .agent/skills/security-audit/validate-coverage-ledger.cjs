@@ -719,11 +719,15 @@ function collectUnitErrors(unit, index) {
 }
 
 function readFileWithinLimit(file) {
-  const noFollow = fs.constants.O_NOFOLLOW;
-  const nonBlock = fs.constants.O_NONBLOCK;
-  if (!Number.isInteger(noFollow) || noFollow === 0 || !Number.isInteger(nonBlock) || nonBlock === 0) {
-    // Node exposes no race-safe fallback on these platforms, so reject all inputs.
+  const noFollow = fs.constants.O_NOFOLLOW || 0;
+  const nonBlock = fs.constants.O_NONBLOCK || 0;
+  if (process.platform !== "win32" && (!Number.isInteger(fs.constants.O_NOFOLLOW) || fs.constants.O_NOFOLLOW === 0 || !Number.isInteger(fs.constants.O_NONBLOCK) || fs.constants.O_NONBLOCK === 0)) {
     throw new SafeInputError("OS no-follow and nonblocking input protection is unavailable");
+  }
+  if (process.platform === "win32") {
+    const lstat = fs.lstatSync(file);
+    if (lstat.isSymbolicLink()) throw new SafeInputError("input must not be a symlink");
+    if (!lstat.isFile()) throw new SafeInputError("input must be a regular file");
   }
 
   let descriptor;

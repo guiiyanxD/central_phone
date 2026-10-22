@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { VentasService } from './ventas.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPrismaMock, MockPrismaService } from '../prisma/prisma.mock';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
 
 describe('VentasService', () => {
@@ -34,7 +39,7 @@ describe('VentasService', () => {
       ciNit: '4567890 SC',
     };
 
-    it('debe lanzar BadRequestException si no existe una caja abierta para el turno', async () => {
+    it('debe lanzar BadRequestException si no existe una caja abierta para la sucursal', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -46,9 +51,106 @@ describe('VentasService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('debe lanzar ForbiddenException si un vendedor intenta registrar una venta en una sucursal distinta a la suya (CENTRALPHONE-CONF-006)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+
+      await expect(
+        service.createVenta(
+          usuarioId,
+          sucursalId,
+          {
+            sucursalId: 2, // Intento de vender en sucursal 2 siendo vendedor de sucursal 1
+            metodoPagoCodigo: 'EFECTIVO',
+            cliente: clienteValido,
+            dispositivos: [{ dispositivoId: 10, precioVentaBs: 1000 }],
+          },
+          'VENDEDOR',
+        )
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('debe permitir a un vendedor procesar una venta si la caja fue abierta por otro vendedor en la misma sucursal', async () => {
+      // Caja abierta por usuario 99 en la sucursal 1
+      prisma.cajaDiaria.findFirst.mockResolvedValue({
+        id: 5,
+        usuarioAperturaId: 99,
+        sucursalId: 1,
+        estado: EstadoCaja.ABIERTA,
+      } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido } as any);
+
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 1,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 4000,
+        variante: { modelo: { nombreModelo: 'iPhone 15' } },
+      } as any);
+
+      prisma.venta.create.mockResolvedValue({ id: 200, totalVentaBs: 4500 } as any);
+      prisma.detalleVenta.create.mockResolvedValue({ id: 1 } as any);
+      prisma.venta.findUnique.mockResolvedValue({ id: 200, totalVentaBs: 4500, detalles: [] } as any);
+
+      // Usuario 1 vendiendo en la caja de la sucursal
+      const res = await service.createVenta(usuarioId, sucursalId, {
+        metodoPagoCodigo: 'EFECTIVO',
+        cliente: clienteValido,
+        dispositivos: [{ dispositivoId: 10, precioVentaBs: 4500 }],
+      }, 'VENDEDOR');
+
+      expect(res.id).toBe(200);
+    });
+
+    it('debe lanzar BadRequestException si el dispositivo pertenece a otra sucursal (CENTRALPHONE-CONF-006)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+
+      // Teléfono pertenece a sucursal 2, pero la venta se procesa en sucursal 1
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 2,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 4000,
+        variante: { modelo: { nombreModelo: 'iPhone 15 Pro' } },
+      } as any);
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
+        })
+      ).rejects.toThrow(/pertenece a otra sucursal/);
+    });
+
+    it('debe lanzar BadRequestException si el lote de accesorio pertenece a otra sucursal (CENTRALPHONE-CONF-006)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+
+      // Lote pertenece a sucursal 2
+      prisma.loteAccesorio.findUnique.mockResolvedValue({
+        id: 30,
+        sucursalId: 2,
+        stockActual: 10,
+        costoUnitarioBs: 20,
+        accesorio: { nombre: 'Funda MagSafe' },
+        nombreDiferenciador: 'Silicona Azul',
+      } as any);
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          accesorios: [{ loteAccesorioId: 30, cantidad: 1, precioVentaBs: 50 }],
+        })
+      ).rejects.toThrow(/pertenece a otra sucursal/);
+    });
+
     it('debe lanzar BadRequestException si no se proporcionan los datos obligatorios del comprador (nombre o teléfono)', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({
         id: 5,
+        sucursalId: 1,
         estado: EstadoCaja.ABIERTA,
       } as any);
 
@@ -73,6 +175,7 @@ describe('VentasService', () => {
     it('debe lanzar BadRequestException si el carrito está completamente vacío', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({
         id: 5,
+        sucursalId: 1,
         estado: EstadoCaja.ABIERTA,
       } as any);
 
@@ -89,6 +192,7 @@ describe('VentasService', () => {
     it('debe lanzar NotFoundException si el método de pago no existe', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({
         id: 5,
+        sucursalId: 1,
         estado: EstadoCaja.ABIERTA,
       } as any);
       prisma.metodoPago.findUnique.mockResolvedValue(null);
@@ -106,6 +210,7 @@ describe('VentasService', () => {
     it('debe lanzar BadRequestException si es cobro QR o transferencia sin referencia bancaria', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({
         id: 5,
+        sucursalId: 1,
         estado: EstadoCaja.ABIERTA,
       } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({
@@ -125,11 +230,12 @@ describe('VentasService', () => {
     });
 
     it('debe lanzar ConflictException si el teléfono no se encuentra DISPONIBLE', async () => {
-      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, estado: EstadoCaja.ABIERTA } as any);
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
 
       prisma.dispositivo.findUnique.mockResolvedValue({
         id: 10,
+        sucursalId: 1,
         estadoInventario: EstadoInventario.VENDIDO,
         variante: { modelo: { nombreModelo: 'iPhone 15' } },
         costoBs: 4000,
@@ -145,11 +251,12 @@ describe('VentasService', () => {
     });
 
     it('debe lanzar BadRequestException si el precio pactado es menor al costo de adquisición del dispositivo', async () => {
-      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, estado: EstadoCaja.ABIERTA } as any);
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
 
       prisma.dispositivo.findUnique.mockResolvedValue({
         id: 10,
+        sucursalId: 1,
         estadoInventario: EstadoInventario.DISPONIBLE,
         variante: { modelo: { nombreModelo: 'iPhone 15' } },
         costoBs: 5000,
@@ -165,11 +272,12 @@ describe('VentasService', () => {
     });
 
     it('debe lanzar ConflictException si el stock del lote de accesorios es insuficiente', async () => {
-      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, estado: EstadoCaja.ABIERTA } as any);
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
 
       prisma.loteAccesorio.findUnique.mockResolvedValue({
         id: 3,
+        sucursalId: 1,
         stockActual: 2,
         costoUnitarioBs: 20,
         accesorio: { nombre: 'Funda Silicona' },
@@ -186,13 +294,14 @@ describe('VentasService', () => {
     });
 
     it('debe procesar exitosamente la venta atómica de un teléfono y un accesorio con vinculación de cliente', async () => {
-      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, estado: EstadoCaja.ABIERTA } as any);
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
       prisma.cliente.findFirst.mockResolvedValue({ id: 99, ...clienteValido } as any);
 
       // Mock teléfono
       prisma.dispositivo.findUnique.mockResolvedValue({
         id: 10,
+        sucursalId: 1,
         estadoInventario: EstadoInventario.DISPONIBLE,
         costoBs: 4000,
         variante: { modelo: { nombreModelo: 'iPhone 15' } },
@@ -201,6 +310,7 @@ describe('VentasService', () => {
       // Mock accesorio
       prisma.loteAccesorio.findUnique.mockResolvedValue({
         id: 20,
+        sucursalId: 1,
         stockActual: 10,
         costoUnitarioBs: 30,
         accesorio: { nombre: 'Cargador 20W' },
@@ -243,7 +353,7 @@ describe('VentasService', () => {
   });
 
   describe('findAll', () => {
-    it('debe calcular dinámicamente la ganancia neta en 3FN para cada venta', async () => {
+    it('debe calcular dinámicamente la ganancia neta en 3FN si el rol es ADMIN', async () => {
       prisma.venta.findMany.mockResolvedValue([
         {
           id: 1,
@@ -255,12 +365,30 @@ describe('VentasService', () => {
         },
       ] as any);
 
-      const res = await service.findAll();
+      const res = await service.findAll(undefined, undefined, undefined, 'ADMIN');
       expect(res).toHaveLength(1);
       // Costo total = 4000 + 100 = 4100
       expect(res[0].costoTotalBs).toBe(4100);
       // Ganancia neta = 5000 - 4100 = 900
       expect(res[0].gananciaNetaBs).toBe(900);
+    });
+
+    it('debe purgar costos y ganancia neta para usuarios con rol VENDEDOR (CENTRALPHONE-CONF-001)', async () => {
+      prisma.venta.findMany.mockResolvedValue([
+        {
+          id: 1,
+          totalVentaBs: 5000,
+          detalles: [
+            { costoUnitarioBs: 4000, cantidad: 1, precioUnitarioBs: 4800, subtotalBs: 4800 },
+          ],
+        },
+      ] as any);
+
+      const res = await service.findAll(undefined, undefined, undefined, 'VENDEDOR');
+      expect(res).toHaveLength(1);
+      expect((res[0] as any).costoTotalBs).toBeUndefined();
+      expect((res[0] as any).gananciaNetaBs).toBeUndefined();
+      expect((res[0].detalles[0] as any).costoUnitarioBs).toBeUndefined();
     });
   });
 
@@ -271,7 +399,7 @@ describe('VentasService', () => {
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
 
-    it('debe retornar venta con ganancia neta calculada', async () => {
+    it('debe retornar venta con ganancia neta calculada si es ADMIN', async () => {
       prisma.venta.findUnique.mockResolvedValue({
         id: 7,
         totalVentaBs: 1000,
@@ -280,9 +408,24 @@ describe('VentasService', () => {
         ],
       } as any);
 
-      const res = await service.findOne(7);
+      const res = await service.findOne(7, 'ADMIN');
       expect(res.costoTotalBs).toBe(700);
       expect(res.gananciaNetaBs).toBe(300);
+    });
+
+    it('debe purgar costos si quien consulta es VENDEDOR (CENTRALPHONE-CONF-001)', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 7,
+        totalVentaBs: 1000,
+        detalles: [
+          { costoUnitarioBs: 700, cantidad: 1 },
+        ],
+      } as any);
+
+      const res = await service.findOne(7, 'VENDEDOR');
+      expect((res as any).costoTotalBs).toBeUndefined();
+      expect((res as any).gananciaNetaBs).toBeUndefined();
+      expect((res.detalles[0] as any).costoUnitarioBs).toBeUndefined();
     });
   });
 
