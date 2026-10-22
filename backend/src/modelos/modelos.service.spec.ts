@@ -62,12 +62,13 @@ describe('ModelosService', () => {
     });
   });
 
-  describe('findDispositivos (Confidencialidad RBAC)', () => {
+  describe('findDispositivos (Paginación, Filtros y Confidencialidad RBAC)', () => {
     const rawDispositivos = [
       {
         id: 10,
         imei1: '354928110000001',
         numeroSerie: 'SERIE1',
+        condicion: 'NUEVO',
         costoBs: 4000,
         costoUsd: 570,
         precioVentaSugeridoBs: 4800,
@@ -77,21 +78,95 @@ describe('ModelosService', () => {
 
     it('debe censurar costoBs y costoUsd si el usuario tiene rol VENDEDOR', async () => {
       prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
 
-      const res = await service.findDispositivos(undefined, undefined, undefined, 'VENDEDOR');
-      expect(res).toHaveLength(1);
-      expect((res[0] as any).costoBs).toBeUndefined();
-      expect((res[0] as any).costoUsd).toBeUndefined();
-      expect(res[0].precioVentaSugeridoBs).toBe(4800);
+      const res = await service.findDispositivos({}, 'VENDEDOR');
+      expect(res.data).toHaveLength(1);
+      expect((res.data[0] as any).costoBs).toBeUndefined();
+      expect((res.data[0] as any).costoUsd).toBeUndefined();
+      expect(res.data[0].precioVentaSugeridoBs).toBe(4800);
+      expect(res.meta.total).toBe(1);
     });
 
     it('debe incluir costoBs y costoUsd si el usuario tiene rol ADMIN', async () => {
       prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
 
-      const res = await service.findDispositivos(undefined, undefined, undefined, 'ADMIN');
-      expect(res).toHaveLength(1);
-      expect((res[0] as any).costoBs).toBe(4000);
-      expect((res[0] as any).costoUsd).toBe(570);
+      const res = await service.findDispositivos({}, 'ADMIN');
+      expect(res.data).toHaveLength(1);
+      expect((res.data[0] as any).costoBs).toBe(4000);
+      expect((res.data[0] as any).costoUsd).toBe(570);
+      expect(res.meta.total).toBe(1);
+    });
+
+    it('debe filtrar por IMEI o Serie', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ imei: '3549281' }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { imei1: { contains: '3549281', mode: 'insensitive' } },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it('debe filtrar por proveedor a través de notaIngreso', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ proveedorId: 3 }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            notaIngreso: expect.objectContaining({
+              proveedorId: 3,
+            }),
+          }),
+        })
+      );
+    });
+
+    it('debe filtrar por rango de fechas de ingreso', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ fechaDesde: '2026-10-01', fechaHasta: '2026-10-21' }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            notaIngreso: expect.objectContaining({
+              fechaIngreso: expect.objectContaining({
+                gte: expect.any(Date),
+                lte: expect.any(Date),
+              }),
+            }),
+          }),
+        })
+      );
+    });
+
+    it('debe filtrar por condición y sucursal', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ condicion: 'NUEVO', sucursalId: 2 }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            condicion: 'NUEVO',
+            sucursalId: 2,
+          }),
+        })
+      );
     });
   });
 
@@ -143,27 +218,109 @@ describe('ModelosService', () => {
     });
   });
 
-  describe('importarDesdeCsv', () => {
-    it('debe lanzar BadRequestException si el contenido CSV está vacío o solo tiene cabecera', async () => {
-      await expect(service.importarDesdeCsv('#,Modelo,Color,Capacidad')).rejects.toThrow(
-        BadRequestException
-      );
+  describe('updateVariante', () => {
+    it('debe lanzar NotFoundException si la variante no existe', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateVariante(999, { color: 'Rojo' })
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('debe parsear filas CSV e importar modelos y variantes correctamente', async () => {
-      const csv = `#,Modelo,Color,Capacidad
-1,iPhone 18 Pro,Titanio Negro,256GB
-2,iPhone 18 Pro,Titanio Blanco,1TB`;
+    it('debe lanzar ConflictException si colisiona con otra variante del mismo modelo', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        modeloId: 10,
+        color: 'Azul',
+        capacidadGb: 128,
+        tipoSim: 'SIM Físico',
+      } as any);
 
-      prisma.modeloDispositivo.findFirst.mockResolvedValue(null);
-      prisma.modeloDispositivo.create.mockResolvedValue({ id: 10, nombreModelo: 'iPhone 18 Pro' } as any);
+      prisma.varianteDispositivo.findFirst.mockResolvedValue({
+        id: 2,
+        modeloId: 10,
+        color: 'Negro',
+        capacidadGb: 128,
+        tipoSim: 'SIM Físico',
+      } as any);
+
+      await expect(
+        service.updateVariante(1, { color: 'Negro' })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe actualizar la variante exitosamente si no hay colisión', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        modeloId: 10,
+        color: 'Azul',
+        capacidadGb: 128,
+        tipoSim: 'SIM Físico',
+      } as any);
+
+      prisma.varianteDispositivo.findFirst.mockResolvedValue(null);
+      prisma.varianteDispositivo.update.mockResolvedValue({
+        id: 1,
+        modeloId: 10,
+        color: 'Titanio Azul',
+        capacidadGb: 256,
+        tipoSim: 'eSIM Exclusivo',
+      } as any);
+
+      const res = await service.updateVariante(1, {
+        color: 'Titanio Azul',
+        capacidadGb: 256,
+        tipoSim: 'eSIM Exclusivo',
+      });
+
+      expect(res.color).toBe('Titanio Azul');
+      expect(res.capacidadGb).toBe(256);
+      expect(prisma.varianteDispositivo.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteVariante', () => {
+    it('debe lanzar NotFoundException si la variante no existe', async () => {
       prisma.varianteDispositivo.findUnique.mockResolvedValue(null);
-      prisma.varianteDispositivo.create.mockResolvedValue({ id: 1 } as any);
 
-      const res = await service.importarDesdeCsv(csv);
+      await expect(service.deleteVariante(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar ConflictException si tiene dispositivos asociados', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        modeloId: 10,
+        _count: { dispositivos: 3 },
+      } as any);
+
+      await expect(service.deleteVariante(1)).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar BadRequestException si es la única variante del modelo', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        modeloId: 10,
+        _count: { dispositivos: 0 },
+      } as any);
+
+      prisma.varianteDispositivo.count.mockResolvedValue(1);
+
+      await expect(service.deleteVariante(1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe eliminar la variante exitosamente si no tiene dispositivos y quedan más variantes', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        modeloId: 10,
+        _count: { dispositivos: 0 },
+      } as any);
+
+      prisma.varianteDispositivo.count.mockResolvedValue(3);
+      prisma.varianteDispositivo.delete.mockResolvedValue({ id: 1 } as any);
+
+      const res = await service.deleteVariante(1);
       expect(res.success).toBe(true);
-      expect(res.totalProcesados).toBe(2);
-      expect(res.variantesCreadas).toBe(2);
+      expect(prisma.varianteDispositivo.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
   });
 
@@ -233,6 +390,48 @@ describe('ModelosService', () => {
       expect(res.venta?.cliente?.nombre).toBe('Carlos Gomez');
       expect(res.venta?.gananciaBs).toBe(1200);
       expect(res.garantia.garantiaVigente).toBe(true);
+    });
+
+    it('debe retornar la línea de vida buscando por número de serie (ej: MacBook o AirPods sin IMEI)', async () => {
+      prisma.dispositivo.findFirst.mockResolvedValue({
+        id: 2,
+        imei1: null,
+        imei2: null,
+        numeroSerie: 'C02G1234MD6R',
+        condicion: 'NUEVO',
+        estadoInventario: 'DISPONIBLE',
+        precioVentaSugeridoBs: 9500,
+        costoBs: 8000,
+        costoUsd: 1150,
+        variante: {
+          modelo: { nombreModelo: 'MacBook Air 13 M3', marca: 'Apple', tipo: 'MAC' },
+          color: 'Medianoche',
+          capacidadGb: 256,
+          tipoSim: 'No Aplica',
+        },
+        sucursal: { id: 1, nombre: 'Sucursal Central', ciudad: 'Santa Cruz' },
+        notaIngreso: {
+          id: 10,
+          proveedor: { id: 1, nombre: 'Beby', telefono: '70000000' },
+          usuario: { id: 1, nombre: 'Admin' },
+          sucursal: { id: 1, nombre: 'Sucursal Central' },
+          numeroComprobante: 'FAC-999',
+          fechaIngreso: new Date(),
+        },
+        detalleVentas: [],
+      } as any);
+
+      const res = await service.getLineaVidaImei('C02G1234MD6R', 'ADMIN');
+      expect(res.dispositivo.numeroSerie).toBe('C02G1234MD6R');
+      expect(res.dispositivo.imei1).toBeNull();
+      expect(res.dispositivo.modelo).toBe('MacBook Air 13 M3');
+      expect(prisma.dispositivo.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([{ numeroSerie: 'C02G1234MD6R' }]),
+          }),
+        })
+      );
     });
 
     it('debe ocultar costos mayoristas y ganancia si el usuario es VENDEDOR', async () => {

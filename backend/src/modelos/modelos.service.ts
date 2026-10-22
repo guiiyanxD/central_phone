@@ -8,8 +8,9 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
-import * as fs from 'fs';
-import * as path from 'path';
+import { UpdateVarianteDto } from './dto/update-variante.dto';
+import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
+import { TipoDispositivo } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
@@ -32,6 +33,7 @@ export class ModelosService {
       const modelo = await tx.modeloDispositivo.create({
         data: {
           nombreModelo,
+          tipo: createModeloDto.tipo || TipoDispositivo.IPHONE,
           marca,
           descripcion,
         },
@@ -84,75 +86,208 @@ export class ModelosService {
   }
 
   async findDispositivos(
-    sucursalId?: number,
-    estado?: string,
-    busqueda?: string,
-    userRole?: string,
+    queryOrSucursalId?: QueryDispositivosDto | number,
+    estadoParam?: string,
+    busquedaParam?: string,
+    userRoleParam?: string,
   ) {
-    const whereClause: any = {};
-    if (sucursalId) {
-      whereClause.sucursalId = sucursalId;
-    }
-    if (estado && estado !== 'TODOS') {
-      whereClause.estadoInventario = estado;
-    }
-    if (busqueda && busqueda.trim().length > 0) {
-      const q = busqueda.trim();
-      whereClause.OR = [
-        { imei1: { contains: q, mode: 'insensitive' } },
-        { imei2: { contains: q, mode: 'insensitive' } },
-        { numeroSerie: { contains: q, mode: 'insensitive' } },
-        {
-          variante: {
-            modelo: {
-              nombreModelo: { contains: q, mode: 'insensitive' },
-            },
-          },
-        },
-      ];
+    let query: QueryDispositivosDto = {};
+    let userRole = userRoleParam;
+
+    if (typeof queryOrSucursalId === 'object' && queryOrSucursalId !== null) {
+      query = queryOrSucursalId;
+      userRole = estadoParam; // cuando se invoca como (dto, userRole)
+    } else {
+      query = {
+        sucursalId: typeof queryOrSucursalId === 'number' ? queryOrSucursalId : undefined,
+        estado: estadoParam,
+        busqueda: busquedaParam,
+      };
+      userRole = userRoleParam;
     }
 
-    const dispositivos = await this.prisma.dispositivo.findMany({
-      where: whereClause,
-      include: {
-        variante: {
-          include: {
-            modelo: true,
-          },
-        },
-        sucursal: {
-          select: { id: true, nombre: true, ciudad: true },
-        },
-        notaIngreso: {
-          select: { id: true, fechaIngreso: true, numeroComprobante: true },
-        },
-      },
-      orderBy: { id: 'desc' },
-    });
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 10));
+    const skip = (page - 1) * limit;
 
-    // Confidencialidad de costos mayoristas (Regla Inmutable RBAC Financiero)
-    if (userRole && userRole !== 'ADMIN') {
-      return dispositivos.map((d) => {
-        const { costoBs, costoUsd, ...safeData } = d;
-        return safeData;
+    const where: any = {};
+
+    // 1. Sucursal
+    if (query.sucursalId) {
+      where.sucursalId = Number(query.sucursalId);
+    }
+
+    // 2. Tipo de Dispositivo (IPHONE, MAC, IPAD, WATCH, AIRPODS, OTRO)
+    if (query.tipo && query.tipo !== 'TODOS') {
+      where.variante = {
+        ...(where.variante || {}),
+        modelo: {
+          ...(where.variante?.modelo || {}),
+          tipo: query.tipo as TipoDispositivo,
+        },
+      };
+    }
+
+    // 3. Estado de Inventario
+    if (query.estado && query.estado !== 'TODOS') {
+      where.estadoInventario = query.estado;
+    }
+
+    // 3. Condición (NUEVO, USADO, OPEN_BOX)
+    if (query.condicion && query.condicion !== 'TODAS') {
+      where.condicion = query.condicion;
+    }
+
+    // 4. Proveedor (a través de notaIngreso)
+    if (query.proveedorId && Number(query.proveedorId) > 0) {
+      where.notaIngreso = {
+        ...(where.notaIngreso || {}),
+        proveedorId: Number(query.proveedorId),
+      };
+    }
+
+    // 5. Rango de fechas de recepción / ingreso
+    if (query.fechaDesde || query.fechaHasta) {
+      where.notaIngreso = {
+        ...(where.notaIngreso || {}),
+        fechaIngreso: {},
+      };
+      if (query.fechaDesde) {
+        const [y, m, d] = query.fechaDesde.split('-').map(Number);
+        where.notaIngreso.fechaIngreso.gte = new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+      if (query.fechaHasta) {
+        const [y, m, d] = query.fechaHasta.split('-').map(Number);
+        where.notaIngreso.fechaIngreso.lte = new Date(y, m - 1, d, 23, 59, 59, 999);
+      }
+    }
+
+    const andConditions: any[] = [];
+
+    // 6. Búsqueda específica por IMEI o Serie
+    if (query.imei && query.imei.trim()) {
+      const qImei = query.imei.trim();
+      andConditions.push({
+        OR: [
+          { imei1: { contains: qImei, mode: 'insensitive' } },
+          { imei2: { contains: qImei, mode: 'insensitive' } },
+          { numeroSerie: { contains: qImei, mode: 'insensitive' } },
+        ],
       });
     }
 
-    return dispositivos;
+    // 7. Búsqueda específica por Nombre de Producto (Modelo)
+    if (query.nombreProducto && query.nombreProducto.trim()) {
+      const qMod = query.nombreProducto.trim();
+      andConditions.push({
+        variante: {
+          modelo: {
+            nombreModelo: { contains: qMod, mode: 'insensitive' },
+          },
+        },
+      });
+    }
+
+    // 8. Búsqueda general 'busqueda'
+    if (query.busqueda && query.busqueda.trim()) {
+      const q = query.busqueda.trim();
+      andConditions.push({
+        OR: [
+          { imei1: { contains: q, mode: 'insensitive' } },
+          { imei2: { contains: q, mode: 'insensitive' } },
+          { numeroSerie: { contains: q, mode: 'insensitive' } },
+          {
+            variante: {
+              modelo: {
+                nombreModelo: { contains: q, mode: 'insensitive' },
+              },
+            },
+          },
+          {
+            variante: {
+              color: { contains: q, mode: 'insensitive' },
+            },
+          },
+          {
+            notaIngreso: {
+              proveedor: {
+                nombre: { contains: q, mode: 'insensitive' },
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const [dispositivos, total] = await Promise.all([
+      this.prisma.dispositivo.findMany({
+        where,
+        include: {
+          variante: {
+            include: {
+              modelo: true,
+            },
+          },
+          sucursal: {
+            select: { id: true, nombre: true, ciudad: true },
+          },
+          notaIngreso: {
+            select: {
+              id: true,
+              fechaIngreso: true,
+              numeroComprobante: true,
+              proveedor: { select: { id: true, nombre: true } },
+            },
+          },
+        },
+        orderBy: { id: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.dispositivo.count({ where }),
+    ]);
+
+    // Confidencialidad de costos mayoristas (Regla Inmutable RBAC Financiero CENTRALPHONE-CONF-001)
+    const safeData = dispositivos.map((d) => {
+      if (userRole && userRole !== 'ADMIN') {
+        const { costoBs, costoUsd, ...safe } = d;
+        return safe;
+      }
+      return d;
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return {
+      data: safeData,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
   }
 
-  // US18: Línea de vida y trazabilidad completa por IMEI
-  async getLineaVidaImei(imei: string, userRole?: string) {
-    if (!imei || imei.trim().length === 0) {
-      throw new BadRequestException('El número de IMEI es obligatorio para consultar la línea de vida.');
+  // US18: Línea de vida y trazabilidad completa por IMEI o Número de Serie
+  async getLineaVidaImei(imeiOrSerie: string, userRole?: string) {
+    if (!imeiOrSerie || imeiOrSerie.trim().length === 0) {
+      throw new BadRequestException('El número de IMEI o de Serie es obligatorio para consultar la línea de vida.');
     }
-    const cleanImei = imei.trim();
+    const cleanId = imeiOrSerie.trim();
 
     const dispositivo = await this.prisma.dispositivo.findFirst({
       where: {
         OR: [
-          { imei1: cleanImei },
-          { imei2: cleanImei },
+          { imei1: cleanId },
+          { imei2: cleanId },
+          { numeroSerie: cleanId },
         ],
       },
       include: {
@@ -191,7 +326,7 @@ export class ModelosService {
     });
 
     if (!dispositivo) {
-      throw new NotFoundException(`No se encontró ningún dispositivo registrado con el IMEI "${cleanImei}".`);
+      throw new NotFoundException(`No se encontró ningún dispositivo registrado con el identificador "${cleanId}".`);
     }
 
     const detalleVenta = dispositivo.detalleVentas[0] || null;
@@ -337,100 +472,90 @@ export class ModelosService {
     });
   }
 
-  // Importador masivo de catálogo CSV (ej: combinaciones_iphone18.csv)
-  async importarDesdeCsv(csvContent: string) {
-    const lines = csvContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    if (lines.length <= 1) {
-      throw new BadRequestException('El archivo CSV está vacío o solo contiene encabezados.');
+  // Actualizar una variante existente (Exclusivo ADMIN)
+  async updateVariante(id: number, dto: UpdateVarianteDto) {
+    const variante = await this.prisma.varianteDispositivo.findUnique({
+      where: { id },
+    });
+
+    if (!variante) {
+      throw new NotFoundException(`La variante con ID ${id} no existe.`);
     }
 
-    // Saltar encabezado (#,Modelo,Color,Capacidad de Almacenamiento)
-    const dataRows = lines.slice(1);
-    let creadosModelos = 0;
-    let creadasVariantes = 0;
-    let omitidas = 0;
+    const color = dto.color !== undefined ? dto.color.trim() : variante.color;
+    const capacidadGb = dto.capacidadGb !== undefined ? dto.capacidadGb : variante.capacidadGb;
+    const tipoSim = dto.tipoSim !== undefined ? dto.tipoSim : variante.tipoSim;
 
-    for (const row of dataRows) {
-      const parts = row.split(',').map((p) => p.trim());
-      if (parts.length < 4) continue;
+    // Verificar si ya existe otra variante con la misma combinación exacta en este modelo
+    const existing = await this.prisma.varianteDispositivo.findFirst({
+      where: {
+        modeloId: variante.modeloId,
+        color,
+        capacidadGb,
+        tipoSim,
+        id: { not: id },
+      },
+    });
 
-      const modeloNombre = parts[1];
-      const color = parts[2];
-      const capacidadStr = parts[3]; // "256GB", "1TB", "2TB", etc.
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe otra variante con la combinación (${color}, ${capacidadGb}GB, ${tipoSim}) para este modelo.`,
+      );
+    }
 
-      // Parsear capacidad
-      let capacidadGb = 128;
-      if (capacidadStr.toUpperCase().includes('TB')) {
-        const tbNum = parseInt(capacidadStr.replace(/[^0-9]/g, ''), 10) || 1;
-        capacidadGb = tbNum * 1024;
-      } else {
-        capacidadGb = parseInt(capacidadStr.replace(/[^0-9]/g, ''), 10) || 128;
-      }
+    return this.prisma.varianteDispositivo.update({
+      where: { id },
+      data: {
+        color,
+        capacidadGb,
+        tipoSim,
+      },
+    });
+  }
 
-      // Buscar o crear Modelo
-      let modelo = await this.prisma.modeloDispositivo.findFirst({
-        where: { nombreModelo: modeloNombre },
-      });
-
-      if (!modelo) {
-        modelo = await this.prisma.modeloDispositivo.create({
-          data: {
-            nombreModelo: modeloNombre,
-            marca: 'Apple',
-          },
-        });
-        creadosModelos++;
-      }
-
-      // Buscar o crear Variante
-      const varianteExiste = await this.prisma.varianteDispositivo.findUnique({
-        where: {
-          modeloId_color_capacidadGb_tipoSim: {
-            modeloId: modelo.id,
-            color,
-            capacidadGb,
-            tipoSim: 'SIM Físico',
+  // Eliminar una variante existente (Exclusivo ADMIN con doble validación de integridad)
+  async deleteVariante(id: number) {
+    const variante = await this.prisma.varianteDispositivo.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            dispositivos: true,
           },
         },
-      });
+      },
+    });
 
-      if (!varianteExiste) {
-        await this.prisma.varianteDispositivo.create({
-          data: {
-            modeloId: modelo.id,
-            color,
-            capacidadGb,
-            tipoSim: 'SIM Físico',
-          },
-        });
-        creadasVariantes++;
-      } else {
-        omitidas++;
-      }
+    if (!variante) {
+      throw new NotFoundException(`La variante con ID ${id} no existe.`);
     }
+
+    // 1. Integridad referencial: Bloquear si tiene equipos físicos asociados
+    if (variante._count.dispositivos > 0) {
+      throw new ConflictException(
+        `No se puede eliminar la variante porque tiene ${variante._count.dispositivos} equipo(s) asociado(s) en inventario o ventas.`,
+      );
+    }
+
+    // 2. Invariante de negocio: Todo modelo debe tener al menos una variante
+    const totalVariantesModelo = await this.prisma.varianteDispositivo.count({
+      where: { modeloId: variante.modeloId },
+    });
+
+    if (totalVariantesModelo <= 1) {
+      throw new BadRequestException(
+        'Regla inmutable de negocio: No se puede eliminar la única variante del modelo. Todo modelo debe contar con al menos una variante.',
+      );
+    }
+
+    await this.prisma.varianteDispositivo.delete({
+      where: { id },
+    });
 
     return {
       success: true,
-      modelosCreados: creadosModelos,
-      variantesCreadas: creadasVariantes,
-      variantesOmitidas: omitidas,
-      totalProcesados: dataRows.length,
+      message: 'Variante eliminada exitosamente.',
+      varianteId: id,
     };
-  }
-
-  // Permite importar directamente el archivo del proyecto si existe en el disco
-  async importarArchivoLocalDefault() {
-    const csvPath = path.resolve(process.cwd(), '../docs/requerimientos/combinaciones_iphone18.csv');
-    const altPath = path.resolve(process.cwd(), 'docs/requerimientos/combinaciones_iphone18.csv');
-
-    let targetPath = fs.existsSync(csvPath) ? csvPath : fs.existsSync(altPath) ? altPath : null;
-
-    if (!targetPath) {
-      this.logger.warn('Archivo combinaciones_iphone18.csv no encontrado para auto-import.');
-      return null;
-    }
-
-    const content = fs.readFileSync(targetPath, 'utf8');
-    return this.importarDesdeCsv(content);
   }
 }
