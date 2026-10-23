@@ -12,7 +12,11 @@ export class SeedService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
-    await this.seedInitialData();
+    if (process.env.ENABLE_AUTO_SEED === 'true') {
+      await this.seedInitialData();
+    } else {
+      this.logger.log('🔒 Seeding automático desactivado al iniciar (ENABLE_AUTO_SEED no está activo).');
+    }
   }
 
   async seedInitialData() {
