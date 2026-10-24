@@ -1,4 +1,9 @@
 // Tipos de dominio para el módulo de Inventario y Catálogo
+import {
+  LoteAccesorioItem as LoteApiItem,
+  LotesMeta as LotesApiMeta,
+  LotesPaginatedResponse,
+} from '@/lib/api/accesorios.api';
 
 export interface DispositivoItem {
   id: number;
@@ -50,19 +55,9 @@ export interface DispositivosMeta {
   hasPrevPage: boolean;
 }
 
-export interface LoteAccesorioItem {
-  id: number;
-  nombreDiferenciador: string;
-  stockActual: number;
-  cantidadInicial: number;
-  costoUnitarioBs: number | string;
-  precioVentaBs: number | string;
-  sucursalId: number;
-  sucursal?: {
-    id: number;
-    nombre: string;
-  };
-}
+export type LoteAccesorioItem = LoteApiItem;
+export type LotesMeta = LotesApiMeta;
+export type { LotesPaginatedResponse };
 
 export interface AccesorioItem {
   id: number;

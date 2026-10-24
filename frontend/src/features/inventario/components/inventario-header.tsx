@@ -10,12 +10,14 @@ interface InventarioHeaderProps {
   activeTab: 'telefonos' | 'accesorios';
   setActiveTab: (tab: 'telefonos' | 'accesorios') => void;
   telefonosTotal: number;
+  lotesTotal: number;
 }
 
 export function InventarioHeader({
   activeTab,
   setActiveTab,
   telefonosTotal,
+  lotesTotal,
 }: InventarioHeaderProps) {
   return (
     <div className="space-y-6">
@@ -76,6 +78,9 @@ export function InventarioHeader({
         >
           <Headphones className="h-4 w-4" />
           <span>Lotes de Accesorios</span>
+          <span className="text-xs bg-slate-100 px-1.5 py-0.5 rounded-full text-slate-600">
+            {lotesTotal}
+          </span>
         </button>
       </div>
     </div>

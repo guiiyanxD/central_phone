@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { CreateAccesorioDto } from './dto/create-accesorio.dto';
 import { UpdateAccesorioDto } from './dto/update-accesorio.dto';
+import { QueryLotesDto } from './dto/query-lotes.dto';
 
 @Injectable()
 export class AccesoriosService {
@@ -200,5 +201,113 @@ export class AccesoriosService {
     return this.prisma.accesorio.delete({
       where: { id },
     });
+  }
+
+  // --- INVENTARIO DE LOTES FÍSICOS CON PAGINACIÓN Y FILTROS ---
+  async findLotes(query: QueryLotesDto, userRole?: string) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      activo: true,
+    };
+
+    if (query.sucursalId && Number(query.sucursalId) > 0) {
+      where.sucursalId = Number(query.sucursalId);
+    }
+
+    if (query.categoriaId && Number(query.categoriaId) > 0) {
+      where.accesorio = {
+        ...(where.accesorio || {}),
+        categoriaId: Number(query.categoriaId),
+      };
+    }
+
+    if (query.stock === 'EN_STOCK') {
+      where.stockActual = { gt: 0 };
+    } else if (query.stock === 'AGOTADO') {
+      where.stockActual = { lte: 0 };
+    }
+
+    if (query.busqueda && query.busqueda.trim()) {
+      const q = query.busqueda.trim();
+      where.OR = [
+        { nombreDiferenciador: { contains: q, mode: 'insensitive' } },
+        {
+          accesorio: {
+            nombre: { contains: q, mode: 'insensitive' },
+          },
+        },
+        {
+          accesorio: {
+            categoria: {
+              nombre: { contains: q, mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          sucursal: {
+            nombre: { contains: q, mode: 'insensitive' },
+          },
+        },
+      ];
+    }
+
+    const [lotes, total] = await Promise.all([
+      this.prisma.loteAccesorio.findMany({
+        where,
+        include: {
+          accesorio: {
+            select: {
+              id: true,
+              nombre: true,
+              descripcion: true,
+              categoria: {
+                select: { id: true, nombre: true },
+              },
+            },
+          },
+          sucursal: {
+            select: { id: true, nombre: true, ciudad: true },
+          },
+          notaIngreso: {
+            select: {
+              id: true,
+              fechaIngreso: true,
+              numeroComprobante: true,
+              proveedor: { select: { id: true, nombre: true } },
+            },
+          },
+        },
+        orderBy: { id: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.loteAccesorio.count({ where }),
+    ]);
+
+    // Confidencialidad de costos mayoristas (Regla Inmutable RBAC Financiero CENTRALPHONE-CONF-001)
+    const safeData = lotes.map((lote) => {
+      if (userRole && userRole !== 'ADMIN') {
+        const { costoUnitarioBs, ...safe } = lote;
+        return safe;
+      }
+      return lote;
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return {
+      data: safeData,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
   }
 }

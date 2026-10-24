@@ -14,6 +14,7 @@ import { AccesoriosService } from './accesorios.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { CreateAccesorioDto } from './dto/create-accesorio.dto';
 import { UpdateAccesorioDto } from './dto/update-accesorio.dto';
+import { QueryLotesDto } from './dto/query-lotes.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -50,6 +51,15 @@ export class AccesoriosController {
       sucursalId ? parseInt(sucursalId, 10) : undefined,
       userRole,
     );
+  }
+
+  // --- INVENTARIO DE LOTES FÍSICOS CON PAGINACIÓN Y FILTROS ---
+  @Get('lotes')
+  async findLotes(
+    @Query() query: QueryLotesDto,
+    @CurrentUser('rol') userRole?: string,
+  ) {
+    return this.accesoriosService.findLotes(query, userRole);
   }
 
   @Get(':id')

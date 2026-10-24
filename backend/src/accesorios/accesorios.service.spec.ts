@@ -217,4 +217,82 @@ describe('AccesoriosService', () => {
       expect(res.lotes[0].precioVentaBs).toBe(90);
     });
   });
+
+  describe('findLotes', () => {
+    it('debe retornar lotes paginados con metadatos e incluir costoUnitarioBs si el rol es ADMIN', async () => {
+      const mockLotes = [
+        {
+          id: 1,
+          nombreDiferenciador: 'Silicona Simple',
+          costoUnitarioBs: 25,
+          precioVentaBs: 60,
+          stockActual: 10,
+          sucursal: { id: 1, nombre: 'Central' },
+          accesorio: { id: 1, nombre: 'Funda iPhone 13', categoria: { id: 1, nombre: 'Fundas' } },
+        },
+      ];
+      prisma.loteAccesorio.findMany.mockResolvedValue(mockLotes as any);
+      prisma.loteAccesorio.count.mockResolvedValue(1);
+
+      const res = await service.findLotes({ page: 1, limit: 10 }, 'ADMIN');
+
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0].costoUnitarioBs).toBe(25);
+      expect(res.meta.total).toBe(1);
+      expect(res.meta.page).toBe(1);
+      expect(res.meta.limit).toBe(10);
+      expect(res.meta.totalPages).toBe(1);
+      expect(res.meta.hasNextPage).toBe(false);
+      expect(res.meta.hasPrevPage).toBe(false);
+    });
+
+    it('debe purgar costoUnitarioBs de los lotes si el rol es VENDEDOR (CENTRALPHONE-CONF-001)', async () => {
+      const mockLotes = [
+        {
+          id: 1,
+          nombreDiferenciador: 'Silicona Simple',
+          costoUnitarioBs: 25,
+          precioVentaBs: 60,
+          stockActual: 10,
+          sucursal: { id: 1, nombre: 'Central' },
+          accesorio: { id: 1, nombre: 'Funda iPhone 13', categoria: { id: 1, nombre: 'Fundas' } },
+        },
+      ];
+      prisma.loteAccesorio.findMany.mockResolvedValue(mockLotes as any);
+      prisma.loteAccesorio.count.mockResolvedValue(1);
+
+      const res = await service.findLotes({ page: 1, limit: 10 }, 'VENDEDOR');
+
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0].costoUnitarioBs).toBeUndefined();
+      expect(res.data[0].precioVentaBs).toBe(60);
+    });
+
+    it('debe aplicar filtros por sucursal, categoría, búsqueda y stock', async () => {
+      prisma.loteAccesorio.findMany.mockResolvedValue([]);
+      prisma.loteAccesorio.count.mockResolvedValue(0);
+
+      await service.findLotes(
+        {
+          sucursalId: 2,
+          categoriaId: 1,
+          stock: 'EN_STOCK',
+          busqueda: 'Silicona',
+        },
+        'ADMIN'
+      );
+
+      expect(prisma.loteAccesorio.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            activo: true,
+            sucursalId: 2,
+            stockActual: { gt: 0 },
+            accesorio: { categoriaId: 1 },
+            OR: expect.any(Array),
+          }),
+        })
+      );
+    });
+  });
 });
