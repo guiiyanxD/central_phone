@@ -74,11 +74,18 @@ export function RecepcionHeader({
               value={proveedorId}
               onChange={(e) => setProveedorId(Number(e.target.value))}
             >
-              {proveedores.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} {p.contactoReferencia ? `(${p.contactoReferencia})` : ''}
-                </option>
-              ))}
+              {proveedores.map((p) => {
+                const label = p.empresa
+                  ? `${p.empresa} (${p.nombre}${p.apellido ? ` ${p.apellido}` : ''})`
+                  : `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}${
+                      p.contactoReferencia ? ` - ${p.contactoReferencia}` : ''
+                    }`;
+                return (
+                  <option key={p.id} value={p.id}>
+                    {label}
+                  </option>
+                );
+              })}
             </Select>
           </div>
 

@@ -8,6 +8,7 @@ import {
   BarChart3,
   QrCode,
   Users,
+  Truck,
   ArrowRight,
   ShieldAlert,
   Sparkles,
@@ -29,6 +30,8 @@ export default function AdministracionPage() {
 
   const [config, setConfig] = useState<any>(null);
   const [sucursales, setSucursales] = useState<any[]>([]);
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [proveedores, setProveedores] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,12 +39,16 @@ export default function AdministracionPage() {
       if (user?.rol !== 'ADMIN') return;
       setIsLoading(true);
       try {
-        const [configData, sucData] = await Promise.all([
+        const [configData, sucData, usuariosData, provData] = await Promise.all([
           api.configuracion.get().catch(() => null),
           api.sucursales.getAll(true).catch(() => []),
+          api.usuarios.getAll().catch(() => []),
+          api.proveedores.getAll(true).catch(() => []),
         ]);
         setConfig(configData);
         setSucursales(sucData);
+        setUsuarios(usuariosData);
+        setProveedores(provData);
       } catch (err) {
         console.error('Error al cargar datos administrativos', err);
       } finally {
@@ -260,27 +267,55 @@ export default function AdministracionPage() {
             </CardContent>
           </Card>
 
-          {/* 4. Gestión de Usuarios & Personal (Próximo Módulo) */}
-          <Card className="border-dashed border-slate-300 bg-slate-50/50 flex flex-col justify-between">
+          {/* 4. Gestión de Usuarios & Personal */}
+          <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
             <CardHeader className="p-6">
               <div className="flex items-center justify-between mb-3">
-                <div className="h-11 w-11 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center">
+                <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
                   <Users className="h-5 w-5" />
                 </div>
-                <Badge variant="secondary" className="text-[10px]">Próximamente</Badge>
+                <Badge variant="outline">{usuarios.length} Registrados</Badge>
               </div>
-              <CardTitle className="text-lg font-bold text-slate-700">
+              <CardTitle className="text-lg font-bold text-slate-900 group-hover:text-slate-800">
                 Gestión de Personal & Usuarios
               </CardTitle>
-              <CardDescription className="text-slate-500 text-xs mt-1.5 leading-relaxed">
-                Control de credenciales, alta y baja de vendedores, asignación de sucursal por defecto y auditoría de accesos.
+              <CardDescription className="text-slate-600 text-xs mt-1.5 leading-relaxed">
+                Alta de colaboradores, reseteo seguro de contraseñas con dominio corporativo @centralphone.com, asignación de sedes y control RBAC.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 pt-0">
-              <Button className="w-full justify-between text-slate-400 border-slate-200" variant="outline" disabled>
-                <span>Módulo en Preparación</span>
-                <Lock className="h-3.5 w-3.5" />
-              </Button>
+              <Link href="/usuarios">
+                <Button className="w-full justify-between" variant="outline">
+                  <span>Administrar Colaboradores</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          {/* 5. Gestión de Proveedores Mayoristas */}
+          <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
+            <CardHeader className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <Badge variant="outline">{proveedores.length} Registrados</Badge>
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-900 group-hover:text-slate-800">
+                Proveedores Mayoristas
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-xs mt-1.5 leading-relaxed">
+                Catálogo de importadoras y contactos mayoristas, teléfonos directos y estado operativo para la recepción de mercadería física.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <Link href="/proveedores">
+                <Button className="w-full justify-between" variant="outline">
+                  <span>Gestionar Proveedores</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
