@@ -56,14 +56,17 @@ enum RolUsuario {
 }
 
 model Usuario {
-  id           Int        @id @default(autoincrement())
-  sucursalId   Int?       @map("sucursal_id")
-  nombre       String     @db.VarChar(100)
-  email        String     @unique @db.VarChar(100)
-  passwordHash String     @map("password_hash") @db.VarChar(255)
-  rol          RolUsuario @default(VENDEDOR)
-  activo       Boolean    @default(true)
-  creadoEn     DateTime   @default(now()) @map("creado_en")
+  id            Int        @id @default(autoincrement())
+  sucursalId    Int?       @map("sucursal_id")
+  nombre        String     @db.VarChar(100)
+  apellido      String?    @db.VarChar(100)
+  email         String     @unique @db.VarChar(100)
+  telefono      String?    @db.VarChar(30)
+  passwordHash  String     @map("password_hash") @db.VarChar(255)
+  rol           RolUsuario @default(VENDEDOR)
+  activo        Boolean    @default(true)
+  creadoEn      DateTime   @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @default(now()) @updatedAt @map("actualizado_en")
 
   sucursal             Sucursal?              @relation(fields: [sucursalId], references: [id])
   cajasApertura        CajaDiaria[]           @relation("UsuarioApertura")
@@ -84,9 +87,13 @@ model Usuario {
 model Proveedor {
   id                 Int      @id @default(autoincrement())
   nombre             String   @db.VarChar(100)
+  apellido           String?  @db.VarChar(100)
+  empresa            String?  @db.VarChar(150)
   telefono           String?  @db.VarChar(30)
   contactoReferencia String?  @map("contacto_referencia") @db.VarChar(100)
+  activo             Boolean  @default(true)
   creadoEn           DateTime @default(now()) @map("creado_en")
+  actualizadoEn      DateTime @default(now()) @updatedAt @map("actualizado_en")
 
   notasIngreso NotaIngreso[]
 
@@ -218,9 +225,12 @@ model CategoriaAccesorio {
 }
 
 model Accesorio {
-  id          Int      @id @default(autoincrement())
-  categoriaId Int      @map("categoria_id")
-  nombre      String   @db.VarChar(150)
+  id            Int      @id @default(autoincrement())
+  categoriaId   Int      @map("categoria_id")
+  nombre        String   @db.VarChar(150)
+  descripcion   String?  @db.VarChar(255)
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @default(now()) @updatedAt @map("actualizado_en")
 
   categoria CategoriaAccesorio @relation(fields: [categoriaId], references: [id])
   lotes     LoteAccesorio[]

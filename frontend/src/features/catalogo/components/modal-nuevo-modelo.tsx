@@ -103,49 +103,48 @@ export function ModalNuevoModelo({
                 value={primeraVarCapacidad}
                 onChange={(e) => setPrimeraVarCapacidad(Number(e.target.value))}
               >
-                <option value="0">0 GB (Sin alm. / AirPods)</option>
+                <option value="0">0 GB (AirPods / Apple Watch)</option>
                 <option value="64">64 GB</option>
                 <option value="128">128 GB</option>
                 <option value="256">256 GB</option>
                 <option value="512">512 GB</option>
-                <option value="1024">1 TB</option>
-                <option value="2048">2 TB</option>
+                <option value="1024">1 TB (1024 GB)</option>
+                <option value="2048">2 TB (2048 GB)</option>
               </Select>
             </div>
 
             <div>
-              <Label required>Tipo SIM / Conectividad</Label>
+              <Label required>Conectividad / SIM</Label>
               <Select
                 value={primeraVarSim}
                 onChange={(e) => setPrimeraVarSim(e.target.value)}
               >
                 <option value="SIM Físico">SIM Físico</option>
-                <option value="eSIM Exclusivo">eSIM Exclusivo</option>
-                <option value="Dual SIM Físico">Dual SIM Físico</option>
-                <option value="No Aplica">No Aplica (Mac / AirPods / Wi-Fi)</option>
+                <option value="eSIM">eSIM</option>
+                <option value="Dual SIM">Dual SIM</option>
                 <option value="GPS Only">GPS Only (Apple Watch)</option>
-                <option value="GPS + Cellular">GPS + Cellular (Apple Watch)</option>
+                <option value="GPS + Cellular">GPS + Cellular (Watch)</option>
+                <option value="No Aplica">No Aplica (Mac / AirPods)</option>
               </Select>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2 pt-3">
+        <div className="flex gap-2 pt-2">
           <Button
             type="button"
             variant="outline"
-            className="flex-1"
+            className="flex-1 text-xs"
             onClick={onClose}
           >
             Cancelar
           </Button>
           <Button
             type="submit"
-            className="flex-1"
+            className="flex-1 text-xs font-semibold"
             isLoading={isCreatingModelo}
-            disabled={!nuevoNombreModelo.trim() || !primeraVarColor.trim()}
           >
-            Crear Modelo Atómico
+            Crear Modelo
           </Button>
         </div>
       </form>

@@ -8,17 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ModeloItem } from '../types';
 
-interface InventarioCatalogoTabProps {
-  modelos: any[];
+interface CatalogoModelosTabProps {
+  modelos: ModeloItem[];
   isLoadingModelos: boolean;
   isAdmin: boolean;
   onOpenNuevoModelo: () => void;
-  onOpenAddVariante: (modelo: any) => void;
-  onOpenEditVariante: (modelo: any, variante: any) => void;
-  onOpenDeleteVariante: (modelo: any, variante: any) => void;
+  onOpenAddVariante: (modelo: ModeloItem) => void;
+  onOpenEditVariante: (modelo: ModeloItem, variante: any) => void;
+  onOpenDeleteVariante: (modelo: ModeloItem, variante: any) => void;
 }
 
-export function InventarioCatalogoTab({
+export function CatalogoModelosTab({
   modelos,
   isLoadingModelos,
   isAdmin,
@@ -26,7 +26,7 @@ export function InventarioCatalogoTab({
   onOpenAddVariante,
   onOpenEditVariante,
   onOpenDeleteVariante,
-}: InventarioCatalogoTabProps) {
+}: CatalogoModelosTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-white">
@@ -56,16 +56,27 @@ export function InventarioCatalogoTab({
       {/* Grid de Modelos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoadingModelos ? (
-          <Skeleton className="h-44 w-full rounded-2xl" />
+          <>
+            <Skeleton className="h-44 w-full rounded-2xl" />
+            <Skeleton className="h-44 w-full rounded-2xl" />
+            <Skeleton className="h-44 w-full rounded-2xl" />
+          </>
+        ) : modelos.length === 0 ? (
+          <div className="col-span-full p-8 text-center bg-white rounded-xl border border-slate-200 text-slate-500 text-sm">
+            No hay modelos registrados en el catálogo.
+          </div>
         ) : (
           modelos.map((m) => (
-            <Card key={m.id} className="border-slate-200 hover:border-slate-300 transition-colors flex flex-col justify-between">
+            <Card
+              key={m.id}
+              className="border-slate-200 hover:border-slate-300 transition-colors flex flex-col justify-between"
+            >
               <div>
                 <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-base font-bold text-slate-900">
-                        {m.nombreModelo || m.nombre}
+                        {m.nombreModelo}
                       </CardTitle>
                       <Badge variant="outline" className="text-[10px] font-mono">
                         {m.tipo || 'IPHONE'}

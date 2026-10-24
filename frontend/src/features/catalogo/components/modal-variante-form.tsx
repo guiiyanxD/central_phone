@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, AlertCircle, Pencil } from 'lucide-react';
+import { AlertCircle, Pencil } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,11 @@ export function ModalVarianteForm({
       title={
         <div className="flex items-center gap-2">
           {!isAdd && <Pencil className="h-4 w-4 text-slate-800" />}
-          <span>{isAdd ? 'Agregar Variante' : `Editar Variante (${modelo?.nombreModelo || modelo?.nombre})`}</span>
+          <span>
+            {isAdd
+              ? 'Agregar Variante'
+              : `Editar Variante (${modelo?.nombreModelo || modelo?.nombre})`}
+          </span>
           {modelo && (
             <Badge variant="outline" className="font-mono text-[10px]">
               {modelo.tipo || 'IPHONE'}
@@ -99,41 +103,22 @@ export function ModalVarianteForm({
           </div>
 
           <div>
-            <Label required>Conectividad / SIM</Label>
+            <Label required>Tipo de Conectividad / SIM</Label>
             <Select
               value={tipoSim}
               onChange={(e) => setTipoSim(e.target.value)}
             >
               <option value="SIM Físico">SIM Físico</option>
-              <option value="eSIM Exclusivo">eSIM Exclusivo</option>
-              <option value="Dual SIM Físico">Dual SIM Físico</option>
-              <option value="No Aplica">No Aplica (Mac / AirPods / Wi-Fi)</option>
+              <option value="eSIM">eSIM</option>
+              <option value="Dual SIM">Dual SIM</option>
               <option value="GPS Only">GPS Only (Apple Watch)</option>
-              <option value="GPS + Cellular">GPS + Cellular (Apple Watch)</option>
+              <option value="GPS + Cellular">GPS + Cellular (Watch)</option>
+              <option value="No Aplica">No Aplica (Mac / AirPods)</option>
             </Select>
           </div>
         </div>
 
-        {/* Previsualización en vivo en modo add */}
-        {isAdd && color.trim() && (
-          <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] text-slate-700 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-slate-600 flex-shrink-0" />
-            <span>
-              Se registrará:{' '}
-              <strong>
-                {modelo?.nombreModelo || modelo?.nombre} - {color.trim()} (
-                {capacidad > 0
-                  ? capacidad >= 1024
-                    ? `${capacidad / 1024}TB`
-                    : `${capacidad}GB`
-                  : '0 GB'}
-                ) [{tipoSim}]
-              </strong>
-            </span>
-          </div>
-        )}
-
-        <div className="flex gap-2 pt-3">
+        <div className="flex gap-2 pt-2">
           <Button
             type="button"
             variant="outline"
@@ -146,9 +131,8 @@ export function ModalVarianteForm({
             type="submit"
             className="flex-1 text-xs font-semibold"
             isLoading={isLoading}
-            disabled={!color.trim()}
           >
-            {isAdd ? 'Agregar al Catálogo' : 'Guardar Cambios'}
+            {isAdd ? 'Guardar Variante' : 'Actualizar Variante'}
           </Button>
         </div>
       </form>

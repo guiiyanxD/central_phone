@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import {
   User,
+  Users,
+  Truck,
   ChevronDown,
   LogOut,
   Building2,
@@ -14,6 +16,7 @@ import {
   Wallet,
   PackagePlus,
   Boxes,
+  Layers,
   BarChart3,
   QrCode,
   ShieldCheck,
@@ -37,6 +40,7 @@ export function Navbar() {
     { href: '/caja', label: 'Caja Diaria', icon: Wallet },
     { href: '/recepcion', label: 'Recepción', icon: PackagePlus },
     { href: '/inventario', label: 'Inventario', icon: Boxes },
+    { href: '/catalogo', label: 'Catálogo', icon: Layers },
     ...(user?.rol === 'ADMIN'
       ? [
           { href: '/administracion', label: 'Administración', icon: ShieldCheck },
@@ -142,6 +146,22 @@ export function Navbar() {
                     <ShieldCheck className="h-3.5 w-3.5 text-slate-700" />
                     <span>Centro de Administración</span>
                   </Link>
+                  <Link
+                    href="/usuarios"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
+                  >
+                    <Users className="h-3.5 w-3.5 text-slate-700" />
+                    <span>Gestión de Personal</span>
+                  </Link>
+                  <Link
+                    href="/proveedores"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg transition-colors font-medium"
+                  >
+                    <Truck className="h-3.5 w-3.5 text-slate-700" />
+                    <span>Proveedores Mayoristas</span>
+                  </Link>
                 </div>
               )}
 
@@ -169,7 +189,7 @@ export function Navbar() {
       aria-label="Navegación móvil y tablet"
       className="fixed bottom-0 left-0 right-0 z-50 flex lg:hidden h-16 bg-white border-t border-slate-200 px-1.5 justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
     >
-      {navLinks.slice(0, 5).map((link) => {
+      {navLinks.slice(0, 6).map((link) => {
         const Icon = link.icon;
         const isActive =
           link.href === '/'

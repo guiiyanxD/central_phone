@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AccesoriosService } from './accesorios.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPrismaMock, MockPrismaService } from '../prisma/prisma.mock';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 
 describe('AccesoriosService', () => {
   let service: AccesoriosService;
@@ -57,12 +57,96 @@ describe('AccesoriosService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('debe crear el accesorio exitosamente', async () => {
+    it('debe crear el accesorio exitosamente con descripcion', async () => {
       prisma.categoriaAccesorio.findUnique.mockResolvedValue({ id: 1 } as any);
-      prisma.accesorio.create.mockResolvedValue({ id: 10, nombre: 'Funda Pro', categoriaId: 1 } as any);
+      prisma.accesorio.create.mockResolvedValue({
+        id: 10,
+        nombre: 'Funda Pro',
+        descripcion: 'Protección reforzada',
+        categoriaId: 1,
+      } as any);
 
-      const res = await service.createAccesorio({ categoriaId: 1, nombre: 'Funda Pro' });
+      const res = await service.createAccesorio({
+        categoriaId: 1,
+        nombre: 'Funda Pro',
+        descripcion: 'Protección reforzada',
+      });
       expect(res.id).toBe(10);
+      expect(prisma.accesorio.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            nombre: 'Funda Pro',
+            descripcion: 'Protección reforzada',
+            categoriaId: 1,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('updateAccesorio', () => {
+    it('debe lanzar NotFoundException si el accesorio no existe', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateAccesorio(999, { nombre: 'Nuevo Nombre' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar NotFoundException si la nueva categoría no existe', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue({ id: 1, nombre: 'Funda' } as any);
+      prisma.categoriaAccesorio.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateAccesorio(1, { categoriaId: 888 })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe actualizar el accesorio exitosamente', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue({ id: 1, nombre: 'Funda' } as any);
+      prisma.accesorio.update.mockResolvedValue({
+        id: 1,
+        nombre: 'Funda MagSafe',
+        descripcion: 'Con imán',
+      } as any);
+
+      const res = await service.updateAccesorio(1, {
+        nombre: 'Funda MagSafe',
+        descripcion: 'Con imán',
+      });
+      expect(res.nombre).toBe('Funda MagSafe');
+      expect(prisma.accesorio.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteAccesorio', () => {
+    it('debe lanzar NotFoundException si el accesorio a eliminar no existe', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteAccesorio(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si el accesorio tiene lotes de inventario asociados', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Funda iPhone 13',
+        _count: { lotes: 3 },
+      } as any);
+
+      await expect(service.deleteAccesorio(1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe eliminar el accesorio exitosamente si tiene 0 lotes asociados', async () => {
+      prisma.accesorio.findUnique.mockResolvedValue({
+        id: 10,
+        nombre: 'Accesorio Sin Stock',
+        _count: { lotes: 0 },
+      } as any);
+      prisma.accesorio.delete.mockResolvedValue({ id: 10 } as any);
+
+      const res = await service.deleteAccesorio(10);
+      expect(res.id).toBe(10);
+      expect(prisma.accesorio.delete).toHaveBeenCalledWith({ where: { id: 10 } });
     });
   });
 

@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Body,
   Param,
   ParseIntPipe,
@@ -11,6 +13,7 @@ import {
 import { AccesoriosService } from './accesorios.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { CreateAccesorioDto } from './dto/create-accesorio.dto';
+import { UpdateAccesorioDto } from './dto/update-accesorio.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -60,5 +63,22 @@ export class AccesoriosController {
   @Post()
   async createAccesorio(@Body() dto: CreateAccesorioDto) {
     return this.accesoriosService.createAccesorio(dto);
+  }
+
+  @Put(':id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async updateAccesorio(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateAccesorioDto,
+  ) {
+    return this.accesoriosService.updateAccesorio(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async deleteAccesorio(@Param('id', ParseIntPipe) id: number) {
+    return this.accesoriosService.deleteAccesorio(id);
   }
 }

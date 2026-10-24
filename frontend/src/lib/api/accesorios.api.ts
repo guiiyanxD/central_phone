@@ -11,7 +11,11 @@ export interface AccesorioItem {
   id: number;
   categoriaId: number;
   nombre: string;
+  descripcion?: string | null;
   categoria: { id: number; nombre: string };
+  _count?: {
+    lotes: number;
+  };
   lotes: Array<{
     id: number;
     nombreDiferenciador: string;
@@ -32,9 +36,22 @@ export const accesoriosApi = {
     if (sucursalId) q.set('sucursalId', String(sucursalId));
     return request<AccesorioItem[]>(`/accesorios?${q.toString()}`);
   },
-  create: (data: { categoriaId: number; nombre: string }) =>
-    request<any>('/accesorios', {
+  getById: (id: number) => request<AccesorioItem>(`/accesorios/${id}`),
+  create: (data: { categoriaId: number; nombre: string; descripcion?: string }) =>
+    request<AccesorioItem>('/accesorios', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+  update: (
+    id: number,
+    data: { categoriaId?: number; nombre?: string; descripcion?: string }
+  ) =>
+    request<AccesorioItem>(`/accesorios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    request<{ message: string }>(`/accesorios/${id}`, {
+      method: 'DELETE',
     }),
 };
