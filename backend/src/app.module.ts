@@ -11,6 +11,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { RecepcionModule } from './recepcion/recepcion.module';
 import { CajaModule } from './caja/caja.module';
 import { VentasModule } from './ventas/ventas.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { HealthModule } from './health/health.module';
     PrismaModule,
     HealthModule,
     AuthModule,
+    UsuariosModule,
     SucursalesModule,
     ConfiguracionModule,
     ModelosModule,

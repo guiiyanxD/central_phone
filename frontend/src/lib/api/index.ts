@@ -7,6 +7,7 @@ import { proveedoresApi } from './proveedores.api';
 import { recepcionApi } from './recepcion.api';
 import { cajaApi } from './caja.api';
 import { ventasApi } from './ventas.api';
+import { usuariosApi } from './usuarios.api';
 import { healthApi } from './health.api';
 
 export * from './client';
@@ -19,10 +20,12 @@ export * from './proveedores.api';
 export * from './recepcion.api';
 export * from './caja.api';
 export * from './ventas.api';
+export * from './usuarios.api';
 export * from './health.api';
 
 export const api = {
   auth: authApi,
+  usuarios: usuariosApi,
   sucursales: sucursalesApi,
   configuracion: configuracionApi,
   modelos: modelosApi,
