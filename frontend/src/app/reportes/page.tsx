@@ -34,25 +34,30 @@ export default function ReportesPage() {
   const [isAnulando, setIsAnulando] = useState(false);
   const [errorAnulacion, setErrorAnulacion] = useState<string | null>(null);
 
-  // Inicializar fechas según preset
+  // Formateador de fechas a YYYY-MM-DD en hora local
+  const formatLocalDate = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dia}`;
+  };
+
+  // Inicializar fechas según preset en hora local
   const aplicarPreset = (preset: 'HOY' | 'SEMANA' | 'MES') => {
     setPresetFecha(preset);
     const ahora = new Date();
-    const hoyStr = ahora.toISOString().slice(0, 10);
+    const hoyStr = formatLocalDate(ahora);
 
     if (preset === 'HOY') {
       setFechaInicio(hoyStr);
       setFechaFin(hoyStr);
     } else if (preset === 'SEMANA') {
-      const sieteDiasAtras = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
-      setFechaInicio(sieteDiasAtras.toISOString().slice(0, 10));
+      const sieteDiasAtras = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 7);
+      setFechaInicio(formatLocalDate(sieteDiasAtras));
       setFechaFin(hoyStr);
     } else if (preset === 'MES') {
       const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-      const anio = inicioMes.getFullYear();
-      const mes = String(inicioMes.getMonth() + 1).padStart(2, '0');
-      const dia = String(inicioMes.getDate()).padStart(2, '0');
-      setFechaInicio(`${anio}-${mes}-${dia}`);
+      setFechaInicio(formatLocalDate(inicioMes));
       setFechaFin(hoyStr);
     }
   };

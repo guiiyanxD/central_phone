@@ -620,5 +620,23 @@ describe('VentasService', () => {
       expect(reporte.resumen.cantidadVentasCompletadas).toBe(1);
       expect(reporte.resumen.cantidadVentasAnuladas).toBe(1);
     });
+
+    it('debe filtrar correctamente el día completo (00:00:00 a 23:59:59.999) en hora local al recibir YYYY-MM-DD', async () => {
+      prisma.venta.findMany.mockResolvedValue([]);
+      prisma.gastoOperativo.findMany.mockResolvedValue([]);
+
+      await service.getReporteRentabilidad('2026-10-24', '2026-10-24');
+
+      expect(prisma.venta.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            fechaHora: expect.objectContaining({
+              gte: new Date('2026-10-24T00:00:00'),
+              lte: new Date('2026-10-24T23:59:59.999'),
+            }),
+          }),
+        })
+      );
+    });
   });
 });

@@ -472,17 +472,16 @@ export class VentasService {
   ) {
     let fechaFiltro: any = {};
     if (fechaInicio) {
-      const gte = new Date(fechaInicio);
+      const s = fechaInicio.length === 10 ? `${fechaInicio}T00:00:00` : fechaInicio;
+      const gte = new Date(s);
       if (!isNaN(gte.getTime())) {
         fechaFiltro.gte = gte;
       }
     }
     if (fechaFin) {
-      const lte = new Date(fechaFin);
+      const s = fechaFin.length === 10 ? `${fechaFin}T23:59:59.999` : fechaFin;
+      const lte = new Date(s);
       if (!isNaN(lte.getTime())) {
-        if (fechaFin.length <= 10) {
-          lte.setHours(23, 59, 59, 999);
-        }
         fechaFiltro.lte = lte;
       }
     }
