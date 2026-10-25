@@ -40,7 +40,10 @@ export class HealthController {
         uptime: Math.floor(process.uptime()),
         database: {
           status: 'down',
-          error: error.message || 'Error de conexión con PostgreSQL',
+          error:
+            process.env.NODE_ENV === 'production'
+              ? 'Error de conexión con PostgreSQL'
+              : error.message || 'Error de conexión con PostgreSQL',
         },
       });
     }

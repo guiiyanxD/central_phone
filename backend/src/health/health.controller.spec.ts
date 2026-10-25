@@ -54,4 +54,23 @@ describe('HealthController', () => {
       expect(response.database.error).toBe('Connection lost to PostgreSQL');
     }
   });
+
+  it('debe ofuscar error.message en producción ante fallo de BD (CONF-008)', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    prisma.$queryRaw.mockRejectedValueOnce(
+      new Error('Connection lost to PostgreSQL at 172.18.0.2:5432 - sensitive stack')
+    );
+
+    try {
+      await controller.check();
+    } catch (err: any) {
+      const response = err.getResponse();
+      expect(response.status).toBe('error');
+      expect(response.database.status).toBe('down');
+      expect(response.database.error).toBe('Error de conexión con PostgreSQL');
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
+  });
 });
