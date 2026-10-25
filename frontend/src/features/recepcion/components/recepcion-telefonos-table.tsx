@@ -76,9 +76,10 @@ export function RecepcionTelefonosTable({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {/* Selector de Variante o Botón al vuelo */}
               <div className="md:col-span-2 space-y-1">
-                <Label required>Modelo y Variante</Label>
+                <Label htmlFor={`tel-variante-${t.id}`} required>Modelo y Variante</Label>
                 <div className="flex gap-2">
                   <Select
+                    id={`tel-variante-${t.id}`}
                     className="flex-1"
                     value={t.varianteId || ''}
                     onChange={(e) =>
@@ -129,8 +130,9 @@ export function RecepcionTelefonosTable({
 
               {/* Condición */}
               <div>
-                <Label required>Condición</Label>
+                <Label htmlFor={`tel-condicion-${t.id}`} required>Condición</Label>
                 <Select
+                  id={`tel-condicion-${t.id}`}
                   value={t.condicion}
                   onChange={(e) =>
                     onUpdateTelefono(t.id, 'condicion', e.target.value)
@@ -144,8 +146,9 @@ export function RecepcionTelefonosTable({
 
               {/* Número de Serie */}
               <div>
-                <Label required>Número de Serie</Label>
+                <Label htmlFor={`tel-serie-${t.id}`} required>Número de Serie</Label>
                 <Input
+                  id={`tel-serie-${t.id}`}
                   placeholder="Ej: F2LZ998X..."
                   value={t.numeroSerie}
                   onChange={(e) =>
@@ -156,10 +159,11 @@ export function RecepcionTelefonosTable({
 
               {/* IMEI 1 */}
               <div>
-                <Label required={t.modeloTipo === 'IPHONE'}>
+                <Label htmlFor={`tel-imei1-${t.id}`} required={t.modeloTipo === 'IPHONE'}>
                   IMEI 1 {t.modeloTipo === 'IPHONE' ? '(15 dígitos)' : '(Celular/Opc.)'}
                 </Label>
                 <Input
+                  id={`tel-imei1-${t.id}`}
                   disabled={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'}
                   placeholder={
                     t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
@@ -181,8 +185,9 @@ export function RecepcionTelefonosTable({
 
               {/* IMEI 2 (Opcional) */}
               <div>
-                <Label>IMEI 2 (Dual SIM / eSIM)</Label>
+                <Label htmlFor={`tel-imei2-${t.id}`}>IMEI 2 (Dual SIM / eSIM)</Label>
                 <Input
+                  id={`tel-imei2-${t.id}`}
                   disabled={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'}
                   placeholder={
                     t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
@@ -204,8 +209,9 @@ export function RecepcionTelefonosTable({
 
               {/* Costo en Bs */}
               <div>
-                <Label required>Costo Unitario (Bs)</Label>
+                <Label htmlFor={`tel-costo-bs-${t.id}`} required>Costo Unitario (Bs)</Label>
                 <Input
+                  id={`tel-costo-bs-${t.id}`}
                   type="number"
                   step="0.01"
                   min="0"
@@ -219,8 +225,9 @@ export function RecepcionTelefonosTable({
 
               {/* Costo en USD */}
               <div>
-                <Label required>Costo Unitario ($ USD)</Label>
+                <Label htmlFor={`tel-costo-usd-${t.id}`} required>Costo Unitario ($ USD)</Label>
                 <Input
+                  id={`tel-costo-usd-${t.id}`}
                   type="number"
                   step="0.01"
                   min="0"
@@ -235,10 +242,11 @@ export function RecepcionTelefonosTable({
               {/* Precio Venta Sugerido en Bs */}
               <div>
                 <div className="flex items-center justify-between">
-                  <Label required>P. Venta Sugerido (Bs)</Label>
+                  <Label htmlFor={`tel-precio-bs-${t.id}`} required>P. Venta Sugerido (Bs)</Label>
                   <span className="text-[10px] text-slate-500 font-mono">+15% auto</span>
                 </div>
                 <Input
+                  id={`tel-precio-bs-${t.id}`}
                   type="number"
                   step="0.01"
                   min="0"

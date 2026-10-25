@@ -23,3 +23,27 @@ export function formatNombreCaja(
   }
   return `Caja del ${fecha} en ${sucursal}`;
 }
+
+/**
+ * Agrupa un IMEI de 15 dígitos en bloques legibles de 4-4-4-3 dígitos (Ley de Miller).
+ */
+export function formatImeiChunks(imei?: string | null): string {
+  if (!imei) return '';
+  const digits = imei.replace(/\D/g, '');
+  if (digits.length !== 15) return imei;
+  return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8, 12)} ${digits.slice(12)}`;
+}
+
+/**
+ * Descompone el IMEI para destacar visualmente los 4 dígitos terminales.
+ */
+export function getImeiTerminalParts(imei?: string | null): { prefix: string; terminal: string } {
+  if (!imei) return { prefix: '', terminal: '' };
+  const digits = imei.replace(/\D/g, '');
+  if (digits.length !== 15) {
+    return { prefix: '', terminal: imei };
+  }
+  const prefix = `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8, 11)} `;
+  const terminal = digits.slice(11);
+  return { prefix, terminal };
+}

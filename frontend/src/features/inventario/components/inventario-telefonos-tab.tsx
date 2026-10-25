@@ -18,7 +18,7 @@ import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { cn, getImeiTerminalParts, formatImeiChunks } from '@/lib/utils';
 import { DispositivoItem, DispositivosMeta } from '../types';
 
 interface InventarioTelefonosTabProps {
@@ -89,6 +89,7 @@ export function InventarioTelefonosTab({
             <Input
               className="pl-9 pr-8 h-9 text-xs"
               placeholder="Buscar por IMEI, Serie, Modelo o Color..."
+              aria-label="Buscar dispositivos por IMEI, Serie, Modelo o Color"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -302,7 +303,21 @@ export function InventarioTelefonosTab({
                         className="group text-left inline-flex items-center gap-1.5 text-slate-900 font-semibold hover:text-slate-700 transition-colors"
                         title="Consultar Línea de Vida Completa"
                       >
-                        <span>{d.imei1 || `S/N: ${d.numeroSerie}`}</span>
+                        {d.imei1 ? (
+                          (() => {
+                            const { prefix, terminal } = getImeiTerminalParts(d.imei1);
+                            return (
+                              <span className="select-all">
+                                <span className="text-slate-500 font-normal">{prefix}</span>
+                                <strong className="font-bold text-slate-900 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
+                                  {terminal}
+                                </strong>
+                              </span>
+                            );
+                          })()
+                        ) : (
+                          <span>S/N: {d.numeroSerie}</span>
+                        )}
                         <History className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
                       </button>
                       <p className="text-slate-400 text-[10px] mt-0.5">
@@ -314,7 +329,7 @@ export function InventarioTelefonosTab({
                             className="ml-1 text-slate-500 hover:text-slate-900 hover:underline"
                             title="Consultar Línea de Vida para IMEI 2"
                           >
-                            | IMEI 2: {d.imei2}
+                            | IMEI 2: {formatImeiChunks(d.imei2)}
                           </button>
                         )}
                       </p>

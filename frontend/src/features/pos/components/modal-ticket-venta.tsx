@@ -14,6 +14,19 @@ export function ModalTicketVenta({
   onClose,
   onPrintReceipt,
 }: ModalTicketVentaProps) {
+  // Atajo de teclado en comprobante: Enter para imprimir térmico
+  React.useEffect(() => {
+    if (!sale) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onPrintReceipt();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sale, onPrintReceipt]);
+
   if (!sale) return null;
 
   return (
@@ -101,15 +114,17 @@ export function ModalTicketVenta({
             variant="outline"
             className="flex-1 text-xs"
             onClick={onPrintReceipt}
+            title="Presiona Enter para imprimir"
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Imprimir Recibo
+            Imprimir Recibo (Enter)
           </Button>
           <Button
             className="flex-1 text-xs"
             onClick={onClose}
+            title="Presiona Esc para continuar"
           >
-            Nueva Venta
+            Nueva Venta (Esc)
           </Button>
         </div>
       </div>

@@ -76,9 +76,10 @@ export function RecepcionAccesoriosTable({
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
               {/* Accesorio Base */}
               <div className="sm:col-span-2 space-y-1">
-                <Label required>Accesorio Base</Label>
+                <Label htmlFor={`acc-base-${a.id}`} required>Accesorio Base</Label>
                 <div className="flex gap-2">
                   <Select
+                    id={`acc-base-${a.id}`}
                     className="flex-1"
                     value={a.accesorioId || ''}
                     onChange={(e) =>
@@ -119,8 +120,9 @@ export function RecepcionAccesoriosTable({
 
               {/* Nombre Diferenciador */}
               <div className="sm:col-span-3">
-                <Label required>Nombre Diferenciador del Lote</Label>
+                <Label htmlFor={`acc-nombre-dif-${a.id}`} required>Nombre Diferenciador del Lote</Label>
                 <Input
+                  id={`acc-nombre-dif-${a.id}`}
                   placeholder="Ej: MagSafe Reforzada Azul / Silicona Lisa Bs 40"
                   value={a.nombreDiferenciador}
                   onChange={(e) =>
@@ -131,8 +133,9 @@ export function RecepcionAccesoriosTable({
 
               {/* Cantidad */}
               <div>
-                <Label required>Cantidad</Label>
+                <Label htmlFor={`acc-cantidad-${a.id}`} required>Cantidad</Label>
                 <Input
+                  id={`acc-cantidad-${a.id}`}
                   type="number"
                   min="1"
                   placeholder="1"
@@ -145,8 +148,9 @@ export function RecepcionAccesoriosTable({
 
               {/* Costo Unitario Bs */}
               <div className="sm:col-span-2">
-                <Label required>Costo Unitario (Bs)</Label>
+                <Label htmlFor={`acc-costo-${a.id}`} required>Costo Unitario (Bs)</Label>
                 <Input
+                  id={`acc-costo-${a.id}`}
                   type="number"
                   step="0.01"
                   min="0"
@@ -164,8 +168,9 @@ export function RecepcionAccesoriosTable({
 
               {/* Precio Venta Sugerido Bs */}
               <div className="sm:col-span-2">
-                <Label required>Precio Venta Sugerido (Bs)</Label>
+                <Label htmlFor={`acc-precio-${a.id}`} required>Precio Venta Sugerido (Bs)</Label>
                 <Input
+                  id={`acc-precio-${a.id}`}
                   type="number"
                   step="0.01"
                   min="0"

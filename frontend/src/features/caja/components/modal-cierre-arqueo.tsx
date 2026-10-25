@@ -53,12 +53,16 @@ export function ModalCierreArqueo({
     >
       <form onSubmit={onSubmit} className="space-y-4 pt-2">
         {cierreError && (
-          <div className="p-3 rounded-lg border border-slate-300 bg-slate-100 text-slate-900 text-xs">
-            <p className="font-bold flex items-center gap-1.5 text-slate-900">
-              <AlertTriangle className="h-4 w-4 text-slate-800" />
+          <div
+            role="alert"
+            aria-live="polite"
+            className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs animate-in fade-in"
+          >
+            <p className="font-bold flex items-center gap-1.5 text-amber-900">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
               Descuadre Detectado:
             </p>
-            <p className="mt-1 text-slate-700">{cierreError}</p>
+            <p className="mt-1 text-amber-800">{cierreError}</p>
           </div>
         )}
 

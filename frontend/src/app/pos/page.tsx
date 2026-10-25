@@ -313,6 +313,7 @@ export default function PosPage() {
 
   // Hook Global de Hardware (useBarcodeScanner): Escaneo de IMEI o Serie desacoplado del cursor
   useBarcodeScanner({
+    playSound: false, // Desactivar beep prematuro en el hook; el sonido se evalúa semánticamente según match
     onScan: (scannedCode) => {
       const q = scannedCode.toLowerCase().trim();
       const match = dispositivos.find(

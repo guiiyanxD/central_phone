@@ -119,20 +119,22 @@ export function CatalogoModelosTab({
                           [{v.tipoSim}]
                         </span>
                         {isAdmin && (
-                          <div className="flex items-center gap-1 ml-1 border-l border-slate-200 pl-1.5">
+                          <div className="flex items-center gap-0.5 ml-1 border-l border-slate-200 pl-1">
                             <button
                               type="button"
                               onClick={() => onOpenEditVariante(m, v)}
-                              className="text-slate-400 hover:text-slate-900 p-0.5 rounded transition-colors"
-                              title="Editar variante"
+                              className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-200/60 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900"
+                              title={`Editar variante ${v.color}`}
+                              aria-label={`Editar variante ${v.color} ${v.capacidadGb > 0 ? (v.capacidadGb >= 1024 ? `${v.capacidadGb / 1024}TB` : `${v.capacidadGb}GB`) : ''} de ${m.nombreModelo}`}
                             >
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
                               type="button"
                               onClick={() => onOpenDeleteVariante(m, v)}
-                              className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors"
-                              title="Eliminar variante"
+                              className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                              title={`Eliminar variante ${v.color}`}
+                              aria-label={`Eliminar variante ${v.color} ${v.capacidadGb > 0 ? (v.capacidadGb >= 1024 ? `${v.capacidadGb / 1024}TB` : `${v.capacidadGb}GB`) : ''} de ${m.nombreModelo}`}
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>

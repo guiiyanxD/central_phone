@@ -80,6 +80,7 @@ export function CatalogoAccesoriosTab({
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Buscar por nombre, tipo o descripción..."
+              aria-label="Buscar por nombre, tipo o descripción de accesorio"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 text-xs"
@@ -89,6 +90,7 @@ export function CatalogoAccesoriosTab({
           {/* Filtro por Categoría */}
           <div className="w-full sm:w-56">
             <Select
+              aria-label="Filtrar por categoría de accesorio"
               value={selectedCategoria}
               onChange={(e) => setSelectedCategoria(e.target.value)}
             >
