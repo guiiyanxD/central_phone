@@ -48,6 +48,77 @@ describe('AccesoriosService', () => {
     });
   });
 
+  describe('updateCategoria', () => {
+    it('debe lanzar NotFoundException si la categoría no existe', async () => {
+      prisma.categoriaAccesorio.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateCategoria(999, { nombre: 'Nueva' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar ConflictException si el nuevo nombre ya está ocupado', async () => {
+      prisma.categoriaAccesorio.findUnique
+        .mockResolvedValueOnce({ id: 1, nombre: 'Fundas' } as any) // find existing by id
+        .mockResolvedValueOnce({ id: 2, nombre: 'Cables' } as any); // find duplicate name
+
+      await expect(
+        service.updateCategoria(1, { nombre: 'Cables' })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe actualizar la categoría exitosamente', async () => {
+      prisma.categoriaAccesorio.findUnique
+        .mockResolvedValueOnce({ id: 1, nombre: 'Fundas' } as any)
+        .mockResolvedValueOnce(null);
+
+      prisma.categoriaAccesorio.update.mockResolvedValue({
+        id: 1,
+        nombre: 'Fundas y Cases',
+        descripcion: 'Protección general',
+        _count: { accesorios: 3 },
+      } as any);
+
+      const res = await service.updateCategoria(1, {
+        nombre: 'Fundas y Cases',
+        descripcion: 'Protección general',
+      });
+
+      expect(res.nombre).toBe('Fundas y Cases');
+    });
+  });
+
+  describe('deleteCategoria', () => {
+    it('debe lanzar NotFoundException si la categoría a eliminar no existe', async () => {
+      prisma.categoriaAccesorio.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteCategoria(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si la categoría tiene accesorios asociados', async () => {
+      prisma.categoriaAccesorio.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Fundas',
+        _count: { accesorios: 5 },
+      } as any);
+
+      await expect(service.deleteCategoria(1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe eliminar la categoría exitosamente si no tiene accesorios asociados', async () => {
+      prisma.categoriaAccesorio.findUnique.mockResolvedValue({
+        id: 2,
+        nombre: 'Obsoletos',
+        _count: { accesorios: 0 },
+      } as any);
+      prisma.categoriaAccesorio.delete.mockResolvedValue({ id: 2 } as any);
+
+      const res = await service.deleteCategoria(2);
+      expect(res.message).toContain('eliminada exitosamente');
+      expect(prisma.categoriaAccesorio.delete).toHaveBeenCalledWith({ where: { id: 2 } });
+    });
+  });
+
   describe('createAccesorio', () => {
     it('debe lanzar NotFoundException si la categoría no existe', async () => {
       prisma.categoriaAccesorio.findUnique.mockResolvedValue(null);

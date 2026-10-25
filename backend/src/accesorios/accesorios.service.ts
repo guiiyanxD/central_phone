@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
+import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 import { CreateAccesorioDto } from './dto/create-accesorio.dto';
 import { UpdateAccesorioDto } from './dto/update-accesorio.dto';
 import { QueryLotesDto } from './dto/query-lotes.dto';
@@ -40,7 +41,73 @@ export class AccesoriosService {
         nombre: dto.nombre.trim(),
         descripcion: dto.descripcion,
       },
+      include: {
+        _count: {
+          select: { accesorios: true },
+        },
+      },
     });
+  }
+
+  async updateCategoria(id: number, dto: UpdateCategoriaDto) {
+    const categoria = await this.prisma.categoriaAccesorio.findUnique({
+      where: { id },
+    });
+
+    if (!categoria) {
+      throw new NotFoundException(`La categoría con ID ${id} no existe.`);
+    }
+
+    if (dto.nombre && dto.nombre.trim() !== categoria.nombre) {
+      const existing = await this.prisma.categoriaAccesorio.findUnique({
+        where: { nombre: dto.nombre.trim() },
+      });
+      if (existing) {
+        throw new ConflictException(`La categoría '${dto.nombre.trim()}' ya existe.`);
+      }
+    }
+
+    return this.prisma.categoriaAccesorio.update({
+      where: { id },
+      data: {
+        ...(dto.nombre ? { nombre: dto.nombre.trim() } : {}),
+        ...(dto.descripcion !== undefined ? { descripcion: dto.descripcion } : {}),
+      },
+      include: {
+        _count: {
+          select: { accesorios: true },
+        },
+      },
+    });
+  }
+
+  async deleteCategoria(id: number) {
+    const categoria = await this.prisma.categoriaAccesorio.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { accesorios: true },
+        },
+      },
+    });
+
+    if (!categoria) {
+      throw new NotFoundException(`La categoría con ID ${id} no existe.`);
+    }
+
+    if (categoria._count.accesorios > 0) {
+      throw new BadRequestException(
+        `No se puede eliminar la categoría '${categoria.nombre}' porque tiene ${categoria._count.accesorios} accesorio(s) asociado(s).`,
+      );
+    }
+
+    await this.prisma.categoriaAccesorio.delete({
+      where: { id },
+    });
+
+    return {
+      message: `Categoría '${categoria.nombre}' eliminada exitosamente.`,
+    };
   }
 
   // --- ACCESORIOS BASE & LOTES ---

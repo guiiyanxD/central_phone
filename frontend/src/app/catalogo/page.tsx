@@ -17,6 +17,7 @@ import {
   ModalVarianteDelete,
   ModalAccesorioForm,
   DialogDeleteAccesorio,
+  ModalGestionarCategorias,
 } from '@/features/catalogo';
 
 export default function CatalogoPage() {
@@ -91,6 +92,39 @@ export default function CatalogoPage() {
   const [accesorioToDelete, setAccesorioToDelete] = useState<AccesorioItem | null>(null);
   const [isDeletingAccesorio, setIsDeletingAccesorio] = useState(false);
   const [deleteAccesorioError, setDeleteAccesorioError] = useState<string | null>(null);
+
+  // Modal para Gestión de Categorías de Accesorios
+  const [modalGestionarCategoriasOpen, setModalGestionarCategoriasOpen] = useState(false);
+
+  const handleCategoriaCreada = (nuevaCat: CategoriaAccesorioItem) => {
+    setCategorias((prev) => {
+      const exists = prev.some((c) => c.id === nuevaCat.id);
+      if (exists) return prev;
+      return [...prev, nuevaCat].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    });
+  };
+
+  const handleCategoriaActualizada = (catActualizada: CategoriaAccesorioItem) => {
+    setCategorias((prev) =>
+      prev
+        .map((c) => (c.id === catActualizada.id ? catActualizada : c))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    );
+    setAccesorios((prev) =>
+      prev.map((acc) =>
+        acc.categoriaId === catActualizada.id
+          ? { ...acc, categoria: { ...acc.categoria, nombre: catActualizada.nombre } }
+          : acc
+      )
+    );
+  };
+
+  const handleCategoriaEliminada = (id: number) => {
+    setCategorias((prev) => prev.filter((c) => c.id !== id));
+    if (accesorioCategoriaId === id) {
+      setAccesorioCategoriaId(0);
+    }
+  };
 
   // Carga de Datos
   const fetchModelos = async () => {
@@ -371,6 +405,7 @@ export default function CatalogoPage() {
           isLoading={isLoadingAccesorios}
           isAdmin={isAdmin}
           onOpenNuevoAccesorio={handleOpenNuevoAccesorio}
+          onOpenGestionarCategorias={() => setModalGestionarCategoriasOpen(true)}
           onOpenEditAccesorio={handleOpenEditAccesorio}
           onOpenDeleteAccesorio={handleOpenDeleteAccesorio}
         />
@@ -452,6 +487,7 @@ export default function CatalogoPage() {
         isLoading={isSavingAccesorio}
         error={accesorioError}
         onSubmit={handleSaveAccesorio}
+        onCategoriaCreada={handleCategoriaCreada}
       />
 
       <DialogDeleteAccesorio
@@ -461,6 +497,16 @@ export default function CatalogoPage() {
         isLoading={isDeletingAccesorio}
         error={deleteAccesorioError}
         onConfirm={handleConfirmDeleteAccesorio}
+      />
+
+      <ModalGestionarCategorias
+        isOpen={modalGestionarCategoriasOpen}
+        onClose={() => setModalGestionarCategoriasOpen(false)}
+        categorias={categorias}
+        isAdmin={isAdmin}
+        onCategoriaCreada={handleCategoriaCreada}
+        onCategoriaActualizada={handleCategoriaActualizada}
+        onCategoriaEliminada={handleCategoriaEliminada}
       />
     </div>
   );

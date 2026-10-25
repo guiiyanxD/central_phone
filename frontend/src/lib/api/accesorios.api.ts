@@ -81,6 +81,23 @@ export interface LotesPaginatedResponse {
 export const accesoriosApi = {
   getCategorias: () =>
     request<CategoriaAccesorioItem[]>('/accesorios/categorias'),
+  createCategoria: (data: { nombre: string; descripcion?: string }) =>
+    request<CategoriaAccesorioItem>('/accesorios/categorias', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateCategoria: (
+    id: number,
+    data: { nombre?: string; descripcion?: string }
+  ) =>
+    request<CategoriaAccesorioItem>(`/accesorios/categorias/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteCategoria: (id: number) =>
+    request<{ message: string }>(`/accesorios/categorias/${id}`, {
+      method: 'DELETE',
+    }),
   getAll: (categoriaId?: number, sucursalId?: number) => {
     const q = new URLSearchParams();
     if (categoriaId) q.set('categoriaId', String(categoriaId));

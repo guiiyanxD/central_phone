@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { AccesoriosService } from './accesorios.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
+import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 import { CreateAccesorioDto } from './dto/create-accesorio.dto';
 import { UpdateAccesorioDto } from './dto/update-accesorio.dto';
 import { QueryLotesDto } from './dto/query-lotes.dto';
@@ -34,9 +35,26 @@ export class AccesoriosController {
 
   @Post('categorias')
   @UseGuards(RolesGuard)
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
   async createCategoria(@Body() dto: CreateCategoriaDto) {
     return this.accesoriosService.createCategoria(dto);
+  }
+
+  @Put('categorias/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
+  async updateCategoria(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCategoriaDto,
+  ) {
+    return this.accesoriosService.updateCategoria(id, dto);
+  }
+
+  @Delete('categorias/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async deleteCategoria(@Param('id', ParseIntPipe) id: number) {
+    return this.accesoriosService.deleteCategoria(id);
   }
 
   // --- ACCESORIOS BASE ---

@@ -7,3 +7,4 @@ export * from './components/modal-variante-form';
 export * from './components/modal-variante-delete';
 export * from './components/modal-accesorio-form';
 export * from './components/dialog-delete-accesorio';
+export * from './components/modal-gestionar-categorias';

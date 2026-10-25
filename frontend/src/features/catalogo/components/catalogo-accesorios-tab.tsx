@@ -27,6 +27,7 @@ interface CatalogoAccesoriosTabProps {
   isLoading: boolean;
   isAdmin: boolean;
   onOpenNuevoAccesorio: () => void;
+  onOpenGestionarCategorias: () => void;
   onOpenEditAccesorio: (acc: AccesorioItem) => void;
   onOpenDeleteAccesorio: (acc: AccesorioItem) => void;
 }
@@ -37,6 +38,7 @@ export function CatalogoAccesoriosTab({
   isLoading,
   isAdmin,
   onOpenNuevoAccesorio,
+  onOpenGestionarCategorias,
   onOpenEditAccesorio,
   onOpenDeleteAccesorio,
 }: CatalogoAccesoriosTabProps) {
@@ -114,6 +116,17 @@ export function CatalogoAccesoriosTab({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenGestionarCategorias}
+            className="text-xs"
+          >
+            <Layers className="mr-1.5 h-3.5 w-3.5" />
+            Gestionar Categorías
+          </Button>
+
           <Button
             size="sm"
             onClick={onOpenNuevoAccesorio}
