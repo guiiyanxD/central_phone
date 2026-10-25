@@ -14,7 +14,7 @@ import { RecepcionResumenPanel } from '@/features/recepcion/components/recepcion
 import { ModalCrearVarianteInline } from '@/features/recepcion/components/modal-crear-variante-inline';
 import { ModalCrearAccesorioInline } from '@/features/recepcion/components/modal-crear-accesorio-inline';
 import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-confirmacion-ingreso';
-import { CategoriaAccesorioItem } from '@/features/catalogo/types';
+import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
   const { user } = useAuth();
@@ -25,6 +25,7 @@ export default function RecepcionMercaderiaPage() {
   const [modelos, setModelos] = useState<any[]>([]);
   const [accesoriosCatalogo, setAccesoriosCatalogo] = useState<any[]>([]);
   const [categoriasAccesorios, setCategoriasAccesorios] = useState<CategoriaAccesorioItem[]>([]);
+  const [tiposDispositivo, setTiposDispositivo] = useState<TipoDispositivoItem[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = useState(true);
 
   // Formulario de Nota de Ingreso
@@ -84,18 +85,20 @@ export default function RecepcionMercaderiaPage() {
     async function fetchMasterData() {
       setIsLoadingMaster(true);
       try {
-        const [provData, sucData, modData, accData, catData] = await Promise.all([
+        const [provData, sucData, modData, accData, catData, tiposData] = await Promise.all([
           api.proveedores.getAll(),
           api.sucursales.getAll(),
           api.modelos.getAll(),
           api.accesorios.getAll(),
           api.accesorios.getCategorias(),
+          api.modelos.getTipos(),
         ]);
         setProveedores(provData);
         setSucursales(sucData);
         setModelos(modData);
         setAccesoriosCatalogo(accData);
         setCategoriasAccesorios(catData);
+        setTiposDispositivo(tiposData);
 
         if (provData.length > 0) setProveedorId(provData[0].id);
         if (sucData.length > 0) setSucursalId(user?.sucursal?.id || sucData[0].id);
@@ -218,6 +221,41 @@ export default function RecepcionMercaderiaPage() {
     );
 
     setModalVarianteOpen(false);
+  };
+
+  const handleModeloCreadoInline = (nuevoModelo: any, primeraVariante: any) => {
+    if (!targetTelefonoId) return;
+
+    setModelos((prev) => [...prev, nuevoModelo]);
+
+    const capDisplay =
+      primeraVariante.capacidadGb >= 1024
+        ? `${primeraVariante.capacidadGb / 1024}TB`
+        : `${primeraVariante.capacidadGb}GB`;
+    const capLabel = primeraVariante.capacidadGb > 0 ? capDisplay : 'Sin alm.';
+
+    setTelefonos(
+      telefonos.map((t) => {
+        if (t.id === targetTelefonoId) {
+          return {
+            ...t,
+            varianteId: primeraVariante.id,
+            nuevaVariante: undefined,
+            modeloNombreDisplay: nuevoModelo.nombreModelo || nuevoModelo.nombre,
+            modeloTipo: nuevoModelo.tipo || 'IPHONE',
+            varianteDisplay: `${primeraVariante.color} • ${capLabel} • ${primeraVariante.tipoSim}`,
+            ...(nuevoModelo.tipo === 'MAC' || nuevoModelo.tipo === 'AIRPODS'
+              ? { imei1: '', imei2: '' }
+              : {}),
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  const handleTipoCreadoInline = (nuevoTipo: TipoDispositivoItem) => {
+    setTiposDispositivo((prev) => [...prev, nuevoTipo]);
   };
 
   // Manejadores para Accesorios
@@ -515,6 +553,7 @@ export default function RecepcionMercaderiaPage() {
         isOpen={modalVarianteOpen}
         onClose={() => setModalVarianteOpen(false)}
         modelos={modelos}
+        tipos={tiposDispositivo}
         nuevaVarModeloId={nuevaVarModeloId}
         setNuevaVarModeloId={setNuevaVarModeloId}
         nuevaVarColor={nuevaVarColor}
@@ -524,6 +563,8 @@ export default function RecepcionMercaderiaPage() {
         nuevaVarSim={nuevaVarSim}
         setNuevaVarSim={setNuevaVarSim}
         onConfirm={handleConfirmInlineVariante}
+        onModeloCreado={handleModeloCreadoInline}
+        onTipoCreado={handleTipoCreadoInline}
       />
 
       <ModalCrearAccesorioInline
