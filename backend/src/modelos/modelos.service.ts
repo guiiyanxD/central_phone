@@ -7,10 +7,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
+import { CreateTipoDispositivoDto } from './dto/create-tipo-dispositivo.dto';
+import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
-import { TipoDispositivo } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
@@ -18,6 +19,114 @@ export class ModelosService {
   private readonly logger = new Logger('ModelosService');
 
   constructor(private readonly prisma: PrismaService) {}
+
+  // --- GESTIÓN DE TIPOS DE DISPOSITIVOS ---
+  async findAllTiposDispositivo() {
+    return this.prisma.tipoDispositivo.findMany({
+      orderBy: { nombre: 'asc' },
+      include: {
+        _count: {
+          select: { modelos: true },
+        },
+      },
+    });
+  }
+
+  async createTipoDispositivo(dto: CreateTipoDispositivoDto) {
+    const nombreClean = dto.nombre.trim().toUpperCase();
+    const existing = await this.prisma.tipoDispositivo.findUnique({
+      where: { nombre: nombreClean },
+    });
+
+    if (existing) {
+      throw new ConflictException(`El tipo de dispositivo '${nombreClean}' ya existe.`);
+    }
+
+    return this.prisma.tipoDispositivo.create({
+      data: {
+        nombre: nombreClean,
+        descripcion: dto.descripcion?.trim() || null,
+      },
+      include: {
+        _count: {
+          select: { modelos: true },
+        },
+      },
+    });
+  }
+
+  async updateTipoDispositivo(id: number, dto: UpdateTipoDispositivoDto) {
+    const tipo = await this.prisma.tipoDispositivo.findUnique({
+      where: { id },
+    });
+
+    if (!tipo) {
+      throw new NotFoundException(`El tipo de dispositivo con ID ${id} no existe.`);
+    }
+
+    const nuevoNombre = dto.nombre ? dto.nombre.trim().toUpperCase() : undefined;
+
+    if (nuevoNombre && nuevoNombre !== tipo.nombre) {
+      const existing = await this.prisma.tipoDispositivo.findUnique({
+        where: { nombre: nuevoNombre },
+      });
+      if (existing) {
+        throw new ConflictException(`El tipo de dispositivo '${nuevoNombre}' ya existe.`);
+      }
+    }
+
+    const updated = await this.prisma.tipoDispositivo.update({
+      where: { id },
+      data: {
+        ...(nuevoNombre ? { nombre: nuevoNombre } : {}),
+        ...(dto.descripcion !== undefined ? { descripcion: dto.descripcion?.trim() || null } : {}),
+      },
+      include: {
+        _count: {
+          select: { modelos: true },
+        },
+      },
+    });
+
+    // Sincronizar nombre en cascada en modelos_dispositivo
+    if (nuevoNombre && nuevoNombre !== tipo.nombre) {
+      await this.prisma.modeloDispositivo.updateMany({
+        where: { tipoId: id },
+        data: { tipo: nuevoNombre },
+      });
+    }
+
+    return updated;
+  }
+
+  async deleteTipoDispositivo(id: number) {
+    const tipo = await this.prisma.tipoDispositivo.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { modelos: true },
+        },
+      },
+    });
+
+    if (!tipo) {
+      throw new NotFoundException(`El tipo de dispositivo con ID ${id} no existe.`);
+    }
+
+    if (tipo._count.modelos > 0) {
+      throw new BadRequestException(
+        `No se puede eliminar el tipo '${tipo.nombre}' porque contiene ${tipo._count.modelos} modelo(s) asociado(s).`,
+      );
+    }
+
+    await this.prisma.tipoDispositivo.delete({
+      where: { id },
+    });
+
+    return {
+      message: `Tipo de dispositivo '${tipo.nombre}' eliminado exitosamente.`,
+    };
+  }
 
   // Creación atómica de modelo con al menos una variante obligatoria
   async create(createModeloDto: CreateModeloDto) {
@@ -29,11 +138,31 @@ export class ModelosService {
       );
     }
 
+    let tipoNombre = (createModeloDto.tipo || 'IPHONE').trim().toUpperCase();
+    let tipoId = createModeloDto.tipoId;
+
+    if (tipoId) {
+      const tipoObj = await this.prisma.tipoDispositivo.findUnique({
+        where: { id: tipoId },
+      });
+      if (tipoObj) {
+        tipoNombre = tipoObj.nombre;
+      }
+    } else {
+      const tipoObj = await this.prisma.tipoDispositivo.findUnique({
+        where: { nombre: tipoNombre },
+      });
+      if (tipoObj) {
+        tipoId = tipoObj.id;
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const modelo = await tx.modeloDispositivo.create({
         data: {
           nombreModelo,
-          tipo: createModeloDto.tipo || TipoDispositivo.IPHONE,
+          tipo: tipoNombre,
+          tipoId,
           marca,
           descripcion,
         },
@@ -55,6 +184,7 @@ export class ModelosService {
         where: { id: modelo.id },
         include: {
           variantes: true,
+          tipoDispositivo: true,
         },
       });
     });
@@ -117,13 +247,13 @@ export class ModelosService {
       where.sucursalId = Number(query.sucursalId);
     }
 
-    // 2. Tipo de Dispositivo (IPHONE, MAC, IPAD, WATCH, AIRPODS, OTRO)
+    // 2. Tipo de Dispositivo
     if (query.tipo && query.tipo !== 'TODOS') {
       where.variante = {
         ...(where.variante || {}),
         modelo: {
           ...(where.variante?.modelo || {}),
-          tipo: query.tipo as TipoDispositivo,
+          tipo: query.tipo,
         },
       };
     }

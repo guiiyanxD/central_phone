@@ -1,10 +1,19 @@
 import { request } from './client';
 
+export interface TipoDispositivoItem {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  _count?: { modelos: number };
+}
+
 export interface ModeloListItem {
   id: number;
   marca: string;
   nombreModelo: string;
-  tipo: 'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO';
+  tipo: string;
+  tipoId?: number | null;
+  tipoDispositivo?: TipoDispositivoItem | null;
   descripcion: string | null;
   variantes: Array<{
     id: number;
@@ -118,10 +127,27 @@ export interface LineaVidaResponse {
 export const modelosApi = {
   getAll: () => request<ModeloListItem[]>('/modelos'),
   getOne: (id: number) => request<any>(`/modelos/${id}`),
+  getTipos: () => request<TipoDispositivoItem[]>('/modelos/tipos'),
+  createTipo: (data: { nombre: string; descripcion?: string }) =>
+    request<TipoDispositivoItem>('/modelos/tipos', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateTipo: (id: number, data: { nombre?: string; descripcion?: string }) =>
+    request<TipoDispositivoItem>(`/modelos/tipos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteTipo: (id: number) =>
+    request<{ message: string }>(`/modelos/tipos/${id}`, {
+      method: 'DELETE',
+    }),
   create: (data: {
     nombreModelo: string;
-    tipo?: 'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO';
+    tipo?: string;
+    tipoId?: number;
     marca?: string;
+    descripcion?: string;
     variantes: Array<{ color: string; capacidadGb: number; tipoSim?: string }>;
   }) =>
     request<any>('/modelos', {

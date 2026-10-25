@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
 import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
-import { CondicionDispositivo, EstadoInventario, EstadoVenta, Prisma, TipoDispositivo } from '@prisma/client';
+import { CondicionDispositivo, EstadoInventario, EstadoVenta, Prisma } from '@prisma/client';
 
 @Injectable()
 export class RecepcionService {
@@ -129,7 +129,7 @@ export class RecepcionService {
 
       for (const d of dispositivos) {
         let resolvedVarianteId = d.varianteId;
-        let modeloTipo: TipoDispositivo = TipoDispositivo.IPHONE;
+        let modeloTipo: string = 'IPHONE';
         let nombreModelo = 'Dispositivo';
 
         // Si se envió la creación rápida in-line
@@ -179,7 +179,7 @@ export class RecepcionService {
         }
 
         const imei1Clean = d.imei1?.trim() || null;
-        if (modeloTipo === TipoDispositivo.IPHONE && !imei1Clean) {
+        if (modeloTipo === 'IPHONE' && !imei1Clean) {
           throw new BadRequestException(
             `El dispositivo '${nombreModelo}' es de tipo IPHONE y requiere obligatoriamente un IMEI 1 válido.`,
           );

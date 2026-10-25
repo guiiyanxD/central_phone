@@ -1,14 +1,13 @@
 import {
   IsArray,
   ArrayMinSize,
-  IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TipoDispositivo } from '@prisma/client';
 import { CreateVarianteDto } from './create-variante.dto';
 
 export class CreateModeloDto {
@@ -16,11 +15,13 @@ export class CreateModeloDto {
   @IsNotEmpty({ message: 'El nombre del modelo es obligatorio.' })
   nombreModelo: string;
 
-  @IsEnum(TipoDispositivo, {
-    message: 'El tipo de dispositivo debe ser IPHONE, IPAD, MAC, WATCH, AIRPODS u OTRO.',
-  })
+  @IsString({ message: 'El tipo de dispositivo debe ser texto.' })
   @IsOptional()
-  tipo?: TipoDispositivo;
+  tipo?: string;
+
+  @IsNumber({}, { message: 'El ID del tipo de dispositivo debe ser numérico.' })
+  @IsOptional()
+  tipoId?: number;
 
   @IsString()
   @IsOptional()

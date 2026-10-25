@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ interface CatalogoModelosTabProps {
   isLoadingModelos: boolean;
   isAdmin: boolean;
   onOpenNuevoModelo: () => void;
+  onOpenGestionarTipos: () => void;
   onOpenAddVariante: (modelo: ModeloItem) => void;
   onOpenEditVariante: (modelo: ModeloItem, variante: any) => void;
   onOpenDeleteVariante: (modelo: ModeloItem, variante: any) => void;
@@ -23,6 +24,7 @@ export function CatalogoModelosTab({
   isLoadingModelos,
   isAdmin,
   onOpenNuevoModelo,
+  onOpenGestionarTipos,
   onOpenAddVariante,
   onOpenEditVariante,
   onOpenDeleteVariante,
@@ -40,6 +42,17 @@ export function CatalogoModelosTab({
         </div>
 
         <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenGestionarTipos}
+            className="text-xs"
+          >
+            <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+            Gestionar Tipos
+          </Button>
+
           <Button
             size="sm"
             onClick={onOpenNuevoModelo}

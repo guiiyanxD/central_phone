@@ -1,19 +1,23 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { api, ApiError } from '@/lib/api';
+import { TipoDispositivoItem } from '../types';
 
 interface ModalNuevoModeloProps {
   isOpen: boolean;
   onClose: () => void;
   nuevoNombreModelo: string;
   setNuevoNombreModelo: (val: string) => void;
-  nuevoTipo: 'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO';
-  setNuevoTipo: (val: 'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO') => void;
+  tipos: TipoDispositivoItem[];
+  nuevoTipo: string;
+  setNuevoTipo: (val: string) => void;
   primeraVarColor: string;
   setPrimeraVarColor: (val: string) => void;
   primeraVarCapacidad: number;
@@ -23,6 +27,7 @@ interface ModalNuevoModeloProps {
   isCreatingModelo: boolean;
   creacionError: string | null;
   onSubmit: (e: React.FormEvent) => void;
+  onTipoCreado?: (tipo: TipoDispositivoItem) => void;
 }
 
 export function ModalNuevoModelo({
@@ -30,6 +35,7 @@ export function ModalNuevoModelo({
   onClose,
   nuevoNombreModelo,
   setNuevoNombreModelo,
+  tipos,
   nuevoTipo,
   setNuevoTipo,
   primeraVarColor,
@@ -41,11 +47,49 @@ export function ModalNuevoModelo({
   isCreatingModelo,
   creacionError,
   onSubmit,
+  onTipoCreado,
 }: ModalNuevoModeloProps) {
+  // Estados para creación in-line de tipo de dispositivo ("al vuelo")
+  const [showInlineTipo, setShowInlineTipo] = useState(false);
+  const [inlineTipoNombre, setInlineTipoNombre] = useState('');
+  const [inlineTipoDesc, setInlineTipoDesc] = useState('');
+  const [isSavingInlineTipo, setIsSavingInlineTipo] = useState(false);
+  const [inlineTipoError, setInlineTipoError] = useState<string | null>(null);
+
+  const handleGuardarTipoInline = async () => {
+    if (!inlineTipoNombre.trim()) {
+      setInlineTipoError('El nombre del tipo es obligatorio.');
+      return;
+    }
+    setIsSavingInlineTipo(true);
+    setInlineTipoError(null);
+    try {
+      const nuevoTipoCreado = await api.modelos.createTipo({
+        nombre: inlineTipoNombre.trim().toUpperCase(),
+        descripcion: inlineTipoDesc.trim() || undefined,
+      });
+      onTipoCreado?.(nuevoTipoCreado);
+      setNuevoTipo(nuevoTipoCreado.nombre);
+      setShowInlineTipo(false);
+      setInlineTipoNombre('');
+      setInlineTipoDesc('');
+    } catch (err: any) {
+      setInlineTipoError(
+        err instanceof ApiError ? err.message : 'Error al crear el tipo de dispositivo.'
+      );
+    } finally {
+      setIsSavingInlineTipo(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => {
+        setShowInlineTipo(false);
+        setInlineTipoError(null);
+        onClose();
+      }}
       title="Crear Nuevo Modelo con Variante Obligatoria"
       description="Por regla inmutable de negocio, ningún modelo puede nacer sin al menos una variante."
     >
@@ -60,26 +104,112 @@ export function ModalNuevoModelo({
           <div>
             <Label required>Nombre del Modelo</Label>
             <Input
-              placeholder="Ej: MacBook Air M3, AirPods Pro 2..."
+              placeholder="Ej: MacBook Air M3, AirPods Pro 2, iPhone 17..."
               value={nuevoNombreModelo}
               onChange={(e) => setNuevoNombreModelo(e.target.value)}
+              autoFocus={!showInlineTipo}
             />
           </div>
 
-          <div>
-            <Label required>Tipo de Dispositivo</Label>
-            <Select
-              value={nuevoTipo}
-              onChange={(e) => setNuevoTipo(e.target.value as any)}
-            >
-              <option value="IPHONE">iPhone (Smartphone)</option>
-              <option value="MAC">Mac / MacBook</option>
-              <option value="IPAD">iPad</option>
-              <option value="WATCH">Apple Watch</option>
-              <option value="AIRPODS">AirPods / Auriculares</option>
-              <option value="OTRO">Otro Dispositivo Apple</option>
-            </Select>
-          </div>
+          {/* Selector de Tipo de Dispositivo con soporte "Al Vuelo" */}
+          {showInlineTipo ? (
+            <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg space-y-2.5 animate-in fade-in duration-200 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Plus className="h-3.5 w-3.5 text-blue-600" />
+                  Crear Tipo de Dispositivo "Al Vuelo"
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInlineTipo(false);
+                    setInlineTipoError(null);
+                  }}
+                  className="text-[11px] text-slate-500 hover:text-slate-800 font-medium"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              {inlineTipoError && (
+                <p className="text-[11px] text-rose-600 font-medium">{inlineTipoError}</p>
+              )}
+
+              <div>
+                <Label required className="text-[11px]">Nombre del Tipo (Hardware)</Label>
+                <Input
+                  placeholder="Ej: CONSOLAS, APPLE_TV, SMART_HOME..."
+                  value={inlineTipoNombre}
+                  onChange={(e) => setInlineTipoNombre(e.target.value)}
+                  maxLength={50}
+                  className="h-8 text-xs bg-white"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <Label className="text-[11px]">Descripción (Opcional)</Label>
+                <Input
+                  placeholder="Ej: Dispositivos multimedia o hardware dedicado..."
+                  value={inlineTipoDesc}
+                  onChange={(e) => setInlineTipoDesc(e.target.value)}
+                  maxLength={255}
+                  className="h-8 text-xs bg-white"
+                />
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                className="w-full text-xs font-semibold h-8"
+                onClick={handleGuardarTipoInline}
+                isLoading={isSavingInlineTipo}
+              >
+                Guardar y Seleccionar Tipo
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label required className="mb-0">Tipo de Dispositivo</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInlineTipo(true);
+                    setInlineTipoNombre('');
+                    setInlineTipoDesc('');
+                    setInlineTipoError(null);
+                  }}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Nuevo Tipo
+                </button>
+              </div>
+              <Select
+                value={nuevoTipo}
+                onChange={(e) => {
+                  if (e.target.value === '__NUEVO__') {
+                    setShowInlineTipo(true);
+                    setInlineTipoNombre('');
+                    setInlineTipoDesc('');
+                    setInlineTipoError(null);
+                  } else {
+                    setNuevoTipo(e.target.value);
+                  }
+                }}
+              >
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.nombre}>
+                    {t.nombre} {t.descripcion ? `(${t.descripcion})` : ''}
+                  </option>
+                ))}
+                <option value="__NUEVO__" className="text-blue-600 font-semibold">
+                  + Crear nuevo tipo al vuelo...
+                </option>
+              </Select>
+            </div>
+          )}
         </div>
 
         <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
@@ -103,7 +233,7 @@ export function ModalNuevoModelo({
                 value={primeraVarCapacidad}
                 onChange={(e) => setPrimeraVarCapacidad(Number(e.target.value))}
               >
-                <option value="0">0 GB (AirPods / Apple Watch)</option>
+                <option value="0">0 GB (Sin almacenamiento / AirPods / Watch)</option>
                 <option value="64">64 GB</option>
                 <option value="128">128 GB</option>
                 <option value="256">256 GB</option>
@@ -119,12 +249,14 @@ export function ModalNuevoModelo({
                 value={primeraVarSim}
                 onChange={(e) => setPrimeraVarSim(e.target.value)}
               >
-                <option value="SIM Físico">SIM Físico</option>
-                <option value="eSIM">eSIM</option>
-                <option value="Dual SIM">Dual SIM</option>
-                <option value="GPS Only">GPS Only (Apple Watch)</option>
-                <option value="GPS + Cellular">GPS + Cellular (Watch)</option>
-                <option value="No Aplica">No Aplica (Mac / AirPods)</option>
+                <option value="SIM Físico">SIM Físico (Nano SIM)</option>
+                <option value="eSIM">eSIM (Digital)</option>
+                <option value="Dual SIM">Dual SIM (Físico + eSIM)</option>
+                <option value="Wi-Fi">Solo Wi-Fi (iPad / Mac)</option>
+                <option value="Wi-Fi + Cellular">Wi-Fi + Cellular (iPad / Watch)</option>
+                <option value="GPS">GPS (Apple Watch)</option>
+                <option value="GPS + Cellular">GPS + Cellular (Apple Watch)</option>
+                <option value="No Aplica">No Aplica (AirPods / Accesorios)</option>
               </Select>
             </div>
           </div>
@@ -144,7 +276,7 @@ export function ModalNuevoModelo({
             className="flex-1 text-xs font-semibold"
             isLoading={isCreatingModelo}
           >
-            Crear Modelo
+            Registrar Modelo y Variante
           </Button>
         </div>
       </form>

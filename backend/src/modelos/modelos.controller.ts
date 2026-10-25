@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -12,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { ModelosService } from './modelos.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
+import { CreateTipoDispositivoDto } from './dto/create-tipo-dispositivo.dto';
+import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
@@ -47,6 +50,36 @@ export class ModelosController {
     @CurrentUser('rol') userRole?: string,
   ) {
     return this.modelosService.getLineaVidaImei(imei, userRole);
+  }
+
+  // --- TIPOS DE DISPOSITIVOS ---
+  @Get('tipos')
+  async findAllTipos() {
+    return this.modelosService.findAllTiposDispositivo();
+  }
+
+  @Post('tipos')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
+  async createTipo(@Body() dto: CreateTipoDispositivoDto) {
+    return this.modelosService.createTipoDispositivo(dto);
+  }
+
+  @Put('tipos/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
+  async updateTipo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTipoDispositivoDto,
+  ) {
+    return this.modelosService.updateTipoDispositivo(id, dto);
+  }
+
+  @Delete('tipos/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async deleteTipo(@Param('id', ParseIntPipe) id: number) {
+    return this.modelosService.deleteTipoDispositivo(id);
   }
 
   @Get(':id')

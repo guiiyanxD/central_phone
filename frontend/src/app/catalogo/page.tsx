@@ -9,6 +9,7 @@ import {
   ModeloItem,
   AccesorioItem,
   CategoriaAccesorioItem,
+  TipoDispositivoItem,
   CatalogoHeader,
   CatalogoModelosTab,
   CatalogoAccesoriosTab,
@@ -18,6 +19,7 @@ import {
   ModalAccesorioForm,
   DialogDeleteAccesorio,
   ModalGestionarCategorias,
+  ModalGestionarTiposDispositivo,
 } from '@/features/catalogo';
 
 export default function CatalogoPage() {
@@ -33,6 +35,7 @@ export default function CatalogoPage() {
 
   // Estados de Modelos y Variantes Apple
   const [modelos, setModelos] = useState<ModeloItem[]>([]);
+  const [tiposDispositivo, setTiposDispositivo] = useState<TipoDispositivoItem[]>([]);
   const [isLoadingModelos, setIsLoadingModelos] = useState(true);
 
   // Estados de Accesorios Base y Categorías
@@ -42,10 +45,9 @@ export default function CatalogoPage() {
 
   // Modales de Modelo
   const [modalNuevoModeloOpen, setModalNuevoModeloOpen] = useState(false);
+  const [modalGestionarTiposOpen, setModalGestionarTiposOpen] = useState(false);
   const [nuevoNombreModelo, setNuevoNombreModelo] = useState('');
-  const [nuevoTipo, setNuevoTipo] = useState<
-    'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO'
-  >('IPHONE');
+  const [nuevoTipo, setNuevoTipo] = useState<string>('IPHONE');
   const [primeraVarColor, setPrimeraVarColor] = useState('');
   const [primeraVarCapacidad, setPrimeraVarCapacidad] = useState(256);
   const [primeraVarSim, setPrimeraVarSim] = useState('SIM Físico');
@@ -126,14 +128,45 @@ export default function CatalogoPage() {
     }
   };
 
+  const handleTipoCreado = (nuevo: TipoDispositivoItem) => {
+    setTiposDispositivo((prev) => {
+      const exists = prev.some((t) => t.id === nuevo.id);
+      if (exists) return prev;
+      return [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    });
+  };
+
+  const handleTipoActualizado = (actualizado: TipoDispositivoItem) => {
+    setTiposDispositivo((prev) =>
+      prev
+        .map((t) => (t.id === actualizado.id ? actualizado : t))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    );
+    setModelos((prev) =>
+      prev.map((m) =>
+        m.tipoId === actualizado.id || m.tipo === actualizado.nombre
+          ? { ...m, tipo: actualizado.nombre, tipoDispositivo: actualizado }
+          : m
+      )
+    );
+  };
+
+  const handleTipoEliminado = (id: number) => {
+    setTiposDispositivo((prev) => prev.filter((t) => t.id !== id));
+  };
+
   // Carga de Datos
   const fetchModelos = async () => {
     setIsLoadingModelos(true);
     try {
-      const data = await api.modelos.getAll();
-      setModelos(data);
+      const [modelosData, tiposData] = await Promise.all([
+        api.modelos.getAll(),
+        api.modelos.getTipos(),
+      ]);
+      setModelos(modelosData);
+      setTiposDispositivo(tiposData);
     } catch (err) {
-      console.error('Error al cargar modelos:', err);
+      console.error('Error al cargar modelos y tipos:', err);
     } finally {
       setIsLoadingModelos(false);
     }
@@ -163,7 +196,7 @@ export default function CatalogoPage() {
   // Handlers para Modelos
   const handleOpenNuevoModelo = () => {
     setNuevoNombreModelo('');
-    setNuevoTipo('IPHONE');
+    setNuevoTipo(tiposDispositivo[0]?.nombre || 'IPHONE');
     setPrimeraVarColor('');
     setPrimeraVarCapacidad(256);
     setPrimeraVarSim('SIM Físico');
@@ -392,6 +425,7 @@ export default function CatalogoPage() {
           isLoadingModelos={isLoadingModelos}
           isAdmin={isAdmin}
           onOpenNuevoModelo={handleOpenNuevoModelo}
+          onOpenGestionarTipos={() => setModalGestionarTiposOpen(true)}
           onOpenAddVariante={handleOpenAddVariante}
           onOpenEditVariante={handleOpenEditVariante}
           onOpenDeleteVariante={handleOpenDeleteVariante}
@@ -417,6 +451,7 @@ export default function CatalogoPage() {
         onClose={() => setModalNuevoModeloOpen(false)}
         nuevoNombreModelo={nuevoNombreModelo}
         setNuevoNombreModelo={setNuevoNombreModelo}
+        tipos={tiposDispositivo}
         nuevoTipo={nuevoTipo}
         setNuevoTipo={setNuevoTipo}
         primeraVarColor={primeraVarColor}
@@ -428,6 +463,17 @@ export default function CatalogoPage() {
         isCreatingModelo={isCreatingModelo}
         creacionError={creacionError}
         onSubmit={handleCreateModelo}
+        onTipoCreado={handleTipoCreado}
+      />
+
+      <ModalGestionarTiposDispositivo
+        isOpen={modalGestionarTiposOpen}
+        onClose={() => setModalGestionarTiposOpen(false)}
+        tipos={tiposDispositivo}
+        isAdmin={isAdmin}
+        onTipoCreado={handleTipoCreado}
+        onTipoActualizado={handleTipoActualizado}
+        onTipoEliminado={handleTipoEliminado}
       />
 
       <ModalVarianteForm

@@ -21,6 +21,115 @@ describe('ModelosService', () => {
     service = module.get<ModelosService>(ModelosService);
   });
 
+  describe('tiposDispositivo CRUD', () => {
+    it('debe listar todos los tipos de dispositivos', async () => {
+      prisma.tipoDispositivo.findMany.mockResolvedValue([
+        { id: 1, nombre: 'IPHONE', _count: { modelos: 10 } },
+        { id: 2, nombre: 'MAC', _count: { modelos: 2 } },
+      ] as any);
+
+      const res = await service.findAllTiposDispositivo();
+      expect(res).toHaveLength(2);
+      expect(res[0].nombre).toBe('IPHONE');
+    });
+
+    it('debe lanzar ConflictException si el tipo ya existe', async () => {
+      prisma.tipoDispositivo.findUnique.mockResolvedValue({ id: 1, nombre: 'IPHONE' } as any);
+
+      await expect(
+        service.createTipoDispositivo({ nombre: 'iPhone' })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe crear un nuevo tipo de dispositivo exitosamente', async () => {
+      prisma.tipoDispositivo.findUnique.mockResolvedValue(null);
+      prisma.tipoDispositivo.create.mockResolvedValue({
+        id: 7,
+        nombre: 'CONSOLAS',
+        descripcion: 'Consolas de videojuegos',
+        _count: { modelos: 0 },
+      } as any);
+
+      const res = await service.createTipoDispositivo({
+        nombre: 'Consolas',
+        descripcion: 'Consolas de videojuegos',
+      });
+
+      expect(res.id).toBe(7);
+      expect(res.nombre).toBe('CONSOLAS');
+    });
+
+    it('debe lanzar NotFoundException si el tipo a actualizar no existe', async () => {
+      prisma.tipoDispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateTipoDispositivo(999, { nombre: 'NUEVO' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar ConflictException si el nuevo nombre ya está ocupado', async () => {
+      prisma.tipoDispositivo.findUnique
+        .mockResolvedValueOnce({ id: 1, nombre: 'IPHONE' } as any) // find existing by id
+        .mockResolvedValueOnce({ id: 2, nombre: 'MAC' } as any); // duplicate name check
+
+      await expect(
+        service.updateTipoDispositivo(1, { nombre: 'MAC' })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe actualizar el tipo de dispositivo y sincronizar modelos asociados', async () => {
+      prisma.tipoDispositivo.findUnique
+        .mockResolvedValueOnce({ id: 3, nombre: 'MAC' } as any)
+        .mockResolvedValueOnce(null);
+
+      prisma.tipoDispositivo.update.mockResolvedValue({
+        id: 3,
+        nombre: 'MACBOOK',
+        descripcion: 'Portátiles y desktops',
+        _count: { modelos: 5 },
+      } as any);
+
+      const res = await service.updateTipoDispositivo(3, {
+        nombre: 'MacBook',
+        descripcion: 'Portátiles y desktops',
+      });
+
+      expect(res.nombre).toBe('MACBOOK');
+      expect(prisma.modeloDispositivo.updateMany).toHaveBeenCalledWith({
+        where: { tipoId: 3 },
+        data: { tipo: 'MACBOOK' },
+      });
+    });
+
+    it('debe lanzar NotFoundException si el tipo a eliminar no existe', async () => {
+      prisma.tipoDispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteTipoDispositivo(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si el tipo tiene modelos asociados', async () => {
+      prisma.tipoDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'IPHONE',
+        _count: { modelos: 19 },
+      } as any);
+
+      await expect(service.deleteTipoDispositivo(1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe eliminar el tipo exitosamente si tiene 0 modelos asociados', async () => {
+      prisma.tipoDispositivo.findUnique.mockResolvedValue({
+        id: 6,
+        nombre: 'OTRO',
+        _count: { modelos: 0 },
+      } as any);
+
+      const res = await service.deleteTipoDispositivo(6);
+      expect(res.message).toContain('eliminado exitosamente');
+      expect(prisma.tipoDispositivo.delete).toHaveBeenCalledWith({ where: { id: 6 } });
+    });
+  });
+
   describe('create (Invariante de Catálogo)', () => {
     it('debe lanzar BadRequestException si se intenta crear un modelo sin variantes', async () => {
       await expect(

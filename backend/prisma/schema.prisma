@@ -139,23 +139,27 @@ model NotaIngreso {
 // CATÁLOGO E INVENTARIO DE DISPOSITIVOS
 // ------------------------------------------
 
-enum TipoDispositivo {
-  IPHONE
-  IPAD
-  MAC
-  WATCH
-  AIRPODS
-  OTRO
+model TipoDispositivo {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique @db.VarChar(50)
+  descripcion String?  @db.VarChar(255)
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  modelos ModeloDispositivo[]
+
+  @@map("tipos_dispositivo")
 }
 
 model ModeloDispositivo {
-  id           Int             @id @default(autoincrement())
-  marca        String          @default("Apple") @db.VarChar(50)
-  nombreModelo String          @map("nombre_modelo") @db.VarChar(100)
-  tipo         TipoDispositivo @default(IPHONE)
-  descripcion  String?         @db.VarChar(255)
+  id              Int              @id @default(autoincrement())
+  marca           String           @default("Apple") @db.VarChar(50)
+  nombreModelo    String           @map("nombre_modelo") @db.VarChar(100)
+  tipoId          Int?             @map("tipo_id")
+  tipo            String           @default("IPHONE") @db.VarChar(50)
+  descripcion     String?          @db.VarChar(255)
 
-  variantes VarianteDispositivo[]
+  tipoDispositivo TipoDispositivo? @relation(fields: [tipoId], references: [id])
+  variantes       VarianteDispositivo[]
 
   @@map("modelos_dispositivo")
 }
