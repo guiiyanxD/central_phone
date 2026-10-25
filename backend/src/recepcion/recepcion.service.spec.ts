@@ -216,6 +216,82 @@ describe('RecepcionService', () => {
       expect(res.id).toBe(50);
     });
 
+    it('debe crear accesorio base in-line al vuelo y persistir el lote de accesorio en la nota de ingreso exitosamente', async () => {
+      prisma.categoriaAccesorio.findUnique.mockResolvedValue({ id: 2, nombre: 'Cargadores' } as any);
+      prisma.accesorio.findFirst.mockResolvedValue(null);
+      prisma.accesorio.create.mockResolvedValue({ id: 88, nombre: 'Cargador Rápido 20W Anker', categoriaId: 2 } as any);
+
+      prisma.notaIngreso.create.mockResolvedValue({ id: 60, totalCostoBs: 500 } as any);
+      prisma.loteAccesorio.create.mockResolvedValue({ id: 12 } as any);
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 60,
+        totalCostoBs: 500,
+        dispositivos: [],
+        lotesAccesorio: [{ id: 12 }],
+      } as any);
+
+      const res = await service.createNotaIngreso(
+        {
+          ...baseDto,
+          dispositivos: [],
+          accesorios: [
+            {
+              nuevoAccesorio: {
+                categoriaId: 2,
+                nombre: 'Cargador Rápido 20W Anker',
+                descripcion: 'Cargador USB-C de 20W',
+              },
+              nombreDiferenciador: 'Blanco en Caja Sellada',
+              cantidad: 10,
+              costoUnitarioBs: 50,
+              precioVentaBs: 90,
+            },
+          ],
+        },
+        usuarioId
+      );
+
+      expect(prisma.categoriaAccesorio.findUnique).toHaveBeenCalledWith({ where: { id: 2 } });
+      expect(prisma.accesorio.create).toHaveBeenCalledWith({
+        data: {
+          categoriaId: 2,
+          nombre: 'Cargador Rápido 20W Anker',
+          descripcion: 'Cargador USB-C de 20W',
+        },
+      });
+      expect(prisma.loteAccesorio.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            accesorioId: 88,
+            nombreDiferenciador: 'Blanco en Caja Sellada',
+            cantidadInicial: 10,
+            stockActual: 10,
+          }),
+        })
+      );
+      expect(res.id).toBe(60);
+    });
+
+    it('debe lanzar BadRequestException si un lote no tiene ni accesorioId ni nuevoAccesorio', async () => {
+      await expect(
+        service.createNotaIngreso(
+          {
+            ...baseDto,
+            dispositivos: [],
+            accesorios: [
+              {
+                nombreDiferenciador: 'Lote sin accesorio',
+                cantidad: 5,
+                costoUnitarioBs: 10,
+                precioVentaBs: 20,
+              } as any,
+            ],
+          },
+          usuarioId
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('debe permitir registrar una MacBook con número de serie y sin IMEI si el modelo es de tipo MAC', async () => {
       prisma.varianteDispositivo.findUnique.mockResolvedValue({
         id: 10,

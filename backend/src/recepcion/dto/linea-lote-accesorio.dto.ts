@@ -1,9 +1,37 @@
-import { IsNotEmpty, IsNumber, IsPositive, IsString, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class NuevoAccesorioInlineDto {
+  @IsNumber({}, { message: 'El ID de la categoría debe ser numérico.' })
+  @IsNotEmpty({ message: 'La categoría es requerida para crear el accesorio al vuelo.' })
+  categoriaId: number;
+
+  @IsString({ message: 'El nombre del accesorio base debe ser texto.' })
+  @IsNotEmpty({ message: 'El nombre del accesorio base es obligatorio.' })
+  nombre: string;
+
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
+}
 
 export class LineaLoteAccesorioDto {
   @IsNumber({}, { message: 'El ID del accesorio base debe ser numérico.' })
-  @IsNotEmpty({ message: 'El accesorio base es obligatorio.' })
-  accesorioId: number;
+  @IsOptional()
+  accesorioId?: number;
+
+  @ValidateNested()
+  @Type(() => NuevoAccesorioInlineDto)
+  @IsOptional()
+  nuevoAccesorio?: NuevoAccesorioInlineDto;
 
   @IsString({ message: 'El nombre diferenciador debe ser texto (ej: Silicona Simple Bs 40).' })
   @IsNotEmpty({ message: 'El nombre diferenciador del lote es obligatorio para distinguir calidades y precios.' })

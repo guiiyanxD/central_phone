@@ -12,7 +12,9 @@ import { RecepcionTelefonosTable } from '@/features/recepcion/components/recepci
 import { RecepcionAccesoriosTable } from '@/features/recepcion/components/recepcion-accesorios-table';
 import { RecepcionResumenPanel } from '@/features/recepcion/components/recepcion-resumen-panel';
 import { ModalCrearVarianteInline } from '@/features/recepcion/components/modal-crear-variante-inline';
+import { ModalCrearAccesorioInline } from '@/features/recepcion/components/modal-crear-accesorio-inline';
 import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-confirmacion-ingreso';
+import { CategoriaAccesorioItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
   const { user } = useAuth();
@@ -22,6 +24,7 @@ export default function RecepcionMercaderiaPage() {
   const [sucursales, setSucursales] = useState<any[]>([]);
   const [modelos, setModelos] = useState<any[]>([]);
   const [accesoriosCatalogo, setAccesoriosCatalogo] = useState<any[]>([]);
+  const [categoriasAccesorios, setCategoriasAccesorios] = useState<CategoriaAccesorioItem[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = useState(true);
 
   // Formulario de Nota de Ingreso
@@ -64,6 +67,13 @@ export default function RecepcionMercaderiaPage() {
   const [nuevaVarCapacidad, setNuevaVarCapacidad] = useState<number>(256);
   const [nuevaVarSim, setNuevaVarSim] = useState<string>('SIM Físico');
 
+  // Modal para creación de accesorio in-line ("al vuelo")
+  const [modalAccesorioOpen, setModalAccesorioOpen] = useState(false);
+  const [targetAccesorioId, setTargetAccesorioId] = useState<string | null>(null);
+  const [nuevoAccCategoriaId, setNuevoAccCategoriaId] = useState<number>(1);
+  const [nuevoAccNombre, setNuevoAccNombre] = useState<string>('');
+  const [nuevoAccDescripcion, setNuevoAccDescripcion] = useState<string>('');
+
   // Estados de UI
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -74,19 +84,22 @@ export default function RecepcionMercaderiaPage() {
     async function fetchMasterData() {
       setIsLoadingMaster(true);
       try {
-        const [provData, sucData, modData, accData] = await Promise.all([
+        const [provData, sucData, modData, accData, catData] = await Promise.all([
           api.proveedores.getAll(),
           api.sucursales.getAll(),
           api.modelos.getAll(),
           api.accesorios.getAll(),
+          api.accesorios.getCategorias(),
         ]);
         setProveedores(provData);
         setSucursales(sucData);
         setModelos(modData);
         setAccesoriosCatalogo(accData);
+        setCategoriasAccesorios(catData);
 
         if (provData.length > 0) setProveedorId(provData[0].id);
         if (sucData.length > 0) setSucursalId(user?.sucursal?.id || sucData[0].id);
+        if (catData.length > 0) setNuevoAccCategoriaId(catData[0].id);
       } catch {
         setErrorMessage('No se pudieron cargar los datos maestros de recepción.');
       } finally {
@@ -229,8 +242,55 @@ export default function RecepcionMercaderiaPage() {
 
   const handleUpdateAccesorio = (id: string, field: keyof AccesorioRow, value: any) => {
     setAccesorios(
-      accesorios.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+      accesorios.map((a) => {
+        if (a.id === id) {
+          const updated = { ...a, [field]: value };
+          if (field === 'accesorioId' && value) {
+            updated.nuevoAccesorio = undefined;
+            updated.accesorioDisplay = undefined;
+          }
+          return updated;
+        }
+        return a;
+      })
     );
+  };
+
+  const handleOpenInlineAccesorioModal = (rowId: string) => {
+    setTargetAccesorioId(rowId);
+    if (categoriasAccesorios.length > 0) {
+      setNuevoAccCategoriaId(categoriasAccesorios[0].id);
+    }
+    setNuevoAccNombre('');
+    setNuevoAccDescripcion('');
+    setModalAccesorioOpen(true);
+  };
+
+  const handleConfirmInlineAccesorio = () => {
+    if (!targetAccesorioId || !nuevoAccNombre.trim() || !nuevoAccCategoriaId) return;
+
+    const categoriaSeleccionada = categoriasAccesorios.find((c) => c.id === nuevoAccCategoriaId);
+    const catNombre = categoriaSeleccionada?.nombre || 'General';
+
+    setAccesorios(
+      accesorios.map((a) => {
+        if (a.id === targetAccesorioId) {
+          return {
+            ...a,
+            accesorioId: null,
+            nuevoAccesorio: {
+              categoriaId: nuevoAccCategoriaId,
+              nombre: nuevoAccNombre.trim(),
+              descripcion: nuevoAccDescripcion.trim() || undefined,
+            },
+            accesorioDisplay: `[Nuevo al Vuelo] ${nuevoAccNombre.trim()} (${catNombre})`,
+          };
+        }
+        return a;
+      })
+    );
+
+    setModalAccesorioOpen(false);
   };
 
   // Cálculos Financieros y Totales en Vivo
@@ -261,7 +321,10 @@ export default function RecepcionMercaderiaPage() {
     );
 
     const accesoriosValidos = accesorios.filter(
-      (a) => a.accesorioId !== null && a.cantidad > 0 && a.nombreDiferenciador.trim().length > 0
+      (a) =>
+        (a.accesorioId !== null || a.nuevoAccesorio !== undefined) &&
+        a.cantidad > 0 &&
+        a.nombreDiferenciador.trim().length > 0
     );
 
     if (telefonosValidos.length === 0 && accesoriosValidos.length === 0) {
@@ -287,6 +350,19 @@ export default function RecepcionMercaderiaPage() {
         (!t.modeloTipo && t.modeloNombreDisplay?.toLowerCase().includes('iphone'));
       if (esIphone && !t.imei1.trim()) {
         setErrorMessage(`El equipo '${t.modeloNombreDisplay || 'iPhone'}' requiere un IMEI 1 obligatorio.`);
+        return;
+      }
+    }
+
+    for (const a of accesorios) {
+      const tieneDatos =
+        a.nombreDiferenciador.trim().length > 0 ||
+        Number(a.cantidad) > 0 ||
+        Number(a.costoUnitarioBs) > 0;
+      if (tieneDatos && !a.accesorioId && !a.nuevoAccesorio) {
+        setErrorMessage(
+          `El lote de accesorio '${a.nombreDiferenciador || 'sin nombre'}' no tiene un accesorio base seleccionado ni creado al vuelo.`
+        );
         return;
       }
     }
@@ -322,7 +398,8 @@ export default function RecepcionMercaderiaPage() {
           precioVentaSugeridoBs: Number(t.precioVentaSugeridoBs) || 0,
         })),
         accesorios: accesoriosValidos.map((a) => ({
-          accesorioId: Number(a.accesorioId),
+          accesorioId: a.accesorioId ? Number(a.accesorioId) : undefined,
+          nuevoAccesorio: a.nuevoAccesorio,
           nombreDiferenciador: a.nombreDiferenciador.trim(),
           cantidad: Number(a.cantidad),
           costoUnitarioBs: Number(a.costoUnitarioBs),
@@ -423,6 +500,7 @@ export default function RecepcionMercaderiaPage() {
           onAddAccesorio={handleAddAccesorio}
           onRemoveAccesorio={handleRemoveAccesorio}
           onUpdateAccesorio={handleUpdateAccesorio}
+          onOpenInlineAccesorioModal={handleOpenInlineAccesorioModal}
         />
 
         <RecepcionResumenPanel
@@ -446,6 +524,22 @@ export default function RecepcionMercaderiaPage() {
         nuevaVarSim={nuevaVarSim}
         setNuevaVarSim={setNuevaVarSim}
         onConfirm={handleConfirmInlineVariante}
+      />
+
+      <ModalCrearAccesorioInline
+        isOpen={modalAccesorioOpen}
+        onClose={() => setModalAccesorioOpen(false)}
+        categorias={categoriasAccesorios}
+        nuevoAccCategoriaId={nuevoAccCategoriaId}
+        setNuevoAccCategoriaId={setNuevoAccCategoriaId}
+        nuevoAccNombre={nuevoAccNombre}
+        setNuevoAccNombre={setNuevoAccNombre}
+        nuevoAccDescripcion={nuevoAccDescripcion}
+        setNuevoAccDescripcion={setNuevoAccDescripcion}
+        onConfirm={handleConfirmInlineAccesorio}
+        onCategoriaCreada={(nuevaCat) => {
+          setCategoriasAccesorios((prev) => [...prev, nuevaCat]);
+        }}
       />
     </div>
   );

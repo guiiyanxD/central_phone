@@ -77,6 +77,14 @@ export class RecepcionService {
       }
     }
 
+    for (const a of accesorios) {
+      if (!a.accesorioId && !a.nuevoAccesorio) {
+        throw new BadRequestException(
+          `El lote de accesorio '${a.nombreDiferenciador}' debe tener un accesorioId o un nuevoAccesorio definido.`,
+        );
+      }
+    }
+
     // 2. Transacción Atómica ACID para verificar unicidad contra DB y persistir
     return this.prisma.$transaction(async (tx) => {
       // Validar contra la base de datos
@@ -242,13 +250,49 @@ export class RecepcionService {
         });
       }
 
-      // 7. Insertar lotes diferenciados de accesorios (US10)
+      // 7. Insertar lotes diferenciados de accesorios (US10 con soporte al vuelo)
       for (const acc of accesorios) {
+        let resolvedAccesorioId = acc.accesorioId;
+
+        if (acc.nuevoAccesorio) {
+          const { categoriaId, nombre, descripcion } = acc.nuevoAccesorio;
+          const catExistente = await tx.categoriaAccesorio.findUnique({
+            where: { id: categoriaId },
+          });
+          if (!catExistente) {
+            throw new NotFoundException(`La categoría de accesorio con ID ${categoriaId} no existe.`);
+          }
+
+          let accesorioExistente = await tx.accesorio.findFirst({
+            where: {
+              categoriaId,
+              nombre: { equals: nombre.trim(), mode: 'insensitive' },
+            },
+          });
+
+          if (!accesorioExistente) {
+            accesorioExistente = await tx.accesorio.create({
+              data: {
+                categoriaId,
+                nombre: nombre.trim(),
+                descripcion: descripcion?.trim() || null,
+              },
+            });
+          }
+          resolvedAccesorioId = accesorioExistente.id;
+        }
+
+        if (!resolvedAccesorioId) {
+          throw new BadRequestException(
+            `No se pudo resolver el accesorio base para el lote '${acc.nombreDiferenciador}'.`,
+          );
+        }
+
         await tx.loteAccesorio.create({
           data: {
             notaIngresoId: nota.id,
             sucursalId,
-            accesorioId: acc.accesorioId,
+            accesorioId: resolvedAccesorioId,
             nombreDiferenciador: acc.nombreDiferenciador.trim(),
             costoUnitarioBs: acc.costoUnitarioBs,
             precioVentaBs: acc.precioVentaBs,

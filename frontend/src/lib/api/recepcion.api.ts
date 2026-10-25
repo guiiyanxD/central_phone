@@ -22,7 +22,12 @@ export interface CreateNotaIngresoData {
     precioVentaSugeridoBs?: number;
   }>;
   accesorios?: Array<{
-    accesorioId: number;
+    accesorioId?: number;
+    nuevoAccesorio?: {
+      categoriaId: number;
+      nombre: string;
+      descripcion?: string;
+    };
     nombreDiferenciador: string;
     cantidad: number;
     costoUnitarioBs: number;

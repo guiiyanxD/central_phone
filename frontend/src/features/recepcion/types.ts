@@ -24,6 +24,12 @@ export interface TelefonoRow {
 export interface AccesorioRow {
   id: string;
   accesorioId: number | null;
+  nuevoAccesorio?: {
+    categoriaId: number;
+    nombre: string;
+    descripcion?: string;
+  };
+  accesorioDisplay?: string;
   nombreDiferenciador: string;
   cantidad: number;
   costoUnitarioBs: number;

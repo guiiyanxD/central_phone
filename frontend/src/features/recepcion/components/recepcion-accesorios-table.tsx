@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Headphones, Plus, Trash2 } from 'lucide-react';
+import { Headphones, Plus, Trash2, Sparkles } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ interface RecepcionAccesoriosTableProps {
   onAddAccesorio: () => void;
   onRemoveAccesorio: (id: string) => void;
   onUpdateAccesorio: (id: string, field: keyof AccesorioRow, value: any) => void;
+  onOpenInlineAccesorioModal: (rowId: string) => void;
 }
 
 export function RecepcionAccesoriosTable({
@@ -23,6 +24,7 @@ export function RecepcionAccesoriosTable({
   onAddAccesorio,
   onRemoveAccesorio,
   onUpdateAccesorio,
+  onOpenInlineAccesorioModal,
 }: RecepcionAccesoriosTableProps) {
   return (
     <Card className="border-slate-200">
@@ -73,25 +75,46 @@ export function RecepcionAccesoriosTable({
 
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
               {/* Accesorio Base */}
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2 space-y-1">
                 <Label required>Accesorio Base</Label>
-                <Select
-                  value={a.accesorioId || ''}
-                  onChange={(e) =>
-                    onUpdateAccesorio(
-                      a.id,
-                      'accesorioId',
-                      e.target.value ? Number(e.target.value) : null
-                    )
-                  }
-                >
-                  <option value="">-- Seleccionar Accesorio --</option>
-                  {accesoriosCatalogo.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.nombre} ({acc.categoria?.nombre || 'General'})
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    className="flex-1"
+                    value={a.accesorioId || ''}
+                    onChange={(e) =>
+                      onUpdateAccesorio(
+                        a.id,
+                        'accesorioId',
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  >
+                    <option value="">-- Seleccionar Accesorio --</option>
+                    {accesoriosCatalogo.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.nombre} ({acc.categoria?.nombre || 'General'})
+                      </option>
+                    ))}
+                  </Select>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenInlineAccesorioModal(a.id)}
+                    className="text-[11px] whitespace-nowrap border-dashed border-slate-300"
+                    title="Crear accesorio base al vuelo"
+                  >
+                    <Sparkles className="h-3 w-3 mr-1 text-slate-700" />
+                    Al Vuelo
+                  </Button>
+                </div>
+
+                {a.nuevoAccesorio && (
+                  <p className="text-[11px] text-slate-800 font-medium">
+                    ✨ {a.accesorioDisplay}
+                  </p>
+                )}
               </div>
 
               {/* Nombre Diferenciador */}
