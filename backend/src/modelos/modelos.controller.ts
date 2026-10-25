@@ -54,10 +54,10 @@ export class ModelosController {
     return this.modelosService.findOne(id);
   }
 
-  // Alta de nuevo modelo (Admin)
+  // Alta de nuevo modelo (Admin y Vendedor)
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
   async create(@Body() createModeloDto: CreateModeloDto) {
     return this.modelosService.create(createModeloDto);
   }

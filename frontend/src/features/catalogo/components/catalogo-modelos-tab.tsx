@@ -40,16 +40,14 @@ export function CatalogoModelosTab({
         </div>
 
         <div className="flex gap-2">
-          {isAdmin && (
-            <Button
-              size="sm"
-              onClick={onOpenNuevoModelo}
-              className="text-xs"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Nuevo Modelo
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={onOpenNuevoModelo}
+            className="text-xs"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Nuevo Modelo
+          </Button>
         </div>
       </div>
 

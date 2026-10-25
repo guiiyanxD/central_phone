@@ -38,7 +38,7 @@ export function CatalogoHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          {activeTab === 'modelos' && isAdmin && (
+          {activeTab === 'modelos' && (
             <Button size="sm" onClick={onNuevoModelo}>
               <Plus className="mr-1.5 h-4 w-4" />
               Nuevo Modelo
