@@ -137,8 +137,8 @@ export function RecepcionAccesoriosTable({
                 <Input
                   id={`acc-cantidad-${a.id}`}
                   type="number"
-                  min="1"
-                  placeholder="1"
+                  min="0"
+                  placeholder="0"
                   value={a.cantidad || ''}
                   onChange={(e) =>
                     onUpdateAccesorio(a.id, 'cantidad', parseInt(e.target.value, 10) || 0)
