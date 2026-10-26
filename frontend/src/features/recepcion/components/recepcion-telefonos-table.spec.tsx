@@ -190,4 +190,39 @@ describe('RecepcionTelefonosTable - Barcode Scanner & Shift Ergonomics', () => {
 
     expect(mockOnAddSiguienteEquipo).not.toHaveBeenCalled();
   });
+
+  it('deshabilita IMEI 1 e IMEI 2 cuando se trata de un Apple Watch con conectividad No Aplica o GPS Only', () => {
+    const watchRow: TelefonoRow = {
+      id: 'tel-watch',
+      varianteId: 301,
+      modeloNombreDisplay: 'Apple Watch Series 9',
+      modeloTipo: 'WATCH',
+      varianteDisplay: 'Midnight • 0GB • No Aplica',
+      varianteTipoSim: 'No Aplica',
+      condicion: 'NUEVO',
+      costoBs: 3000,
+      costoUsd: 430,
+      precioVentaSugeridoBs: 3450,
+      numeroSerie: 'W9988XYZ',
+      imei1: '',
+      imei2: '',
+    };
+
+    render(
+      <RecepcionTelefonosTable
+        telefonos={[watchRow]}
+        modelos={mockModelos}
+        onAddTelefono={mockOnAddTelefono}
+        onAddSiguienteEquipo={mockOnAddSiguienteEquipo}
+        onRemoveTelefono={mockOnRemoveTelefono}
+        onUpdateTelefono={mockOnUpdateTelefono}
+        onOpenInlineVarianteModal={mockOnOpenInlineVarianteModal}
+      />
+    );
+
+    const imeiInputs = screen.getAllByPlaceholderText(/No Aplica/i);
+    expect(imeiInputs.length).toBeGreaterThanOrEqual(2);
+    expect(imeiInputs[0]).toBeDisabled();
+    expect(imeiInputs[1]).toBeDisabled();
+  });
 });

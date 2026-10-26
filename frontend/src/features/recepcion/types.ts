@@ -12,6 +12,7 @@ export interface TelefonoRow {
   modeloNombreDisplay?: string;
   modeloTipo?: 'IPHONE' | 'IPAD' | 'MAC' | 'WATCH' | 'AIRPODS' | 'OTRO';
   varianteDisplay?: string;
+  varianteTipoSim?: string;
   imei1: string;
   imei2: string;
   numeroSerie: string;

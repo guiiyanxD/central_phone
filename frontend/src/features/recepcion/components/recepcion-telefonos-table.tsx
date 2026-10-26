@@ -19,6 +19,23 @@ interface RecepcionTelefonosTableProps {
   onOpenInlineVarianteModal: (rowId: string) => void;
 }
 
+export function isImeiDeshabilitado(t: TelefonoRow): boolean {
+  if (t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS') return true;
+  const sim = (t.varianteTipoSim || t.nuevaVariante?.tipoSim || '').toLowerCase();
+  if (
+    sim.includes('no aplica') ||
+    sim.includes('gps only') ||
+    sim.includes('wifi') ||
+    sim === 'no_aplica'
+  ) {
+    return true;
+  }
+  if (t.modeloTipo === 'WATCH' && !sim.includes('cellular')) {
+    return true;
+  }
+  return false;
+}
+
 export function RecepcionTelefonosTable({
   telefonos,
   modelos,
@@ -85,7 +102,9 @@ export function RecepcionTelefonosTable({
       </CardHeader>
 
       <CardContent className="p-5 space-y-4">
-        {telefonos.map((t, idx) => (
+        {telefonos.map((t, idx) => {
+          const noAplicaImei = isImeiDeshabilitado(t);
+          return (
           <div
             key={t.id}
             onKeyDown={handleRowKeyDown}
@@ -190,7 +209,7 @@ export function RecepcionTelefonosTable({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      if (t.modeloTipo !== 'MAC' && t.modeloTipo !== 'AIRPODS') {
+                      if (!noAplicaImei) {
                         const nextInput = document.getElementById(`tel-imei1-${t.id}`) as HTMLInputElement | null;
                         nextInput?.focus();
                         nextInput?.select();
@@ -202,18 +221,18 @@ export function RecepcionTelefonosTable({
 
               {/* IMEI 1 */}
               <div>
-                <Label htmlFor={`tel-imei1-${t.id}`} required={t.modeloTipo === 'IPHONE'}>
-                  IMEI 1 {t.modeloTipo === 'IPHONE' ? '(15 dígitos)' : '(Celular/Opc.)'}
+                <Label htmlFor={`tel-imei1-${t.id}`} required={!noAplicaImei && t.modeloTipo === 'IPHONE'}>
+                  IMEI 1 {!noAplicaImei ? (t.modeloTipo === 'IPHONE' ? '(15 dígitos)' : '(Celular/Opc.)') : '(No Aplica)'}
                 </Label>
                 <Input
                   id={`tel-imei1-${t.id}`}
-                  disabled={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'}
+                  disabled={noAplicaImei}
                   placeholder={
-                    t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                    noAplicaImei
                       ? 'No Aplica (Identificado por S/N)'
                       : '35492811...'
                   }
-                  value={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS' ? '' : t.imei1}
+                  value={noAplicaImei ? '' : t.imei1}
                   maxLength={20}
                   onChange={(e) =>
                     onUpdateTelefono(t.id, 'imei1', e.target.value)
@@ -227,7 +246,7 @@ export function RecepcionTelefonosTable({
                     }
                   }}
                   className={
-                    t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                    noAplicaImei
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                       : ''
                   }
@@ -239,13 +258,13 @@ export function RecepcionTelefonosTable({
                 <Label htmlFor={`tel-imei2-${t.id}`}>IMEI 2 (Dual SIM / eSIM)</Label>
                 <Input
                   id={`tel-imei2-${t.id}`}
-                  disabled={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'}
+                  disabled={noAplicaImei}
                   placeholder={
-                    t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                    noAplicaImei
                       ? 'No Aplica'
                       : 'Opcional...'
                   }
-                  value={t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS' ? '' : t.imei2}
+                  value={noAplicaImei ? '' : t.imei2}
                   maxLength={20}
                   onChange={(e) =>
                     onUpdateTelefono(t.id, 'imei2', e.target.value)
@@ -257,7 +276,7 @@ export function RecepcionTelefonosTable({
                     }
                   }}
                   className={
-                    t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
+                    noAplicaImei
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                       : ''
                   }
@@ -316,7 +335,8 @@ export function RecepcionTelefonosTable({
               </div>
             </div>
           </div>
-        ))}
+        );
+      })}
       </CardContent>
     </Card>
   );

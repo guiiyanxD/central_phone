@@ -133,6 +133,7 @@ export default function RecepcionMercaderiaPage() {
       modeloNombreDisplay: source?.modeloNombreDisplay,
       modeloTipo: source?.modeloTipo,
       varianteDisplay: source?.varianteDisplay,
+      varianteTipoSim: source?.varianteTipoSim,
       nuevaVariante: source?.nuevaVariante,
       condicion: source?.condicion || 'NUEVO',
       costoBs: source?.costoBs || 0,
@@ -181,6 +182,7 @@ export default function RecepcionMercaderiaPage() {
               if (v) {
                 updated.modeloNombreDisplay = m.nombreModelo || m.nombre;
                 updated.modeloTipo = m.tipo || 'IPHONE';
+                updated.varianteTipoSim = v.tipoSim;
                 const capLabel =
                   v.capacidadGb > 0
                     ? v.capacidadGb >= 1024
@@ -189,7 +191,15 @@ export default function RecepcionMercaderiaPage() {
                     : 'Sin almacenamiento';
                 updated.varianteDisplay = `${v.color} • ${capLabel} • ${v.tipoSim}`;
                 updated.nuevaVariante = undefined;
-                if (m.tipo === 'MAC' || m.tipo === 'AIRPODS') {
+                const simLower = (v.tipoSim || '').toLowerCase();
+                const noImei =
+                  m.tipo === 'MAC' ||
+                  m.tipo === 'AIRPODS' ||
+                  simLower.includes('no aplica') ||
+                  simLower.includes('gps only') ||
+                  simLower.includes('wifi') ||
+                  (m.tipo === 'WATCH' && !simLower.includes('cellular'));
+                if (noImei) {
                   updated.imei1 = '';
                   updated.imei2 = '';
                 }
@@ -224,6 +234,15 @@ export default function RecepcionMercaderiaPage() {
         ? `${nuevaVarCapacidad / 1024}TB`
         : `${nuevaVarCapacidad}GB`;
 
+    const simLower = (nuevaVarSim || '').toLowerCase();
+    const noImei =
+      modeloSeleccionado?.tipo === 'MAC' ||
+      modeloSeleccionado?.tipo === 'AIRPODS' ||
+      simLower.includes('no aplica') ||
+      simLower.includes('gps only') ||
+      simLower.includes('wifi') ||
+      (modeloSeleccionado?.tipo === 'WATCH' && !simLower.includes('cellular'));
+
     setTelefonos(
       telefonos.map((t) => {
         if (t.id === targetTelefonoId) {
@@ -238,10 +257,9 @@ export default function RecepcionMercaderiaPage() {
             },
             modeloNombreDisplay: modeloSeleccionado?.nombreModelo || modeloSeleccionado?.nombre || 'Modelo Personalizado',
             modeloTipo: modeloSeleccionado?.tipo || 'IPHONE',
+            varianteTipoSim: nuevaVarSim,
             varianteDisplay: `[Nueva al Vuelo] ${nuevaVarColor.trim()} • ${Number(nuevaVarCapacidad) > 0 ? capDisplay : 'Sin alm.'} • ${nuevaVarSim}`,
-            ...(modeloSeleccionado?.tipo === 'MAC' || modeloSeleccionado?.tipo === 'AIRPODS'
-              ? { imei1: '', imei2: '' }
-              : {}),
+            ...(noImei ? { imei1: '', imei2: '' } : {}),
           };
         }
         return t;
@@ -262,6 +280,15 @@ export default function RecepcionMercaderiaPage() {
         : `${primeraVariante.capacidadGb}GB`;
     const capLabel = primeraVariante.capacidadGb > 0 ? capDisplay : 'Sin alm.';
 
+    const simLower = (primeraVariante.tipoSim || '').toLowerCase();
+    const noImei =
+      nuevoModelo.tipo === 'MAC' ||
+      nuevoModelo.tipo === 'AIRPODS' ||
+      simLower.includes('no aplica') ||
+      simLower.includes('gps only') ||
+      simLower.includes('wifi') ||
+      (nuevoModelo.tipo === 'WATCH' && !simLower.includes('cellular'));
+
     setTelefonos(
       telefonos.map((t) => {
         if (t.id === targetTelefonoId) {
@@ -271,10 +298,9 @@ export default function RecepcionMercaderiaPage() {
             nuevaVariante: undefined,
             modeloNombreDisplay: nuevoModelo.nombreModelo || nuevoModelo.nombre,
             modeloTipo: nuevoModelo.tipo || 'IPHONE',
+            varianteTipoSim: primeraVariante.tipoSim,
             varianteDisplay: `${primeraVariante.color} • ${capLabel} • ${primeraVariante.tipoSim}`,
-            ...(nuevoModelo.tipo === 'MAC' || nuevoModelo.tipo === 'AIRPODS'
-              ? { imei1: '', imei2: '' }
-              : {}),
+            ...(noImei ? { imei1: '', imei2: '' } : {}),
           };
         }
         return t;
@@ -411,10 +437,19 @@ export default function RecepcionMercaderiaPage() {
         setErrorMessage(`Todos los equipos deben tener un Número de Serie obligatorio.`);
         return;
       }
+      const noImei =
+        t.modeloTipo === 'MAC' ||
+        t.modeloTipo === 'AIRPODS' ||
+        (t.varianteTipoSim &&
+          (t.varianteTipoSim.toLowerCase().includes('no aplica') ||
+            t.varianteTipoSim.toLowerCase().includes('gps only') ||
+            t.varianteTipoSim.toLowerCase().includes('wifi'))) ||
+        (t.modeloTipo === 'WATCH' && !t.varianteTipoSim?.toLowerCase().includes('cellular'));
+
       const esIphone =
         t.modeloTipo === 'IPHONE' ||
         (!t.modeloTipo && t.modeloNombreDisplay?.toLowerCase().includes('iphone'));
-      if (esIphone && !t.imei1.trim()) {
+      if (esIphone && !noImei && !t.imei1.trim()) {
         setErrorMessage(`El equipo '${t.modeloNombreDisplay || 'iPhone'}' requiere un IMEI 1 obligatorio.`);
         return;
       }
