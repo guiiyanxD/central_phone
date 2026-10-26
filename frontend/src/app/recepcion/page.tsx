@@ -113,21 +113,49 @@ export default function RecepcionMercaderiaPage() {
   }, [user]);
 
   // Manejadores para Teléfonos
+  const handleAddSiguienteEquipo = (sourceId?: string) => {
+    // Si la última fila ya está vacía (sin número de serie), no acumular filas en blanco: solo enfocarla
+    const ultimaFila = telefonos[telefonos.length - 1];
+    if (ultimaFila && !ultimaFila.numeroSerie.trim()) {
+      const existingInput = document.getElementById(`tel-serie-${ultimaFila.id}`) as HTMLInputElement | null;
+      if (existingInput) {
+        existingInput.focus();
+        existingInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    const source = (sourceId ? telefonos.find((t) => t.id === sourceId) : null) || ultimaFila;
+    const newId = `tel-${Date.now()}`;
+    const nuevoEquipo: TelefonoRow = {
+      id: newId,
+      varianteId: source?.varianteId || null,
+      modeloNombreDisplay: source?.modeloNombreDisplay,
+      modeloTipo: source?.modeloTipo,
+      varianteDisplay: source?.varianteDisplay,
+      nuevaVariante: source?.nuevaVariante,
+      condicion: source?.condicion || 'NUEVO',
+      costoBs: source?.costoBs || 0,
+      costoUsd: source?.costoUsd || 0,
+      precioVentaSugeridoBs: source?.precioVentaSugeridoBs || 0,
+      numeroSerie: '',
+      imei1: '',
+      imei2: '',
+    };
+    setTelefonos((prev) => [...prev, nuevoEquipo]);
+
+    // Enfocar automáticamente el nuevo número de serie tras el ciclo de renderizado
+    setTimeout(() => {
+      const nextInput = document.getElementById(`tel-serie-${newId}`) as HTMLInputElement | null;
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 60);
+  };
+
   const handleAddTelefono = () => {
-    setTelefonos([
-      ...telefonos,
-      {
-        id: `tel-${Date.now()}`,
-        varianteId: null,
-        imei1: '',
-        imei2: '',
-        numeroSerie: '',
-        condicion: 'NUEVO',
-        costoBs: 0,
-        costoUsd: 0,
-        precioVentaSugeridoBs: 0,
-      },
-    ]);
+    handleAddSiguienteEquipo();
   };
 
   const handleRemoveTelefono = (id: string) => {
@@ -522,11 +550,26 @@ export default function RecepcionMercaderiaPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmitNota} className="space-y-8">
+      <form
+        onSubmit={handleSubmitNota}
+        onKeyDown={(e) => {
+          // Prevenir que presionar Enter dentro de inputs de texto/selects envíe el formulario por error
+          if (e.key === 'Enter') {
+            const target = e.target as HTMLElement;
+            const isInputOrSelect =
+              target.tagName === 'INPUT' || target.tagName === 'SELECT';
+            if (isInputOrSelect && (target as HTMLInputElement).type !== 'submit') {
+              e.preventDefault();
+            }
+          }
+        }}
+        className="space-y-8"
+      >
         <RecepcionTelefonosTable
           telefonos={telefonos}
           modelos={modelos}
           onAddTelefono={handleAddTelefono}
+          onAddSiguienteEquipo={handleAddSiguienteEquipo}
           onRemoveTelefono={handleRemoveTelefono}
           onUpdateTelefono={handleUpdateTelefono}
           onOpenInlineVarianteModal={handleOpenInlineVarianteModal}

@@ -13,6 +13,7 @@ interface RecepcionTelefonosTableProps {
   telefonos: TelefonoRow[];
   modelos: any[];
   onAddTelefono: () => void;
+  onAddSiguienteEquipo?: (sourceId?: string) => void;
   onRemoveTelefono: (id: string) => void;
   onUpdateTelefono: (id: string, field: keyof TelefonoRow, value: any) => void;
   onOpenInlineVarianteModal: (rowId: string) => void;
@@ -22,10 +23,35 @@ export function RecepcionTelefonosTable({
   telefonos,
   modelos,
   onAddTelefono,
+  onAddSiguienteEquipo,
   onRemoveTelefono,
   onUpdateTelefono,
   onOpenInlineVarianteModal,
 }: RecepcionTelefonosTableProps) {
+  const shiftCharPressedRef = React.useRef(false);
+
+  const handleRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Shift') {
+      shiftCharPressedRef.current = false;
+    } else if (e.shiftKey) {
+      shiftCharPressedRef.current = true;
+    }
+  };
+
+  const handleRowKeyUp = (e: React.KeyboardEvent, row: TelefonoRow) => {
+    if (e.key === 'Shift') {
+      if (!shiftCharPressedRef.current && row.numeroSerie.trim().length >= 2) {
+        e.preventDefault();
+        if (onAddSiguienteEquipo) {
+          onAddSiguienteEquipo(row.id);
+        } else {
+          onAddTelefono();
+        }
+      }
+      shiftCharPressedRef.current = false;
+    }
+  };
+
   return (
     <Card className="border-slate-200">
       <CardHeader className="p-5 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
@@ -41,22 +67,29 @@ export function RecepcionTelefonosTable({
           </CardDescription>
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAddTelefono}
-          className="text-xs"
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Agregar Equipo
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono hidden sm:inline-block">
+            Atajo: Tecla [Shift] para nueva unidad
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => (onAddSiguienteEquipo ? onAddSiguienteEquipo() : onAddTelefono())}
+            className="text-xs"
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Agregar Equipo
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="p-5 space-y-4">
         {telefonos.map((t, idx) => (
           <div
             key={t.id}
+            onKeyDown={handleRowKeyDown}
+            onKeyUp={(e) => handleRowKeyUp(e, t)}
             className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
           >
             <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
@@ -154,6 +187,16 @@ export function RecepcionTelefonosTable({
                   onChange={(e) =>
                     onUpdateTelefono(t.id, 'numeroSerie', e.target.value.toUpperCase())
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (t.modeloTipo !== 'MAC' && t.modeloTipo !== 'AIRPODS') {
+                        const nextInput = document.getElementById(`tel-imei1-${t.id}`) as HTMLInputElement | null;
+                        nextInput?.focus();
+                        nextInput?.select();
+                      }
+                    }
+                  }}
                 />
               </div>
 
@@ -175,6 +218,14 @@ export function RecepcionTelefonosTable({
                   onChange={(e) =>
                     onUpdateTelefono(t.id, 'imei1', e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const nextInput = document.getElementById(`tel-imei2-${t.id}`) as HTMLInputElement | null;
+                      nextInput?.focus();
+                      nextInput?.select();
+                    }
+                  }}
                   className={
                     t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -199,6 +250,12 @@ export function RecepcionTelefonosTable({
                   onChange={(e) =>
                     onUpdateTelefono(t.id, 'imei2', e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      // Enter en IMEI 2 previene el submit y NO crea fila; solo Shift crea la siguiente fila
+                    }
+                  }}
                   className={
                     t.modeloTipo === 'MAC' || t.modeloTipo === 'AIRPODS'
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
