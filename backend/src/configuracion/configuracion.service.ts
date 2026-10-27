@@ -6,6 +6,7 @@ import {
   BadRequestException,
   BadGatewayException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
 import { validateImagePayload } from '../common/utils/image-validator.util';
@@ -17,6 +18,7 @@ export class ConfiguracionService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly imageOptimizer?: ImageOptimizerService,
   ) {}
 
@@ -151,8 +153,14 @@ export class ConfiguracionService implements OnModuleInit {
    * Actualiza el registro singleton de configuracion_negocio con tcOficial, tcParalelo y tcActualizadoEn.
    */
   async sincronizarTipoCambio(adminUserId?: number) {
-    const apiUrl = process.env.WAVESOFT_TC_API_URL || 'https://wavesoft.cloud/api/v1/tc';
-    const apiToken = process.env.WAVESOFT_TC_API_TOKEN || '';
+    const apiUrl =
+      this.configService?.get<string>('WAVESOFT_TC_API_URL') ||
+      process.env.WAVESOFT_TC_API_URL ||
+      'https://wavesoft.cloud/api/v1/tc';
+    const apiToken =
+      this.configService?.get<string>('WAVESOFT_TC_API_TOKEN')?.trim() ||
+      process.env.WAVESOFT_TC_API_TOKEN?.trim() ||
+      '';
 
     if (!apiToken) {
       this.logger.warn('WAVESOFT_TC_API_TOKEN no está configurado en las variables de entorno.');
