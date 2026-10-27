@@ -7,7 +7,6 @@ import {
   ShoppingCart,
   Receipt,
   History,
-  Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +17,8 @@ interface CajaHeaderProps {
   sessionData: any;
   user: any;
   isAdmin: boolean;
-  activeTab: 'turno' | 'historial' | 'recepciones';
-  setActiveTab: (tab: 'turno' | 'historial' | 'recepciones') => void;
+  activeTab: 'turno' | 'historial';
+  setActiveTab: (tab: 'turno' | 'historial') => void;
   onOpenGastoModal: () => void;
   onOpenCierreModal: () => void;
 }
@@ -92,7 +91,7 @@ export function CajaHeader({
       {/* Tabs Principales de Navegación */}
       <Tabs
         value={activeTab}
-        onValueChange={(val) => setActiveTab(val as 'turno' | 'historial' | 'recepciones')}
+        onValueChange={(val) => setActiveTab(val as 'turno' | 'historial')}
       >
         <TabsList variant="line" className="w-full justify-start pb-2">
           <TabsTrigger value="turno" variant="line">
@@ -103,12 +102,6 @@ export function CajaHeader({
             <History className="h-3.5 w-3.5 mr-1" />
             <span>Historial de Cajas Diarias</span>
           </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="recepciones" variant="line">
-              <Truck className="h-3.5 w-3.5 mr-1" />
-              <span>Recepciones de Mercadería</span>
-            </TabsTrigger>
-          )}
         </TabsList>
       </Tabs>
     </div>

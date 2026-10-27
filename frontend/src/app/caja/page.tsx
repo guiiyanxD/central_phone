@@ -13,9 +13,7 @@ import { CajaMovimientosTurno } from '@/features/caja/components/caja-movimiento
 import { ModalRegistroGasto } from '@/features/caja/components/modal-registro-gasto';
 import { ModalCierreArqueo } from '@/features/caja/components/modal-cierre-arqueo';
 import { ModalAuditoriaCaja } from '@/features/caja/components/modal-auditoria-caja';
-import { ModalAuditoriaRecepcion } from '@/features/caja/components/modal-auditoria-recepcion';
 import { CajaHistorialTable } from '@/features/caja/components/caja-historial-table';
-import { CajaRecepcionesTable } from '@/features/caja/components/caja-recepciones-table';
 
 export default function CajaDiariaPage() {
   const { user } = useAuth();
@@ -56,33 +54,7 @@ export default function CajaDiariaPage() {
   const [searchDebounce, setSearchDebounce] = useState<string>('');
 
   // Pestañas
-  const [activeTab, setActiveTab] = useState<'turno' | 'historial' | 'recepciones'>('turno');
-
-  // Estados de Recepciones de Mercadería
-  const [recepcionesList, setRecepcionesList] = useState<any[]>([]);
-  const [recepcionesMeta, setRecepcionesMeta] = useState<{
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  }>({
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 1,
-    hasNextPage: false,
-    hasPrevPage: false,
-  });
-  const [isLoadingRecepciones, setIsLoadingRecepciones] = useState(false);
-  const [proveedoresList, setProveedoresList] = useState<any[]>([]);
-  const [filtroRecSucursalId, setFiltroRecSucursalId] = useState<string>('TODAS');
-  const [filtroRecProveedorId, setFiltroRecProveedorId] = useState<string>('TODOS');
-  const [filtroRecFechaDesde, setFiltroRecFechaDesde] = useState<string>('');
-  const [filtroRecFechaHasta, setFiltroRecFechaHasta] = useState<string>('');
-  const [filtroRecSearch, setFiltroRecSearch] = useState<string>('');
-  const [searchRecDebounce, setSearchRecDebounce] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'turno' | 'historial'>('turno');
 
   // Modales
   const [modalGastoOpen, setModalGastoOpen] = useState(false);
@@ -90,9 +62,6 @@ export default function CajaDiariaPage() {
   const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
   const [cajaDetalleData, setCajaDetalleData] = useState<any | null>(null);
   const [isLoadingDetalle, setIsLoadingDetalle] = useState(false);
-  const [modalRecDetalleOpen, setModalRecDetalleOpen] = useState(false);
-  const [recepcionDetalleData, setRecepcionDetalleData] = useState<any | null>(null);
-  const [isLoadingRecDetalle, setIsLoadingRecDetalle] = useState(false);
 
   // Formularios
   const [montoApertura, setMontoApertura] = useState<number>(300);
@@ -119,11 +88,6 @@ export default function CajaDiariaPage() {
     return () => clearTimeout(handler);
   }, [filtroSearch]);
 
-  useEffect(() => {
-    const handler = setTimeout(() => setSearchRecDebounce(filtroRecSearch), 400);
-    return () => clearTimeout(handler);
-  }, [filtroRecSearch]);
-
   // Carga de sesión activa
   const fetchSesionActiva = async () => {
     setIsLoadingSession(true);
@@ -149,14 +113,12 @@ export default function CajaDiariaPage() {
 
   const fetchSelectsList = async () => {
     try {
-      const [sucs, usrs, provs] = await Promise.all([
+      const [sucs, usrs] = await Promise.all([
         api.sucursales.getAll(),
         api.caja.getUsuarios(),
-        api.proveedores.getAll(),
       ]);
       setSucursalesList(sucs);
       setUsuariosList(usrs);
-      setProveedoresList(provs);
     } catch {
       // Silencioso
     }
@@ -204,35 +166,6 @@ export default function CajaDiariaPage() {
     }
   };
 
-  const fetchRecepciones = async (page = 1, customLimit?: number) => {
-    setIsLoadingRecepciones(true);
-    try {
-      const limit = customLimit || recepcionesMeta.limit;
-      const res = await api.recepcion.getNotasIngreso({
-        page,
-        limit,
-        sucursalId: filtroRecSucursalId !== 'TODAS' ? Number(filtroRecSucursalId) : undefined,
-        proveedorId: filtroRecProveedorId !== 'TODOS' ? Number(filtroRecProveedorId) : undefined,
-        fechaDesde: filtroRecFechaDesde || undefined,
-        fechaHasta: filtroRecFechaHasta || undefined,
-        search: searchRecDebounce.trim() || undefined,
-      });
-      setRecepcionesList(res.data || []);
-      setRecepcionesMeta({
-        total: res.meta?.total || 0,
-        page: res.meta?.page || 1,
-        limit: res.meta?.limit || limit,
-        totalPages: res.meta?.totalPages || 1,
-        hasNextPage: res.meta?.hasNextPage || false,
-        hasPrevPage: res.meta?.hasPrevPage || false,
-      });
-    } catch {
-      // Silencioso
-    } finally {
-      setIsLoadingRecepciones(false);
-    }
-  };
-
   useEffect(() => {
     fetchSesionActiva();
     fetchCategorias();
@@ -242,8 +175,6 @@ export default function CajaDiariaPage() {
   useEffect(() => {
     if (activeTab === 'historial') {
       fetchHistorial(1);
-    } else if (activeTab === 'recepciones') {
-      fetchRecepciones(1);
     }
   }, [
     activeTab,
@@ -252,11 +183,6 @@ export default function CajaDiariaPage() {
     filtroFechaDesde,
     filtroFechaHasta,
     searchDebounce,
-    filtroRecSucursalId,
-    filtroRecProveedorId,
-    filtroRecFechaDesde,
-    filtroRecFechaHasta,
-    searchRecDebounce,
   ]);
 
   // Manejadores
@@ -340,33 +266,12 @@ export default function CajaDiariaPage() {
     }
   };
 
-  const handleOpenRecDetalle = async (recepcionId: number) => {
-    setIsLoadingRecDetalle(true);
-    setModalRecDetalleOpen(true);
-    try {
-      const data = await api.recepcion.getNotaIngresoById(recepcionId);
-      setRecepcionDetalleData(data);
-    } catch {
-      // Silencioso
-    } finally {
-      setIsLoadingRecDetalle(false);
-    }
-  };
-
   const handleResetFiltros = () => {
     setFiltroSearch('');
     setFiltroSucursalId('TODAS');
     setFiltroUsuarioId('TODOS');
     setFiltroFechaDesde('');
     setFiltroFechaHasta('');
-  };
-
-  const handleResetFiltrosRecepcion = () => {
-    setFiltroRecSearch('');
-    setFiltroRecSucursalId('TODAS');
-    setFiltroRecProveedorId('TODOS');
-    setFiltroRecFechaDesde('');
-    setFiltroRecFechaHasta('');
   };
 
   if (isLoadingSession) {
@@ -482,31 +387,6 @@ export default function CajaDiariaPage() {
         />
       )}
 
-      {/* TAB 3: RECEPCIONES (ADMIN) */}
-      {isAdmin && activeTab === 'recepciones' && (
-        <CajaRecepcionesTable
-          filtroRecSearch={filtroRecSearch}
-          setFiltroRecSearch={setFiltroRecSearch}
-          filtroRecSucursalId={filtroRecSucursalId}
-          setFiltroRecSucursalId={setFiltroRecSucursalId}
-          filtroRecProveedorId={filtroRecProveedorId}
-          setFiltroRecProveedorId={setFiltroRecProveedorId}
-          filtroRecFechaDesde={filtroRecFechaDesde}
-          setFiltroRecFechaDesde={setFiltroRecFechaDesde}
-          filtroRecFechaHasta={filtroRecFechaHasta}
-          setFiltroRecFechaHasta={setFiltroRecFechaHasta}
-          sucursalesList={sucursalesList}
-          proveedoresList={proveedoresList}
-          onResetFiltrosRecepcion={handleResetFiltrosRecepcion}
-          recepcionesList={recepcionesList}
-          isLoadingRecepciones={isLoadingRecepciones}
-          recepcionesMeta={recepcionesMeta}
-          setRecepcionesMeta={setRecepcionesMeta}
-          onFetchRecepciones={fetchRecepciones}
-          onOpenRecDetalle={handleOpenRecDetalle}
-        />
-      )}
-
       {/* MODALES */}
       <ModalRegistroGasto
         isOpen={modalGastoOpen}
@@ -547,13 +427,6 @@ export default function CajaDiariaPage() {
         cajaDetalleData={cajaDetalleData}
         isLoadingDetalle={isLoadingDetalle}
         isAdmin={isAdmin}
-      />
-
-      <ModalAuditoriaRecepcion
-        isOpen={modalRecDetalleOpen}
-        onClose={() => setModalRecDetalleOpen(false)}
-        recepcionDetalleData={recepcionDetalleData}
-        isLoadingRecDetalle={isLoadingRecDetalle}
       />
     </div>
   );

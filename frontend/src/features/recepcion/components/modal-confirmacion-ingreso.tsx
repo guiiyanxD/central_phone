@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { CheckCircle2, PackagePlus, ArrowRight } from 'lucide-react';
+import { CheckCircle2, PackagePlus, ArrowRight, History } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,15 @@ import { Button } from '@/components/ui/button';
 interface ModalConfirmacionIngresoProps {
   notaCreada: any;
   onReset: () => void;
+  onGoToHistorial?: () => void;
+  isAdmin?: boolean;
 }
 
 export function ModalConfirmacionIngreso({
   notaCreada,
   onReset,
+  onGoToHistorial,
+  isAdmin = false,
 }: ModalConfirmacionIngresoProps) {
   if (!notaCreada) return null;
 
@@ -62,16 +66,28 @@ export function ModalConfirmacionIngreso({
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
-            className="flex-1"
+            className="flex-1 text-xs"
             onClick={onReset}
           >
-            <PackagePlus className="mr-2 h-4 w-4" />
+            <PackagePlus className="mr-1.5 h-4 w-4" />
             Registrar Otra Nota
           </Button>
+
+          {isAdmin && onGoToHistorial && (
+            <Button
+              variant="outline"
+              className="flex-1 text-xs"
+              onClick={onGoToHistorial}
+            >
+              <History className="mr-1.5 h-4 w-4 text-slate-600" />
+              Ver en Historial
+            </Button>
+          )}
+
           <Link href="/inventario" className="flex-1">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full text-xs">
               <span>Ver en Inventario</span>
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-1.5 h-4 w-4" />
             </Button>
           </Link>
         </div>

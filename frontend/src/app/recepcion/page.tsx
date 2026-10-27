@@ -14,10 +14,14 @@ import { RecepcionResumenPanel } from '@/features/recepcion/components/recepcion
 import { ModalCrearVarianteInline } from '@/features/recepcion/components/modal-crear-variante-inline';
 import { ModalCrearAccesorioInline } from '@/features/recepcion/components/modal-crear-accesorio-inline';
 import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-confirmacion-ingreso';
+import { RecepcionHistorialTable } from '@/features/recepcion/components/recepcion-historial-table';
+import { ModalAuditoriaRecepcion } from '@/features/recepcion/components/modal-auditoria-recepcion';
 import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
   const { user } = useAuth();
+  const isAdmin = user?.rol === 'ADMIN';
+  const [activeTab, setActiveTab] = useState<'nuevo' | 'historial'>('nuevo');
 
   // Estados de datos maestros
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -27,6 +31,36 @@ export default function RecepcionMercaderiaPage() {
   const [categoriasAccesorios, setCategoriasAccesorios] = useState<CategoriaAccesorioItem[]>([]);
   const [tiposDispositivo, setTiposDispositivo] = useState<TipoDispositivoItem[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = useState(true);
+
+  // Estados de Historial de Recepciones (Notas de Ingreso)
+  const [recepcionesList, setRecepcionesList] = useState<any[]>([]);
+  const [recepcionesMeta, setRecepcionesMeta] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  }>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+  const [isLoadingRecepciones, setIsLoadingRecepciones] = useState(false);
+  const [filtroRecSucursalId, setFiltroRecSucursalId] = useState<string>('TODAS');
+  const [filtroRecProveedorId, setFiltroRecProveedorId] = useState<string>('TODOS');
+  const [filtroRecFechaDesde, setFiltroRecFechaDesde] = useState<string>('');
+  const [filtroRecFechaHasta, setFiltroRecFechaHasta] = useState<string>('');
+  const [filtroRecSearch, setFiltroRecSearch] = useState<string>('');
+  const [searchRecDebounce, setSearchRecDebounce] = useState<string>('');
+
+  // Modales de Auditoría
+  const [modalRecDetalleOpen, setModalRecDetalleOpen] = useState(false);
+  const [recepcionDetalleData, setRecepcionDetalleData] = useState<any | null>(null);
+  const [isLoadingRecDetalle, setIsLoadingRecDetalle] = useState(false);
 
   // Formulario de Nota de Ingreso
   const [proveedorId, setProveedorId] = useState<number>(1);
@@ -111,6 +145,77 @@ export default function RecepcionMercaderiaPage() {
     }
     fetchMasterData();
   }, [user]);
+
+  // Debounce para búsqueda en historial
+  useEffect(() => {
+    const handler = setTimeout(() => setSearchRecDebounce(filtroRecSearch), 400);
+    return () => clearTimeout(handler);
+  }, [filtroRecSearch]);
+
+  const fetchRecepciones = async (page = 1, customLimit?: number) => {
+    if (!isAdmin) return;
+    setIsLoadingRecepciones(true);
+    try {
+      const limit = customLimit || recepcionesMeta.limit;
+      const res = await api.recepcion.getNotasIngreso({
+        page,
+        limit,
+        sucursalId: filtroRecSucursalId !== 'TODAS' ? Number(filtroRecSucursalId) : undefined,
+        proveedorId: filtroRecProveedorId !== 'TODOS' ? Number(filtroRecProveedorId) : undefined,
+        fechaDesde: filtroRecFechaDesde || undefined,
+        fechaHasta: filtroRecFechaHasta || undefined,
+        search: searchRecDebounce.trim() || undefined,
+      });
+      setRecepcionesList(res.data || []);
+      setRecepcionesMeta({
+        total: res.meta?.total || 0,
+        page: res.meta?.page || 1,
+        limit: res.meta?.limit || limit,
+        totalPages: res.meta?.totalPages || 1,
+        hasNextPage: res.meta?.hasNextPage || false,
+        hasPrevPage: res.meta?.hasPrevPage || false,
+      });
+    } catch {
+      // Silencioso
+    } finally {
+      setIsLoadingRecepciones(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'historial') {
+      fetchRecepciones(1);
+    }
+  }, [
+    activeTab,
+    isAdmin,
+    filtroRecSucursalId,
+    filtroRecProveedorId,
+    filtroRecFechaDesde,
+    filtroRecFechaHasta,
+    searchRecDebounce,
+  ]);
+
+  const handleOpenRecDetalle = async (recepcionId: number) => {
+    setIsLoadingRecDetalle(true);
+    setModalRecDetalleOpen(true);
+    try {
+      const data = await api.recepcion.getNotaIngresoById(recepcionId);
+      setRecepcionDetalleData(data);
+    } catch {
+      // Silencioso
+    } finally {
+      setIsLoadingRecDetalle(false);
+    }
+  };
+
+  const handleResetFiltrosRecepcion = () => {
+    setFiltroRecSearch('');
+    setFiltroRecSucursalId('TODAS');
+    setFiltroRecProveedorId('TODOS');
+    setFiltroRecFechaDesde('');
+    setFiltroRecFechaHasta('');
+  };
 
   // Manejadores para Teléfonos
   const handleAddSiguienteEquipo = (sourceId?: string) => {
@@ -548,7 +653,7 @@ export default function RecepcionMercaderiaPage() {
 
   if (isLoadingMaster) {
     return (
-      <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+      <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-32 w-full rounded-2xl" />
         <Skeleton className="h-64 w-full rounded-2xl" />
@@ -557,12 +662,25 @@ export default function RecepcionMercaderiaPage() {
   }
 
   if (notaCreada) {
-    return <ModalConfirmacionIngreso notaCreada={notaCreada} onReset={handleResetForm} />;
+    return (
+      <ModalConfirmacionIngreso
+        notaCreada={notaCreada}
+        onReset={handleResetForm}
+        onGoToHistorial={() => {
+          handleResetForm();
+          setActiveTab('historial');
+        }}
+        isAdmin={isAdmin}
+      />
+    );
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-300">
+    <div className="max-w-6xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       <RecepcionHeader
+        isAdmin={isAdmin}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         proveedores={proveedores}
         sucursales={sucursales}
         proveedorId={proveedorId}
@@ -575,90 +693,128 @@ export default function RecepcionMercaderiaPage() {
         setObservaciones={setObservaciones}
       />
 
-      {errorMessage && (
-        <div className="rounded-xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-900 flex items-start gap-3 animate-in fade-in duration-150">
-          <ShieldAlert className="h-5 w-5 text-slate-800 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold text-slate-900">Error al registrar la recepción:</p>
-            <p className="text-xs text-slate-700 mt-0.5">{errorMessage}</p>
-          </div>
-        </div>
+      {/* TAB 1: FORMULARIO DE NUEVA RECEPCIÓN */}
+      {activeTab === 'nuevo' && (
+        <>
+          {errorMessage && (
+            <div className="rounded-xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-900 flex items-start gap-3 animate-in fade-in duration-150">
+              <ShieldAlert className="h-5 w-5 text-slate-800 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-slate-900">Error al registrar la recepción:</p>
+                <p className="text-xs text-slate-700 mt-0.5">{errorMessage}</p>
+              </div>
+            </div>
+          )}
+
+          <form
+            onSubmit={handleSubmitNota}
+            onKeyDown={(e) => {
+              // Prevenir que presionar Enter dentro de inputs de texto/selects envíe el formulario por error
+              if (e.key === 'Enter') {
+                const target = e.target as HTMLElement;
+                const isInputOrSelect =
+                  target.tagName === 'INPUT' || target.tagName === 'SELECT';
+                if (isInputOrSelect && (target as HTMLInputElement).type !== 'submit') {
+                  e.preventDefault();
+                }
+              }
+            }}
+            className="space-y-8"
+          >
+            <RecepcionTelefonosTable
+              telefonos={telefonos}
+              modelos={modelos}
+              onAddTelefono={handleAddTelefono}
+              onAddSiguienteEquipo={handleAddSiguienteEquipo}
+              onRemoveTelefono={handleRemoveTelefono}
+              onUpdateTelefono={handleUpdateTelefono}
+              onOpenInlineVarianteModal={handleOpenInlineVarianteModal}
+            />
+
+            <RecepcionAccesoriosTable
+              accesorios={accesorios}
+              accesoriosCatalogo={accesoriosCatalogo}
+              onAddAccesorio={handleAddAccesorio}
+              onRemoveAccesorio={handleRemoveAccesorio}
+              onUpdateAccesorio={handleUpdateAccesorio}
+              onOpenInlineAccesorioModal={handleOpenInlineAccesorioModal}
+            />
+
+            <RecepcionResumenPanel
+              totalUnidadesTelefonos={totalUnidadesTelefonos}
+              totalUnidadesAccesorios={totalUnidadesAccesorios}
+              totalCostoNotaBs={totalCostoNotaBs}
+              isSubmitting={isSubmitting}
+            />
+          </form>
+
+          <ModalCrearVarianteInline
+            isOpen={modalVarianteOpen}
+            onClose={() => setModalVarianteOpen(false)}
+            modelos={modelos}
+            tipos={tiposDispositivo}
+            nuevaVarModeloId={nuevaVarModeloId}
+            setNuevaVarModeloId={setNuevaVarModeloId}
+            nuevaVarColor={nuevaVarColor}
+            setNuevaVarColor={setNuevaVarColor}
+            nuevaVarCapacidad={nuevaVarCapacidad}
+            setNuevaVarCapacidad={setNuevaVarCapacidad}
+            nuevaVarSim={nuevaVarSim}
+            setNuevaVarSim={setNuevaVarSim}
+            onConfirm={handleConfirmInlineVariante}
+            onModeloCreado={handleModeloCreadoInline}
+            onTipoCreado={handleTipoCreadoInline}
+          />
+
+          <ModalCrearAccesorioInline
+            isOpen={modalAccesorioOpen}
+            onClose={() => setModalAccesorioOpen(false)}
+            categorias={categoriasAccesorios}
+            nuevoAccCategoriaId={nuevoAccCategoriaId}
+            setNuevoAccCategoriaId={setNuevoAccCategoriaId}
+            nuevoAccNombre={nuevoAccNombre}
+            setNuevoAccNombre={setNuevoAccNombre}
+            nuevoAccDescripcion={nuevoAccDescripcion}
+            setNuevoAccDescripcion={setNuevoAccDescripcion}
+            onConfirm={handleConfirmInlineAccesorio}
+            onCategoriaCreada={(nuevaCat) => {
+              setCategoriasAccesorios((prev) => [...prev, nuevaCat]);
+            }}
+          />
+        </>
       )}
 
-      <form
-        onSubmit={handleSubmitNota}
-        onKeyDown={(e) => {
-          // Prevenir que presionar Enter dentro de inputs de texto/selects envíe el formulario por error
-          if (e.key === 'Enter') {
-            const target = e.target as HTMLElement;
-            const isInputOrSelect =
-              target.tagName === 'INPUT' || target.tagName === 'SELECT';
-            if (isInputOrSelect && (target as HTMLInputElement).type !== 'submit') {
-              e.preventDefault();
-            }
-          }
-        }}
-        className="space-y-8"
-      >
-        <RecepcionTelefonosTable
-          telefonos={telefonos}
-          modelos={modelos}
-          onAddTelefono={handleAddTelefono}
-          onAddSiguienteEquipo={handleAddSiguienteEquipo}
-          onRemoveTelefono={handleRemoveTelefono}
-          onUpdateTelefono={handleUpdateTelefono}
-          onOpenInlineVarianteModal={handleOpenInlineVarianteModal}
+      {/* TAB 2: HISTORIAL Y AUDITORÍA DE RECEPCIONES (SOLO ADMIN) */}
+      {isAdmin && activeTab === 'historial' && (
+        <RecepcionHistorialTable
+          filtroRecSearch={filtroRecSearch}
+          setFiltroRecSearch={setFiltroRecSearch}
+          filtroRecSucursalId={filtroRecSucursalId}
+          setFiltroRecSucursalId={setFiltroRecSucursalId}
+          filtroRecProveedorId={filtroRecProveedorId}
+          setFiltroRecProveedorId={setFiltroRecProveedorId}
+          filtroRecFechaDesde={filtroRecFechaDesde}
+          setFiltroRecFechaDesde={setFiltroRecFechaDesde}
+          filtroRecFechaHasta={filtroRecFechaHasta}
+          setFiltroRecFechaHasta={setFiltroRecFechaHasta}
+          sucursalesList={sucursales}
+          proveedoresList={proveedores}
+          onResetFiltrosRecepcion={handleResetFiltrosRecepcion}
+          recepcionesList={recepcionesList}
+          isLoadingRecepciones={isLoadingRecepciones}
+          recepcionesMeta={recepcionesMeta}
+          setRecepcionesMeta={setRecepcionesMeta}
+          onFetchRecepciones={fetchRecepciones}
+          onOpenRecDetalle={handleOpenRecDetalle}
         />
+      )}
 
-        <RecepcionAccesoriosTable
-          accesorios={accesorios}
-          accesoriosCatalogo={accesoriosCatalogo}
-          onAddAccesorio={handleAddAccesorio}
-          onRemoveAccesorio={handleRemoveAccesorio}
-          onUpdateAccesorio={handleUpdateAccesorio}
-          onOpenInlineAccesorioModal={handleOpenInlineAccesorioModal}
-        />
-
-        <RecepcionResumenPanel
-          totalUnidadesTelefonos={totalUnidadesTelefonos}
-          totalUnidadesAccesorios={totalUnidadesAccesorios}
-          totalCostoNotaBs={totalCostoNotaBs}
-          isSubmitting={isSubmitting}
-        />
-      </form>
-
-      <ModalCrearVarianteInline
-        isOpen={modalVarianteOpen}
-        onClose={() => setModalVarianteOpen(false)}
-        modelos={modelos}
-        tipos={tiposDispositivo}
-        nuevaVarModeloId={nuevaVarModeloId}
-        setNuevaVarModeloId={setNuevaVarModeloId}
-        nuevaVarColor={nuevaVarColor}
-        setNuevaVarColor={setNuevaVarColor}
-        nuevaVarCapacidad={nuevaVarCapacidad}
-        setNuevaVarCapacidad={setNuevaVarCapacidad}
-        nuevaVarSim={nuevaVarSim}
-        setNuevaVarSim={setNuevaVarSim}
-        onConfirm={handleConfirmInlineVariante}
-        onModeloCreado={handleModeloCreadoInline}
-        onTipoCreado={handleTipoCreadoInline}
-      />
-
-      <ModalCrearAccesorioInline
-        isOpen={modalAccesorioOpen}
-        onClose={() => setModalAccesorioOpen(false)}
-        categorias={categoriasAccesorios}
-        nuevoAccCategoriaId={nuevoAccCategoriaId}
-        setNuevoAccCategoriaId={setNuevoAccCategoriaId}
-        nuevoAccNombre={nuevoAccNombre}
-        setNuevoAccNombre={setNuevoAccNombre}
-        nuevoAccDescripcion={nuevoAccDescripcion}
-        setNuevoAccDescripcion={setNuevoAccDescripcion}
-        onConfirm={handleConfirmInlineAccesorio}
-        onCategoriaCreada={(nuevaCat) => {
-          setCategoriasAccesorios((prev) => [...prev, nuevaCat]);
-        }}
+      {/* MODAL DE AUDITORÍA DE NOTA DE INGRESO */}
+      <ModalAuditoriaRecepcion
+        isOpen={modalRecDetalleOpen}
+        onClose={() => setModalRecDetalleOpen(false)}
+        recepcionDetalleData={recepcionDetalleData}
+        isLoadingRecDetalle={isLoadingRecDetalle}
       />
     </div>
   );
