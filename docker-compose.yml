@@ -43,6 +43,8 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       CORS_ORIGIN: ${CORS_ORIGIN}
       NODE_ENV: ${NODE_ENV}
+      WAVESOFT_TC_API_URL: ${WAVESOFT_TC_API_URL:-https://wavesoft.cloud/api/v1/tc}
+      WAVESOFT_TC_API_TOKEN: ${WAVESOFT_TC_API_TOKEN:-}
     ports:
       - "${BACKEND_PORT}:${BACKEND_PORT}"
     volumes:

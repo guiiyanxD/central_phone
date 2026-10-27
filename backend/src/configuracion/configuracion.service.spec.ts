@@ -130,4 +130,98 @@ describe('ConfiguracionService', () => {
       expect(prisma.configuracionNegocio.create).not.toHaveBeenCalled();
     });
   });
+
+  describe('sincronizarTipoCambio', () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+      jest.restoreAllMocks();
+    });
+
+    it('debe lanzar BadRequestException si WAVESOFT_TC_API_TOKEN no está configurado', async () => {
+      delete process.env.WAVESOFT_TC_API_TOKEN;
+
+      await expect(service.sincronizarTipoCambio(1)).rejects.toThrow(
+        /WAVESOFT_TC_API_TOKEN/,
+      );
+    });
+
+    it('debe sincronizar exitosamente con la API WaveSoft y actualizar en Prisma', async () => {
+      process.env.WAVESOFT_TC_API_URL = 'https://wavesoft.cloud/api/v1/tc';
+      process.env.WAVESOFT_TC_API_TOKEN = 'mock-valid-token-123';
+
+      const mockApiResponse = {
+        date: '2026-10-27',
+        official: {
+          buy: 12.05,
+          sell: 12.05,
+          average: 12.05,
+          status: 'UPDATED',
+        },
+        parallel: {
+          buy: 13.1,
+          sell: 13.25,
+          average: 13.18,
+          status: 'UPDATED',
+        },
+      };
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockApiResponse),
+      });
+
+      prisma.configuracionNegocio.upsert.mockResolvedValue({
+        id: 1,
+        tcOficial: 12.05,
+        tcParalelo: 13.18,
+        tcActualizadoEn: new Date(),
+      } as any);
+
+      const res = await service.sincronizarTipoCambio(1);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://wavesoft.cloud/api/v1/tc',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer mock-valid-token-123',
+          }),
+        }),
+      );
+
+      expect(prisma.configuracionNegocio.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          update: expect.objectContaining({
+            tcOficial: 12.05,
+            tcParalelo: 13.18,
+            actualizadoPorUsuarioId: 1,
+          }),
+        }),
+      );
+
+      expect(res.tcOficial).toBe(12.05);
+      expect(res.tcParalelo).toBe(13.18);
+    });
+
+    it('debe lanzar BadGatewayException si la API externa devuelve error 500', async () => {
+      process.env.WAVESOFT_TC_API_URL = 'https://wavesoft.cloud/api/v1/tc';
+      process.env.WAVESOFT_TC_API_TOKEN = 'mock-valid-token-123';
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: jest.fn().mockResolvedValue('Internal Server Error'),
+      });
+
+      await expect(service.sincronizarTipoCambio(1)).rejects.toThrow(
+        /La API externa de Tipo de Cambio respondió con error/,
+      );
+    });
+  });
 });

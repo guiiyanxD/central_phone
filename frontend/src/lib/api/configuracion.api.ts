@@ -12,6 +12,9 @@ export interface ConfiguracionResponse {
   titularCuenta?: string;
   numeroCuenta?: string;
   tipoCuenta?: string;
+  tcOficial?: number;
+  tcParalelo?: number;
+  tcActualizadoEn?: string | null;
   datosBancarios?: {
     banco: string;
     titular: string;
@@ -27,5 +30,9 @@ export const configuracionApi = {
     request<{ success: boolean; configuracion: any }>('/configuracion', {
       method: 'PUT',
       body: JSON.stringify(data),
+    }),
+  sincronizarTipoCambio: () =>
+    request<ConfiguracionResponse>('/configuracion/tipo-cambio/sincronizar', {
+      method: 'POST',
     }),
 };

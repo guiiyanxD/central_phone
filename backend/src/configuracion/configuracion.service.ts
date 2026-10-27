@@ -1,4 +1,11 @@
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  Optional,
+  BadRequestException,
+  BadGatewayException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
 import { validateImagePayload } from '../common/utils/image-validator.util';
@@ -137,5 +144,104 @@ export class ConfiguracionService implements OnModuleInit {
         },
       },
     });
+  }
+
+  /**
+   * Sincroniza el Tipo de Cambio Oficial y Paralelo consumiendo la API de WaveSoft Cloud.
+   * Actualiza el registro singleton de configuracion_negocio con tcOficial, tcParalelo y tcActualizadoEn.
+   */
+  async sincronizarTipoCambio(adminUserId?: number) {
+    const apiUrl = process.env.WAVESOFT_TC_API_URL || 'https://wavesoft.cloud/api/v1/tc';
+    const apiToken = process.env.WAVESOFT_TC_API_TOKEN || '';
+
+    if (!apiToken) {
+      this.logger.warn('WAVESOFT_TC_API_TOKEN no está configurado en las variables de entorno.');
+      throw new BadRequestException(
+        'El token de la API de Tipo de Cambio (WAVESOFT_TC_API_TOKEN) no está configurado en el servidor.',
+      );
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        this.logger.error(`Error en API WaveSoft (${response.status}): ${errorText}`);
+        throw new BadGatewayException(
+          `La API externa de Tipo de Cambio respondió con error (${response.status}).`,
+        );
+      }
+
+      const data: any = await response.json();
+
+      // Mapear campos oficial y paralelo según la especificación acordada (average con fallbacks a sell / buy)
+      const tcOficialNum = Number(
+        data?.official?.average ?? data?.official?.sell ?? data?.official?.buy ?? 6.96,
+      );
+      const tcParaleloNum = Number(
+        data?.parallel?.average ?? data?.parallel?.sell ?? data?.parallel?.buy ?? 6.96,
+      );
+
+      if (isNaN(tcOficialNum) || isNaN(tcParaleloNum)) {
+        throw new BadGatewayException('La respuesta de la API de Tipo de Cambio contiene valores no numéricos.');
+      }
+
+      const updated = await this.prisma.configuracionNegocio.upsert({
+        where: { id: 1 },
+        update: {
+          tcOficial: tcOficialNum,
+          tcParalelo: tcParaleloNum,
+          tcActualizadoEn: new Date(),
+          actualizadoPorUsuarioId: adminUserId,
+        },
+        create: {
+          id: 1,
+          nombreEmpresa: 'CentralPhone',
+          qrOficialImagenUrl: '/uploads/qr/qr_oficial.png',
+          bancoOficial: 'Banco de Crédito BCP',
+          titularCuenta: 'CentralPhone',
+          numeroCuenta: '000-0000000',
+          tcOficial: tcOficialNum,
+          tcParalelo: tcParaleloNum,
+          tcActualizadoEn: new Date(),
+          actualizadoPorUsuarioId: adminUserId,
+        },
+        include: {
+          actualizadoPor: {
+            select: {
+              id: true,
+              nombre: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      this.logger.log(
+        `✅ Tipo de Cambio sincronizado exitosamente: Oficial Bs ${tcOficialNum.toFixed(2)}, Paralelo Bs ${tcParaleloNum.toFixed(2)}`,
+      );
+
+      return updated;
+    } catch (err: any) {
+      if (err instanceof BadRequestException || err instanceof BadGatewayException) {
+        throw err;
+      }
+      this.logger.error(`Fallo de conexión con API WaveSoft: ${err.message}`);
+      throw new BadGatewayException(
+        `No se pudo conectar con el servicio externo de Tipo de Cambio: ${err.message}`,
+      );
+    }
   }
 }

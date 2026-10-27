@@ -24,6 +24,9 @@ model ConfiguracionNegocio {
   titularCuenta           String   @map("titular_cuenta")
   numeroCuenta            String   @map("numero_cuenta")
   tipoCuenta              String   @default("Caja de Ahorro") @map("tipo_cuenta")
+  tcOficial               Decimal  @default(6.96) @map("tc_oficial") @db.Decimal(10, 2)
+  tcParalelo              Decimal  @default(6.96) @map("tc_paralelo") @db.Decimal(10, 2)
+  tcActualizadoEn         DateTime? @map("tc_actualizado_en")
   actualizadoPorUsuarioId Int?     @map("actualizado_por_usuario_id")
   actualizadoEn           DateTime @default(now()) @updatedAt @map("actualizado_en")
 

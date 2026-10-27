@@ -17,6 +17,9 @@ import {
   CheckCircle2,
   ChevronRight,
   TrendingUp,
+  RefreshCw,
+  DollarSign,
+  AlertCircle,
 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -24,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 export default function AdministracionPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -33,6 +37,30 @@ export default function AdministracionPage() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncingTc, setIsSyncingTc] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleSincronizarTc = async () => {
+    setIsSyncingTc(true);
+    setSyncFeedback(null);
+    try {
+      const updatedConfig = await api.configuracion.sincronizarTipoCambio();
+      setConfig(updatedConfig);
+      // Notificar a toda la aplicación (incluyendo Navbar)
+      window.dispatchEvent(new CustomEvent('configuracion-updated', { detail: updatedConfig }));
+      setSyncFeedback({
+        type: 'success',
+        message: `Tipo de Cambio sincronizado exitosamente: Oficial Bs ${Number(updatedConfig.tcOficial).toFixed(2)} | Paralelo Bs ${Number(updatedConfig.tcParalelo).toFixed(2)}`,
+      });
+    } catch (err: any) {
+      setSyncFeedback({
+        type: 'error',
+        message: err instanceof ApiError ? err.message : 'Error al conectar con la API de WaveSoft Cloud.',
+      });
+    } finally {
+      setIsSyncingTc(false);
+    }
+  };
 
   useEffect(() => {
     async function loadAdminData() {
@@ -139,8 +167,37 @@ export default function AdministracionPage() {
         </div>
       </div>
 
-      {/* Resumen Ejecutivo de Gobierno */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Alerta de Feedback para Sincronización de Tipo de Cambio */}
+      {syncFeedback && (
+        <div
+          className={cn(
+            'p-3.5 rounded-xl border flex items-center justify-between text-xs animate-in fade-in duration-200',
+            syncFeedback.type === 'success'
+              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+              : 'bg-rose-50/80 border-rose-200 text-rose-900'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {syncFeedback.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+            )}
+            <span className="font-medium">{syncFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSyncFeedback(null)}
+            className="text-[11px] font-semibold underline ml-3 opacity-70 hover:opacity-100"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
+      {/* Resumen Ejecutivo de Gobierno & Tipo de Cambio */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Cobro QR */}
         <Card className="p-4 border-slate-200 bg-white">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-slate-500">Cobro QR & Cuenta Oficial</p>
@@ -154,6 +211,62 @@ export default function AdministracionPage() {
           </p>
         </Card>
 
+        {/* 2. Divisas & Tipo de Cambio WaveSoft */}
+        <Card className="p-4 border-slate-200 bg-white flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-slate-500">Divisas (USD / BOB)</p>
+              <Badge variant="outline" className="text-[9px] font-mono py-0 px-1.5 text-slate-600">
+                WaveSoft
+              </Badge>
+            </div>
+            <div className="mt-2 space-y-1">
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-slate-500 font-medium">TC Oficial:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  Bs {Number(config?.tcOficial ?? 6.96).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-slate-500 font-medium">TC Paralelo:</span>
+                <span className="font-mono font-bold text-emerald-700">
+                  Bs {Number(config?.tcParalelo ?? 6.96).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
+            <span
+              className="text-[10px] text-slate-400 font-mono truncate max-w-[90px]"
+              title={
+                config?.tcActualizadoEn
+                  ? new Date(config.tcActualizadoEn).toLocaleString('es-BO')
+                  : 'Sin sincronizar'
+              }
+            >
+              {config?.tcActualizadoEn
+                ? `Act: ${new Date(config.tcActualizadoEn).toLocaleTimeString('es-BO', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`
+                : 'Sin sincronizar'}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSincronizarTc}
+              isLoading={isSyncingTc}
+              className="h-7 px-2 text-[11px] gap-1 hover:bg-slate-100"
+              title="Consultar cotización actualizada a la API de WaveSoft Cloud"
+            >
+              <RefreshCw className={cn('h-3 w-3', isSyncingTc && 'animate-spin')} />
+              <span>Sincronizar</span>
+            </Button>
+          </div>
+        </Card>
+
+        {/* 3. Sedes Operativas */}
         <Card className="p-4 border-slate-200 bg-white">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-slate-500">Sedes Operativas</p>
@@ -162,13 +275,14 @@ export default function AdministracionPage() {
           <p className="text-2xl font-bold text-slate-900 mt-2">
             {sucursalesActivas}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-[11px] text-slate-400 mt-0.5 truncate">
             {sucursales.length > sucursalesActivas
               ? `${sucursales.length} sedes registradas en total`
               : 'Todas las sucursales activas'}
           </p>
         </Card>
 
+        {/* 4. Seguridad & RBAC */}
         <Card className="p-4 border-slate-200 bg-white">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-slate-500">Seguridad & RBAC</p>
