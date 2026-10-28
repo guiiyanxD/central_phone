@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Pencil, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 import { TelefonoRow, AccesorioRow } from '@/features/recepcion/types';
 import { RecepcionHeader } from '@/features/recepcion/components/recepcion-header';
@@ -17,6 +18,7 @@ import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-
 import { RecepcionHistorialTable } from '@/features/recepcion/components/recepcion-historial-table';
 import { ModalAuditoriaRecepcion } from '@/features/recepcion/components/modal-auditoria-recepcion';
 import { ModalConfirmarGuardado } from '@/features/recepcion/components/modal-confirmar-guardado';
+import { ModalAnularRecepcion } from '@/features/recepcion/components/modal-anular-recepcion';
 import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
@@ -62,6 +64,13 @@ export default function RecepcionMercaderiaPage() {
   const [modalRecDetalleOpen, setModalRecDetalleOpen] = useState(false);
   const [recepcionDetalleData, setRecepcionDetalleData] = useState<any | null>(null);
   const [isLoadingRecDetalle, setIsLoadingRecDetalle] = useState(false);
+
+  // Estados para Edición y Anulación de Notas de Ingreso
+  const [editingNota, setEditingNota] = useState<any | null>(null);
+  const [anularModalOpen, setAnularModalOpen] = useState(false);
+  const [notaParaAnular, setNotaParaAnular] = useState<any | null>(null);
+  const [isAnulando, setIsAnulando] = useState(false);
+  const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
 
   // Formulario de Nota de Ingreso
   const [proveedorId, setProveedorId] = useState<number>(1);
@@ -217,6 +226,138 @@ export default function RecepcionMercaderiaPage() {
     setFiltroRecProveedorId('TODOS');
     setFiltroRecFechaDesde('');
     setFiltroRecFechaHasta('');
+  };
+
+  const handleStartEdit = async (recepcionId: number) => {
+    setErrorMessage(null);
+    setSuccessFeedback(null);
+    try {
+      const nota = await api.recepcion.getNotaIngresoById(recepcionId);
+      if (nota.estado === 'ANULADA') {
+        setErrorMessage(`La Nota de Ingreso #ING-${recepcionId} está anulada y no puede ser editada.`);
+        return;
+      }
+
+      setEditingNota(nota);
+      setProveedorId(nota.proveedorId);
+      setSucursalId(nota.sucursalId);
+      setNumeroComprobante(nota.numeroComprobante || '');
+      setObservaciones(nota.observaciones || '');
+
+      // Cargar dispositivos existentes
+      if (nota.dispositivos && nota.dispositivos.length > 0) {
+        const mappedTelefonos: TelefonoRow[] = nota.dispositivos.map((d: any) => {
+          const capGb = d.variante?.capacidadGb || 0;
+          const capLabel =
+            capGb > 0
+              ? capGb >= 1024
+                ? `${capGb / 1024}TB`
+                : `${capGb}GB`
+              : 'Sin almacenamiento';
+          const isSold =
+            d.estadoInventario === 'VENDIDO' ||
+            (d.detalleVentas && d.detalleVentas.length > 0);
+
+          return {
+            id: `tel-edit-${d.id}`,
+            dbId: d.id,
+            yaVendido: isSold,
+            varianteId: d.varianteId,
+            modeloNombreDisplay: d.variante?.modelo?.nombreModelo || 'Dispositivo',
+            modeloTipo: d.variante?.modelo?.tipo || 'IPHONE',
+            varianteTipoSim: d.variante?.tipoSim,
+            varianteDisplay: `${d.variante?.color || ''} • ${capLabel} • ${d.variante?.tipoSim || ''}`,
+            numeroSerie: d.numeroSerie || '',
+            imei1: d.imei1 || '',
+            imei2: d.imei2 || '',
+            condicion: d.condicion || 'NUEVO',
+            costoBs: Number(d.costoBs || 0),
+            costoUsd: Number(d.costoUsd || 0),
+            precioVentaSugeridoBs: Number(d.precioVentaSugeridoBs || 0),
+          };
+        });
+        setTelefonos(mappedTelefonos);
+      } else {
+        setTelefonos([
+          {
+            id: `tel-${Date.now()}`,
+            varianteId: null,
+            imei1: '',
+            imei2: '',
+            numeroSerie: '',
+            condicion: 'NUEVO',
+            costoBs: 0,
+            costoUsd: 0,
+            precioVentaSugeridoBs: 0,
+          },
+        ]);
+      }
+
+      // Cargar lotes de accesorios existentes
+      if (nota.lotesAccesorio && nota.lotesAccesorio.length > 0) {
+        const mappedAccesorios: AccesorioRow[] = nota.lotesAccesorio.map((l: any) => {
+          const isSold =
+            (l.detalleVentas && l.detalleVentas.length > 0) ||
+            l.stockActual < l.cantidadInicial;
+
+          return {
+            id: `acc-edit-${l.id}`,
+            dbId: l.id,
+            yaVendido: isSold,
+            accesorioId: l.accesorioId,
+            accesorioDisplay: `${l.accesorio?.nombre || 'Accesorio'} (${l.accesorio?.categoria?.nombre || 'General'})`,
+            nombreDiferenciador: l.nombreDiferenciador || '',
+            cantidad: l.cantidadInicial || 0,
+            costoUnitarioBs: Number(l.costoUnitarioBs || 0),
+            precioVentaBs: Number(l.precioVentaBs || 0),
+          };
+        });
+        setAccesorios(mappedAccesorios);
+      } else {
+        setAccesorios([
+          {
+            id: `acc-${Date.now()}`,
+            accesorioId: null,
+            nombreDiferenciador: '',
+            cantidad: 0,
+            costoUnitarioBs: 0,
+            precioVentaBs: 0,
+          },
+        ]);
+      }
+
+      setActiveTab('nuevo');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setErrorMessage(err.message || 'No se pudo cargar la nota de ingreso para edición.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNota(null);
+    handleResetForm();
+  };
+
+  const handleOpenAnularModal = (rec: any) => {
+    setNotaParaAnular(rec);
+    setAnularModalOpen(true);
+  };
+
+  const handleConfirmarAnulacion = async (motivo: string) => {
+    if (!notaParaAnular) return;
+    setIsAnulando(true);
+    setErrorMessage(null);
+    try {
+      await api.recepcion.anularNotaIngreso(notaParaAnular.id, { motivo });
+      setAnularModalOpen(false);
+      setNotaParaAnular(null);
+      setSuccessFeedback(`Nota de Ingreso #${notaParaAnular.id} anulada correctamente.`);
+      fetchRecepciones(recepcionesMeta.page);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al anular la nota de ingreso.');
+    } finally {
+      setIsAnulando(false);
+    }
   };
 
   // Manejadores para Teléfonos
@@ -659,6 +800,7 @@ export default function RecepcionMercaderiaPage() {
         numeroComprobante: numeroComprobante.trim() || undefined,
         observaciones: observaciones.trim() || undefined,
         dispositivos: telefonosValidos.map((t) => ({
+          id: t.dbId,
           varianteId: t.varianteId ? Number(t.varianteId) : undefined,
           nuevaVariante: t.nuevaVariante,
           numeroSerie: t.numeroSerie.trim(),
@@ -670,6 +812,7 @@ export default function RecepcionMercaderiaPage() {
           precioVentaSugeridoBs: Number(t.precioVentaSugeridoBs) || 0,
         })),
         accesorios: accesoriosValidos.map((a) => ({
+          id: a.dbId,
           accesorioId: a.accesorioId ? Number(a.accesorioId) : undefined,
           nuevoAccesorio: a.nuevoAccesorio,
           nombreDiferenciador: a.nombreDiferenciador.trim(),
@@ -679,9 +822,18 @@ export default function RecepcionMercaderiaPage() {
         })),
       };
 
-      const res = await api.recepcion.createNotaIngreso(payload);
-      setModalConfirmarOpen(false);
-      setNotaCreada(res);
+      if (editingNota) {
+        const res = await api.recepcion.updateNotaIngreso(editingNota.id, payload);
+        setModalConfirmarOpen(false);
+        setEditingNota(null);
+        setNotaCreada(res);
+        if (isAdmin) fetchRecepciones(1);
+      } else {
+        const res = await api.recepcion.createNotaIngreso(payload);
+        setModalConfirmarOpen(false);
+        setNotaCreada(res);
+        if (isAdmin) fetchRecepciones(1);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al procesar la nota de ingreso.');
       setModalConfirmarOpen(false);
@@ -691,6 +843,7 @@ export default function RecepcionMercaderiaPage() {
   };
 
   const handleResetForm = () => {
+    setEditingNota(null);
     setNotaCreada(null);
     setNumeroComprobante('');
     setObservaciones('');
@@ -764,6 +917,43 @@ export default function RecepcionMercaderiaPage() {
       {/* TAB 1: FORMULARIO DE NUEVA RECEPCIÓN */}
       {activeTab === 'nuevo' && (
         <>
+          {successFeedback && (
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 flex items-start gap-3 animate-in fade-in duration-150">
+              <CheckCircle2 className="h-5 w-5 text-emerald-700 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-emerald-900">Operación Exitosa:</p>
+                <p className="text-xs text-emerald-700 mt-0.5">{successFeedback}</p>
+              </div>
+            </div>
+          )}
+
+          {editingNota && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-4 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-amber-200 text-amber-900">
+                  <Pencil className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-amber-950">
+                    Modo Edición: Nota de Ingreso #ING-{editingNota.id}
+                  </p>
+                  <p className="text-amber-800 text-[11px] mt-0.5">
+                    Modificando cabecera e ítems no vendidos. Los equipos ya vendidos permanecen bloqueados para preservar la integridad financiera.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCancelEdit}
+                className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100 text-xs shrink-0 self-start sm:self-auto shadow-xs"
+              >
+                Cancelar Edición
+              </Button>
+            </div>
+          )}
+
           {errorMessage && (
             <div className="rounded-xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-900 flex items-start gap-3 animate-in fade-in duration-150">
               <ShieldAlert className="h-5 w-5 text-slate-800 flex-shrink-0 mt-0.5" />
@@ -813,6 +1003,7 @@ export default function RecepcionMercaderiaPage() {
               totalUnidadesAccesorios={totalUnidadesAccesorios}
               totalCostoNotaBs={totalCostoNotaBs}
               isSubmitting={isSubmitting}
+              isEditing={!!editingNota}
             />
           </form>
 
@@ -874,6 +1065,9 @@ export default function RecepcionMercaderiaPage() {
           setRecepcionesMeta={setRecepcionesMeta}
           onFetchRecepciones={fetchRecepciones}
           onOpenRecDetalle={handleOpenRecDetalle}
+          onStartEdit={handleStartEdit}
+          onOpenAnularModal={handleOpenAnularModal}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -891,6 +1085,24 @@ export default function RecepcionMercaderiaPage() {
         totalAccesorios={totalUnidadesAccesorios}
         totalCostoBs={totalCostoNotaBs}
         totalCostoUsd={totalCostoUsdNota}
+      />
+
+      {/* MODAL DE ANULACIÓN DE NOTA DE INGRESO */}
+      <ModalAnularRecepcion
+        isOpen={anularModalOpen}
+        onClose={() => {
+          if (!isAnulando) {
+            setAnularModalOpen(false);
+            setNotaParaAnular(null);
+          }
+        }}
+        onConfirm={handleConfirmarAnulacion}
+        isSubmitting={isAnulando}
+        notaId={notaParaAnular?.id || 0}
+        numeroComprobante={notaParaAnular?.numeroComprobante}
+        proveedorNombre={notaParaAnular?.proveedor?.nombre}
+        totalDispositivos={notaParaAnular?._count?.dispositivos || 0}
+        totalAccesorios={notaParaAnular?._count?.lotesAccesorio || 0}
       />
 
       {/* MODAL DE AUDITORÍA DE NOTA DE INGRESO */}

@@ -30,6 +30,10 @@ export class NuevaVarianteInlineDto {
 export class LineaDispositivoDto {
   @IsNumber()
   @IsOptional()
+  id?: number;
+
+  @IsNumber()
+  @IsOptional()
   varianteId?: number;
 
   // Soporte para US09: Creación in-line ("al vuelo") si la variante no existía

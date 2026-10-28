@@ -133,8 +133,15 @@ export function RecepcionTelefonosTable({
               className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
             >
               <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                <span>Unidad #{telefonos.length - idx}</span>
-                {telefonos.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span>Unidad #{telefonos.length - idx}</span>
+                  {t.yaVendido && (
+                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                      Vendido (Bloqueado)
+                    </Badge>
+                  )}
+                </div>
+                {telefonos.length > 1 && !t.yaVendido && (
                   <button
                     type="button"
                     onClick={() => onRemoveTelefono(t.id)}

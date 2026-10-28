@@ -6,6 +6,7 @@ export interface CreateNotaIngresoData {
   numeroComprobante?: string;
   observaciones?: string;
   dispositivos?: Array<{
+    id?: number;
     varianteId?: number;
     nuevaVariante?: {
       modeloId: number;
@@ -22,6 +23,7 @@ export interface CreateNotaIngresoData {
     precioVentaSugeridoBs?: number;
   }>;
   accesorios?: Array<{
+    id?: number;
     accesorioId?: number;
     nuevoAccesorio?: {
       categoriaId: number;
@@ -44,6 +46,9 @@ export interface NotaIngresoListItem {
   fechaIngreso: string;
   totalCostoBs?: number | string;
   observaciones: string | null;
+  estado?: 'REGISTRADA' | 'ANULADA';
+  anuladaEn?: string | null;
+  motivoAnulacion?: string | null;
   proveedor: { id: number; nombre: string };
   sucursal: { id: number; nombre: string };
   usuario: { id: number; nombre: string };
@@ -74,6 +79,9 @@ export interface NotaIngresoDetail {
   fechaIngreso: string;
   totalCostoBs?: number | string;
   observaciones: string | null;
+  estado?: 'REGISTRADA' | 'ANULADA';
+  anuladaEn?: string | null;
+  motivoAnulacion?: string | null;
   proveedor: { id: number; nombre: string; telefono?: string | null; nit?: string | null };
   sucursal: { id: number; nombre: string; direccion?: string | null; ciudad?: string };
   usuario: { id: number; nombre: string; email: string };
@@ -183,4 +191,17 @@ export const recepcionApi = {
   },
   getNotaIngresoById: (id: number) =>
     request<NotaIngresoDetail>(`/recepcion/notas-ingreso/${id}`),
+  updateNotaIngreso: (id: number, data: Partial<CreateNotaIngresoData>) =>
+    request<NotaIngresoDetail>(`/recepcion/notas-ingreso/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  anularNotaIngreso: (id: number, data: { motivo: string }) =>
+    request<{ success: boolean; message: string; nota: NotaIngresoDetail }>(
+      `/recepcion/notas-ingreso/${id}/anular`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    ),
 };

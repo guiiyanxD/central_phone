@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PackagePlus, Smartphone, Headphones, CircleDollarSign } from 'lucide-react';
+import { PackagePlus, Smartphone, Headphones, CircleDollarSign, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface RecepcionResumenPanelProps {
@@ -9,6 +9,7 @@ interface RecepcionResumenPanelProps {
   totalUnidadesAccesorios: number;
   totalCostoNotaBs: number;
   isSubmitting: boolean;
+  isEditing?: boolean;
 }
 
 export function RecepcionResumenPanel({
@@ -16,6 +17,7 @@ export function RecepcionResumenPanel({
   totalUnidadesAccesorios,
   totalCostoNotaBs,
   isSubmitting,
+  isEditing = false,
 }: RecepcionResumenPanelProps) {
   return (
     <div className="sticky bottom-4 z-30 backdrop-blur-md bg-white/95 border border-slate-200/90 shadow-[0_12px_35px_-5px_rgba(0,0,0,0.12)] rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-200 animate-in fade-in slide-in-from-bottom-2">
@@ -62,10 +64,19 @@ export function RecepcionResumenPanel({
         size="lg"
         className="w-full md:w-auto min-w-[240px] text-xs sm:text-sm font-semibold shadow-subtle"
         isLoading={isSubmitting}
-        loadingText="Registrando Mercadería..."
+        loadingText={isEditing ? 'Actualizando Mercadería...' : 'Registrando Mercadería...'}
       >
-        <PackagePlus className="mr-2 h-4 w-4" />
-        Registrar Nota de Ingreso
+        {isEditing ? (
+          <>
+            <Save className="mr-2 h-4 w-4" />
+            Guardar Cambios de la Nota
+          </>
+        ) : (
+          <>
+            <PackagePlus className="mr-2 h-4 w-4" />
+            Registrar Nota de Ingreso
+          </>
+        )}
       </Button>
     </div>
   );

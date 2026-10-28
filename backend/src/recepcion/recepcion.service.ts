@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
+import { UpdateNotaIngresoDto } from './dto/update-nota-ingreso.dto';
+import { AnularNotaIngresoDto } from './dto/anular-nota-ingreso.dto';
 import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
 import { CondicionDispositivo, EstadoInventario, EstadoVenta, Prisma } from '@prisma/client';
 
@@ -626,5 +628,511 @@ export class RecepcionService {
       ...nota,
       resumenFinanciero,
     };
+  }
+
+  async anularNotaIngreso(id: number, dto: AnularNotaIngresoDto, usuarioId: number) {
+    const nota = await this.prisma.notaIngreso.findUnique({
+      where: { id },
+      include: {
+        dispositivos: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        },
+        lotesAccesorio: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!nota) {
+      throw new NotFoundException(`La Nota de Ingreso con ID ${id} no existe.`);
+    }
+
+    if (nota.estado === 'ANULADA') {
+      throw new BadRequestException('La Nota de Ingreso ya fue anulada previamente.');
+    }
+
+    // Comprobar si algún dispositivo o lote tiene ventas asociadas
+    const dispositivosVendidos = nota.dispositivos.filter(
+      (d) => d.estadoInventario === EstadoInventario.VENDIDO || (d.detalleVentas && d.detalleVentas.length > 0),
+    );
+
+    const lotesVendidos = nota.lotesAccesorio.filter(
+      (l) => (l.detalleVentas && l.detalleVentas.length > 0) || l.stockActual < l.cantidadInicial,
+    );
+
+    if (dispositivosVendidos.length > 0 || lotesVendidos.length > 0) {
+      const itemsVendidos: string[] = [];
+      if (dispositivosVendidos.length > 0) {
+        itemsVendidos.push(`${dispositivosVendidos.length} equipo(s)`);
+      }
+      if (lotesVendidos.length > 0) {
+        itemsVendidos.push(`${lotesVendidos.length} lote(s) de accesorios con salidas`);
+      }
+      throw new BadRequestException(
+        `No se puede anular la Nota de Ingreso #${nota.id} porque ya cuenta con unidades vendidas (${itemsVendidos.join(', ')}). Debe gestionar las devoluciones correspondientes antes de anular.`,
+      );
+    }
+
+    // Transacción atómica de anulación
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Eliminar dispositivos físicos asociados no vendidos (libera unique de numeroSerie, imei1, imei2)
+      await tx.dispositivo.deleteMany({
+        where: { notaIngresoId: id },
+      });
+
+      // 2. Desactivar lotes de accesorios y poner stock en 0
+      await tx.loteAccesorio.updateMany({
+        where: { notaIngresoId: id },
+        data: {
+          activo: false,
+          stockActual: 0,
+        },
+      });
+
+      // 3. Actualizar estado de la nota de ingreso
+      const notaActualizada = await tx.notaIngreso.update({
+        where: { id },
+        data: {
+          estado: 'ANULADA',
+          anuladaEn: new Date(),
+          motivoAnulacion: dto.motivo.trim(),
+        },
+        include: {
+          proveedor: true,
+          sucursal: true,
+          usuario: { select: { id: true, nombre: true, email: true } },
+        },
+      });
+
+      this.logger.log(`Nota de Ingreso #${id} anulada por usuario ${usuarioId}. Motivo: ${dto.motivo.trim()}`);
+
+      return {
+        success: true,
+        message: `Nota de Ingreso #${id} anulada exitosamente.`,
+        nota: notaActualizada,
+      };
+    });
+  }
+
+  async updateNotaIngreso(id: number, dto: UpdateNotaIngresoDto, usuarioId: number) {
+    const nota = await this.prisma.notaIngreso.findUnique({
+      where: { id },
+      include: {
+        dispositivos: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        },
+        lotesAccesorio: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!nota) {
+      throw new NotFoundException(`La Nota de Ingreso con ID ${id} no existe.`);
+    }
+
+    if (nota.estado === 'ANULADA') {
+      throw new BadRequestException('No se puede modificar una Nota de Ingreso que ha sido anulada.');
+    }
+
+    const {
+      proveedorId,
+      sucursalId,
+      numeroComprobante,
+      observaciones,
+      dispositivos,
+      accesorios,
+    } = dto;
+
+    if (proveedorId && proveedorId !== nota.proveedorId) {
+      const prov = await this.prisma.proveedor.findUnique({ where: { id: proveedorId } });
+      if (!prov) {
+        throw new NotFoundException(`El proveedor con ID ${proveedorId} no existe.`);
+      }
+    }
+
+    const effectiveSucursalId = sucursalId ?? nota.sucursalId;
+    if (sucursalId && sucursalId !== nota.sucursalId) {
+      const suc = await this.prisma.sucursal.findUnique({ where: { id: sucursalId } });
+      if (!suc) {
+        throw new NotFoundException(`La sucursal con ID ${sucursalId} no existe.`);
+      }
+      const anySold =
+        nota.dispositivos.some((d) => d.estadoInventario === EstadoInventario.VENDIDO || d.detalleVentas.length > 0) ||
+        nota.lotesAccesorio.some((l) => l.detalleVentas.length > 0 || l.stockActual < l.cantidadInicial);
+      if (anySold) {
+        throw new BadRequestException('No se puede cambiar la sucursal de una recepción que ya tiene unidades vendidas.');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Si se envían dispositivos en el payload
+      if (dispositivos !== undefined) {
+        // 1. Validar que ningún dispositivo vendido haya sido eliminado de la recepción
+        const dispositivosVendidosEnDb = nota.dispositivos.filter(
+          (d) => d.estadoInventario === EstadoInventario.VENDIDO || d.detalleVentas.length > 0,
+        );
+
+        for (const dispVendido of dispositivosVendidosEnDb) {
+          const presenteEnPayload = dispositivos.find(
+            (d) => (d.id && d.id === dispVendido.id) || d.numeroSerie?.trim() === dispVendido.numeroSerie,
+          );
+          if (!presenteEnPayload) {
+            throw new BadRequestException(
+              `El dispositivo con serie '${dispVendido.numeroSerie}' ya fue vendido y no puede ser removido de la nota.`,
+            );
+          }
+        }
+
+        // 2. Validar duplicidad interna en el payload
+        const seriesEnPayload = new Set<string>();
+        const imeisEnPayload = new Set<string>();
+
+        for (const d of dispositivos) {
+          const serie = d.numeroSerie?.trim();
+          if (!serie) {
+            throw new BadRequestException('Todo dispositivo debe tener un número de serie obligatorio.');
+          }
+          if (seriesEnPayload.has(serie)) {
+            throw new ConflictException(`El número de serie '${serie}' está duplicado en la entrega.`);
+          }
+          seriesEnPayload.add(serie);
+
+          const imei1 = d.imei1?.trim();
+          if (imei1) {
+            if (imeisEnPayload.has(imei1)) {
+              throw new ConflictException(`El IMEI 1 '${imei1}' está duplicado en la entrega.`);
+            }
+            imeisEnPayload.add(imei1);
+          }
+
+          if (d.imei2 && d.imei2.trim().length > 0) {
+            const imei2 = d.imei2.trim();
+            if (imeisEnPayload.has(imei2)) {
+              throw new ConflictException(`El IMEI 2 '${imei2}' está duplicado en la entrega.`);
+            }
+            imeisEnPayload.add(imei2);
+          }
+        }
+
+        // 3. Identificar dispositivos a eliminar (los que existían en DB no vendidos y no vienen en el payload)
+        const incomingIds = new Set(dispositivos.filter((d) => d.id).map((d) => d.id!));
+        const dispositivosAEliminar = nota.dispositivos.filter(
+          (d) => !incomingIds.has(d.id) && d.estadoInventario !== EstadoInventario.VENDIDO && d.detalleVentas.length === 0,
+        );
+
+        if (dispositivosAEliminar.length > 0) {
+          await tx.dispositivo.deleteMany({
+            where: { id: { in: dispositivosAEliminar.map((d) => d.id) } },
+          });
+        }
+
+        // 4. Procesar actualización o creación de dispositivos
+        for (const d of dispositivos) {
+          const serie = d.numeroSerie.trim();
+          const imei1 = d.imei1?.trim() || null;
+          const imei2 = d.imei2?.trim() || null;
+
+          // Validar colisión contra DB excluyendo el propio ID si ya existe
+          const serieExistente = await tx.dispositivo.findFirst({
+            where: {
+              numeroSerie: serie,
+              ...(d.id ? { id: { not: d.id } } : {}),
+            },
+          });
+          if (serieExistente) {
+            throw new ConflictException(`El número de serie '${serie}' ya se encuentra registrado en el sistema.`);
+          }
+
+          if (imei1) {
+            const imei1Existente = await tx.dispositivo.findFirst({
+              where: {
+                OR: [{ imei1 }, { imei2: imei1 }],
+                ...(d.id ? { id: { not: d.id } } : {}),
+              },
+            });
+            if (imei1Existente) {
+              throw new ConflictException(`El IMEI 1 '${imei1}' ya se encuentra registrado en el sistema.`);
+            }
+          }
+
+          if (imei2) {
+            const imei2Existente = await tx.dispositivo.findFirst({
+              where: {
+                OR: [{ imei1: imei2 }, { imei2 }],
+                ...(d.id ? { id: { not: d.id } } : {}),
+              },
+            });
+            if (imei2Existente) {
+              throw new ConflictException(`El IMEI 2 '${imei2}' ya se encuentra registrado en el sistema.`);
+            }
+          }
+
+          // Resolver variante
+          let resolvedVarianteId = d.varianteId;
+          let modeloTipo = 'IPHONE';
+          let nombreModelo = 'Dispositivo';
+
+          if (d.nuevaVariante) {
+            const { modeloId, color, capacidadGb, tipoSim = 'SIM Físico' } = d.nuevaVariante;
+            const modeloFound = await tx.modeloDispositivo.findUnique({ where: { id: modeloId } });
+            if (modeloFound) {
+              modeloTipo = modeloFound.tipo;
+              nombreModelo = modeloFound.nombreModelo;
+            }
+
+            let variante = await tx.varianteDispositivo.findUnique({
+              where: {
+                modeloId_color_capacidadGb_tipoSim: {
+                  modeloId,
+                  color: color.trim(),
+                  capacidadGb,
+                  tipoSim,
+                },
+              },
+            });
+
+            if (!variante) {
+              variante = await tx.varianteDispositivo.create({
+                data: {
+                  modeloId,
+                  color: color.trim(),
+                  capacidadGb,
+                  tipoSim,
+                },
+              });
+            }
+            resolvedVarianteId = variante.id;
+          } else if (resolvedVarianteId) {
+            const varianteFound = await tx.varianteDispositivo.findUnique({
+              where: { id: resolvedVarianteId },
+              include: { modelo: true },
+            });
+            if (varianteFound?.modelo) {
+              modeloTipo = varianteFound.modelo.tipo;
+              nombreModelo = varianteFound.modelo.nombreModelo;
+            }
+          }
+
+          if (!resolvedVarianteId) {
+            throw new BadRequestException('Cada dispositivo debe especificar un varianteId o una nuevaVariante.');
+          }
+
+          if (modeloTipo === 'IPHONE' && !imei1) {
+            throw new BadRequestException(
+              `El dispositivo '${nombreModelo}' es de tipo IPHONE y requiere obligatoriamente un IMEI 1 válido.`,
+            );
+          }
+
+          const precioSugerido =
+            d.precioVentaSugeridoBs !== undefined && d.precioVentaSugeridoBs !== null
+              ? Number(d.precioVentaSugeridoBs)
+              : Math.round(Number(d.costoBs) * 1.15);
+
+          if (d.id) {
+            // Actualizar dispositivo existente
+            const dispDb = nota.dispositivos.find((item) => item.id === d.id);
+            const yaVendido =
+              dispDb && (dispDb.estadoInventario === EstadoInventario.VENDIDO || dispDb.detalleVentas.length > 0);
+
+            if (yaVendido) {
+              await tx.dispositivo.update({
+                where: { id: d.id },
+                data: {
+                  precioVentaSugeridoBs: precioSugerido,
+                },
+              });
+            } else {
+              await tx.dispositivo.update({
+                where: { id: d.id },
+                data: {
+                  varianteId: resolvedVarianteId,
+                  sucursalId: effectiveSucursalId,
+                  numeroSerie: serie,
+                  imei1,
+                  imei2,
+                  condicion: d.condicion || CondicionDispositivo.NUEVO,
+                  costoBs: d.costoBs,
+                  costoUsd: d.costoUsd,
+                  precioVentaSugeridoBs: precioSugerido,
+                },
+              });
+            }
+          } else {
+            // Crear nuevo dispositivo en esta nota
+            await tx.dispositivo.create({
+              data: {
+                notaIngresoId: id,
+                sucursalId: effectiveSucursalId,
+                varianteId: resolvedVarianteId,
+                numeroSerie: serie,
+                imei1,
+                imei2,
+                condicion: d.condicion || CondicionDispositivo.NUEVO,
+                costoBs: d.costoBs,
+                costoUsd: d.costoUsd,
+                precioVentaSugeridoBs: precioSugerido,
+                estadoInventario: EstadoInventario.DISPONIBLE,
+              },
+            });
+          }
+        }
+      }
+
+      // Si se envían accesorios en el payload
+      if (accesorios !== undefined) {
+        // Validar lotes con ventas que no hayan sido eliminados
+        const lotesVendidosEnDb = nota.lotesAccesorio.filter(
+          (l) => l.detalleVentas.length > 0 || l.stockActual < l.cantidadInicial,
+        );
+
+        for (const loteVendido of lotesVendidosEnDb) {
+          const presente = accesorios.find((a) => a.id && a.id === loteVendido.id);
+          if (!presente) {
+            throw new BadRequestException(
+              `El lote '${loteVendido.nombreDiferenciador}' ya cuenta con ventas y no puede ser removido de la recepción.`,
+            );
+          }
+        }
+
+        const incomingLotIds = new Set(accesorios.filter((a) => a.id).map((a) => a.id!));
+        const lotesAEliminar = nota.lotesAccesorio.filter(
+          (l) => !incomingLotIds.has(l.id) && l.detalleVentas.length === 0 && l.stockActual === l.cantidadInicial,
+        );
+
+        if (lotesAEliminar.length > 0) {
+          await tx.loteAccesorio.deleteMany({
+            where: { id: { in: lotesAEliminar.map((l) => l.id) } },
+          });
+        }
+
+        for (const acc of accesorios) {
+          let resolvedAccesorioId = acc.accesorioId;
+
+          if (acc.nuevoAccesorio) {
+            const { categoriaId, nombre, descripcion } = acc.nuevoAccesorio;
+            const catExistente = await tx.categoriaAccesorio.findUnique({ where: { id: categoriaId } });
+            if (!catExistente) {
+              throw new NotFoundException(`La categoría de accesorio con ID ${categoriaId} no existe.`);
+            }
+
+            let accesorioExistente = await tx.accesorio.findFirst({
+              where: {
+                categoriaId,
+                nombre: { equals: nombre.trim(), mode: 'insensitive' },
+              },
+            });
+
+            if (!accesorioExistente) {
+              accesorioExistente = await tx.accesorio.create({
+                data: {
+                  categoriaId,
+                  nombre: nombre.trim(),
+                  descripcion: descripcion?.trim() || null,
+                },
+              });
+            }
+            resolvedAccesorioId = accesorioExistente.id;
+          }
+
+          if (acc.id) {
+            const loteDb = nota.lotesAccesorio.find((l) => l.id === acc.id);
+            const tieneVentas = loteDb && (loteDb.detalleVentas.length > 0 || loteDb.stockActual < loteDb.cantidadInicial);
+
+            if (tieneVentas) {
+              await tx.loteAccesorio.update({
+                where: { id: acc.id },
+                data: {
+                  nombreDiferenciador: acc.nombreDiferenciador.trim(),
+                  precioVentaBs: acc.precioVentaBs,
+                },
+              });
+            } else {
+              await tx.loteAccesorio.update({
+                where: { id: acc.id },
+                data: {
+                  ...(resolvedAccesorioId ? { accesorioId: resolvedAccesorioId } : {}),
+                  sucursalId: effectiveSucursalId,
+                  nombreDiferenciador: acc.nombreDiferenciador.trim(),
+                  costoUnitarioBs: acc.costoUnitarioBs,
+                  precioVentaBs: acc.precioVentaBs,
+                  cantidadInicial: acc.cantidad,
+                  stockActual: acc.cantidad,
+                },
+              });
+            }
+          } else {
+            if (!resolvedAccesorioId) {
+              throw new BadRequestException(
+                `No se pudo resolver el accesorio base para el lote '${acc.nombreDiferenciador}'.`,
+              );
+            }
+            await tx.loteAccesorio.create({
+              data: {
+                notaIngresoId: id,
+                sucursalId: effectiveSucursalId,
+                accesorioId: resolvedAccesorioId,
+                nombreDiferenciador: acc.nombreDiferenciador.trim(),
+                costoUnitarioBs: acc.costoUnitarioBs,
+                precioVentaBs: acc.precioVentaBs,
+                cantidadInicial: acc.cantidad,
+                stockActual: acc.cantidad,
+                activo: true,
+              },
+            });
+          }
+        }
+      }
+
+      // Si cambió de sucursal, asegurar que todos los dispositivos y lotes queden actualizados
+      if (sucursalId && sucursalId !== nota.sucursalId) {
+        await tx.dispositivo.updateMany({ where: { notaIngresoId: id }, data: { sucursalId } });
+        await tx.loteAccesorio.updateMany({ where: { notaIngresoId: id }, data: { sucursalId } });
+      }
+
+      // 5. Recalcular totalCostoBs
+      const allCurrentDispositivos = await tx.dispositivo.findMany({ where: { notaIngresoId: id } });
+      const allCurrentLotes = await tx.loteAccesorio.findMany({ where: { notaIngresoId: id } });
+
+      let totalCostoBs = 0;
+      allCurrentDispositivos.forEach((d) => {
+        totalCostoBs += Number(d.costoBs);
+      });
+      allCurrentLotes.forEach((l) => {
+        totalCostoBs += Number(l.costoUnitarioBs) * l.cantidadInicial;
+      });
+
+      // 6. Actualizar cabecera de la Nota de Ingreso
+      await tx.notaIngreso.update({
+        where: { id },
+        data: {
+          ...(proveedorId ? { proveedorId } : {}),
+          ...(sucursalId ? { sucursalId } : {}),
+          numeroComprobante: numeroComprobante !== undefined ? numeroComprobante : nota.numeroComprobante,
+          observaciones: observaciones !== undefined ? observaciones : nota.observaciones,
+          totalCostoBs,
+        },
+      });
+
+      this.logger.log(`Nota de Ingreso #${id} actualizada exitosamente por usuario ${usuarioId}.`);
+    });
+
+    return this.findOne(id, 'ADMIN');
   }
 }

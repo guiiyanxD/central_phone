@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Smartphone, Package, AlertCircle } from 'lucide-react';
+import { Smartphone, Package, AlertCircle, AlertOctagon } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -67,6 +67,27 @@ export function ModalAuditoriaRecepcion({
 
           return (
             <div className="flex flex-col flex-1 min-h-0 space-y-4 pt-2">
+              {recepcionDetalleData.estado === 'ANULADA' && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-xs text-rose-800 flex items-start gap-2.5">
+                  <AlertOctagon className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-rose-900 uppercase tracking-wide">
+                      Nota de Ingreso Anulada
+                    </span>
+                    {recepcionDetalleData.anuladaEn && (
+                      <span className="text-rose-700 ml-1">
+                        el {new Date(recepcionDetalleData.anuladaEn).toLocaleString('es-BO')}
+                      </span>
+                    )}
+                    {recepcionDetalleData.motivoAnulacion && (
+                      <p className="mt-0.5 text-rose-700">
+                        <span className="font-semibold text-rose-900">Motivo:</span> {recepcionDetalleData.motivoAnulacion}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Metadatos de la Entrega */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                 <div className="flex flex-wrap items-center gap-4 text-slate-600">

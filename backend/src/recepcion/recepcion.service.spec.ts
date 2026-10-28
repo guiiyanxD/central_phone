@@ -475,4 +475,182 @@ describe('RecepcionService', () => {
       );
     });
   });
+
+  describe('anularNotaIngreso', () => {
+    const usuarioId = 1;
+    const anularDto = { motivo: 'Error en registro de mercadería por duplicación' };
+
+    it('debe lanzar NotFoundException si la nota de ingreso no existe', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue(null);
+
+      await expect(service.anularNotaIngreso(999, anularDto, usuarioId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe lanzar BadRequestException si la nota de ingreso ya fue anulada', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'ANULADA',
+        dispositivos: [],
+        lotesAccesorio: [],
+      } as any);
+
+      await expect(service.anularNotaIngreso(10, anularDto, usuarioId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('debe rechazar la anulación si algún dispositivo ya fue vendido', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'REGISTRADA',
+        dispositivos: [
+          {
+            id: 1,
+            numeroSerie: 'SN-VENDIDO',
+            estadoInventario: 'VENDIDO',
+            detalleVentas: [{ id: 5 }],
+          },
+        ],
+        lotesAccesorio: [],
+      } as any);
+
+      await expect(service.anularNotaIngreso(10, anularDto, usuarioId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('debe rechazar la anulación si algún lote de accesorio tiene ventas o salidas', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'REGISTRADA',
+        dispositivos: [],
+        lotesAccesorio: [
+          {
+            id: 2,
+            nombreDiferenciador: 'Funda Silicona',
+            cantidadInicial: 10,
+            stockActual: 8, // Se vendieron 2
+            detalleVentas: [],
+          },
+        ],
+      } as any);
+
+      await expect(service.anularNotaIngreso(10, anularDto, usuarioId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('debe anular exitosamente la nota cuando 0 unidades han sido vendidas', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'REGISTRADA',
+        dispositivos: [
+          {
+            id: 1,
+            numeroSerie: 'SN-DISPONIBLE',
+            estadoInventario: 'DISPONIBLE',
+            detalleVentas: [],
+          },
+        ],
+        lotesAccesorio: [
+          {
+            id: 2,
+            nombreDiferenciador: 'Funda',
+            cantidadInicial: 10,
+            stockActual: 10,
+            detalleVentas: [],
+          },
+        ],
+      } as any);
+
+      prisma.notaIngreso.update.mockResolvedValue({
+        id: 10,
+        estado: 'ANULADA',
+        motivoAnulacion: anularDto.motivo,
+      } as any);
+
+      const result = await service.anularNotaIngreso(10, anularDto, usuarioId);
+
+      expect(result.success).toBe(true);
+      expect(prisma.dispositivo.deleteMany).toHaveBeenCalledWith({
+        where: { notaIngresoId: 10 },
+      });
+      expect(prisma.loteAccesorio.updateMany).toHaveBeenCalledWith({
+        where: { notaIngresoId: 10 },
+        data: { activo: false, stockActual: 0 },
+      });
+      expect(prisma.notaIngreso.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: expect.objectContaining({
+            estado: 'ANULADA',
+            motivoAnulacion: anularDto.motivo,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('updateNotaIngreso', () => {
+    const usuarioId = 1;
+
+    it('debe lanzar NotFoundException si la nota a editar no existe', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateNotaIngreso(999, { observaciones: 'Nueva obs' }, usuarioId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si se intenta editar una nota anulada', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'ANULADA',
+        dispositivos: [],
+        lotesAccesorio: [],
+      } as any);
+
+      await expect(
+        service.updateNotaIngreso(10, { observaciones: 'Nueva obs' }, usuarioId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar la eliminación de un dispositivo vendido en el payload de actualización', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'REGISTRADA',
+        proveedorId: 1,
+        sucursalId: 1,
+        dispositivos: [
+          {
+            id: 100,
+            numeroSerie: 'SN-YA-VENDIDO',
+            estadoInventario: 'VENDIDO',
+            detalleVentas: [{ id: 1 }],
+          },
+        ],
+        lotesAccesorio: [],
+      } as any);
+
+      // El payload intenta enviar un nuevo dispositivo omitiendo el vendido
+      await expect(
+        service.updateNotaIngreso(
+          10,
+          {
+            dispositivos: [
+              {
+                varianteId: 1,
+                numeroSerie: 'SN-OTRO',
+                costoBs: 100,
+                costoUsd: 15,
+              },
+            ],
+          },
+          usuarioId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

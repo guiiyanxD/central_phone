@@ -82,8 +82,15 @@ export function RecepcionAccesoriosTable({
             className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
           >
             <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-              <span>Lote #{accesorios.length - idx}</span>
-              {accesorios.length > 1 && (
+              <div className="flex items-center gap-2">
+                <span>Lote #{accesorios.length - idx}</span>
+                {a.yaVendido && (
+                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                    Con Salidas (Bloqueado)
+                  </Badge>
+                )}
+              </div>
+              {accesorios.length > 1 && !a.yaVendido && (
                 <button
                   type="button"
                   onClick={() => onRemoveAccesorio(a.id)}

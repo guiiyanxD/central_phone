@@ -63,7 +63,7 @@ export function ModalConfirmarGuardado({
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-700 flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 text-slate-800 flex-shrink-0 mt-0.5" />
           <p>
-            Al confirmar, los equipos serializados y lotes ingresarán inmediatamente como existencias disponibles en la sucursal indicada bajo trazabilidad ACID.
+            Al confirmar, los equipos serializados y lotes ingresarán inmediatamente como existencias disponibles en la sucursal indicada.
           </p>
         </div>
 

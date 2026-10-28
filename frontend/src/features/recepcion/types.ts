@@ -2,6 +2,8 @@
 
 export interface TelefonoRow {
   id: string;
+  dbId?: number;
+  yaVendido?: boolean;
   varianteId: number | null;
   nuevaVariante?: {
     modeloId: number;
@@ -24,6 +26,8 @@ export interface TelefonoRow {
 
 export interface AccesorioRow {
   id: string;
+  dbId?: number;
+  yaVendido?: boolean;
   accesorioId: number | null;
   nuevoAccesorio?: {
     categoriaId: number;

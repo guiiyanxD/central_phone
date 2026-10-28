@@ -128,6 +128,9 @@ model NotaIngreso {
   fechaIngreso      DateTime @default(now()) @map("fecha_ingreso")
   totalCostoBs      Decimal  @default(0.00) @map("total_costo_bs") @db.Decimal(10, 2)
   observaciones     String?  @db.Text
+  estado            String    @default("REGISTRADA") @db.VarChar(20)
+  anuladaEn         DateTime? @map("anulada_en")
+  motivoAnulacion   String?   @map("motivo_anulacion") @db.Text
 
   proveedor      Proveedor       @relation(fields: [proveedorId], references: [id])
   sucursal       Sucursal        @relation(fields: [sucursalId], references: [id])

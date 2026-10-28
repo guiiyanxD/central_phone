@@ -4,6 +4,8 @@ import {
   RotateCcw,
   Truck,
   Eye,
+  Pencil,
+  Trash2,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -42,6 +44,9 @@ interface RecepcionHistorialTableProps {
   setRecepcionesMeta: React.Dispatch<React.SetStateAction<any>>;
   onFetchRecepciones: (page: number, limit?: number) => void;
   onOpenRecDetalle: (id: number) => void;
+  onStartEdit?: (id: number) => void;
+  onOpenAnularModal?: (rec: any) => void;
+  isAdmin?: boolean;
 }
 
 export function RecepcionHistorialTable({
@@ -64,6 +69,9 @@ export function RecepcionHistorialTable({
   setRecepcionesMeta,
   onFetchRecepciones,
   onOpenRecDetalle,
+  onStartEdit,
+  onOpenAnularModal,
+  isAdmin = true,
 }: RecepcionHistorialTableProps) {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
@@ -238,8 +246,19 @@ export function RecepcionHistorialTable({
 
                   return (
                     <tr key={rec.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                        #ING-{rec.id}
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span>#ING-{rec.id}</span>
+                          {rec.estado === 'ANULADA' ? (
+                            <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-200 text-rose-700 font-semibold">
+                              ANULADA
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-200 text-emerald-700 font-medium">
+                              REGISTRADA
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
                         {new Date(rec.fechaIngreso).toLocaleString('es-BO', {
@@ -271,16 +290,45 @@ export function RecepcionHistorialTable({
                       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
                         {rec.usuario?.nombre || 'Desconocido'}
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2.5 text-xs gap-1.5 border-slate-300 text-slate-700 hover:text-white hover:bg-slate-900 hover:border-slate-900 transition-all shadow-xs"
-                          onClick={() => onOpenRecDetalle(rec.id)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Ver Detalle</span>
-                        </Button>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 text-xs gap-1 border-slate-300 text-slate-700 hover:text-white hover:bg-slate-900 hover:border-slate-900 transition-all shadow-xs"
+                            onClick={() => onOpenRecDetalle(rec.id)}
+                            title="Ver Detalle Financiero"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Detalle</span>
+                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs gap-1 border-amber-300 text-amber-700 hover:text-white hover:bg-amber-600 hover:border-amber-600 transition-all shadow-xs disabled:opacity-40 disabled:pointer-events-none"
+                                disabled={rec.estado === 'ANULADA'}
+                                onClick={() => onStartEdit && onStartEdit(rec.id)}
+                                title={rec.estado === 'ANULADA' ? 'Una recepción anulada no puede editarse' : 'Editar Nota de Recepción'}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Editar</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs gap-1 border-rose-300 text-rose-700 hover:text-white hover:bg-rose-600 hover:border-rose-600 transition-all shadow-xs disabled:opacity-40 disabled:pointer-events-none"
+                                disabled={rec.estado === 'ANULADA'}
+                                onClick={() => onOpenAnularModal && onOpenAnularModal(rec)}
+                                title={rec.estado === 'ANULADA' ? 'Esta recepción ya está anulada' : 'Anular Recepción'}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Anular</span>
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

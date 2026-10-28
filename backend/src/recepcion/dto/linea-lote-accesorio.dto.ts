@@ -24,6 +24,10 @@ export class NuevoAccesorioInlineDto {
 }
 
 export class LineaLoteAccesorioDto {
+  @IsNumber({}, { message: 'El ID del lote de accesorio debe ser numérico.' })
+  @IsOptional()
+  id?: number;
+
   @IsNumber({}, { message: 'El ID del accesorio base debe ser numérico.' })
   @IsOptional()
   accesorioId?: number;
