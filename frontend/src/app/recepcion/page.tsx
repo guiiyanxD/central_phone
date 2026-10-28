@@ -16,6 +16,7 @@ import { ModalCrearAccesorioInline } from '@/features/recepcion/components/modal
 import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-confirmacion-ingreso';
 import { RecepcionHistorialTable } from '@/features/recepcion/components/recepcion-historial-table';
 import { ModalAuditoriaRecepcion } from '@/features/recepcion/components/modal-auditoria-recepcion';
+import { ModalConfirmarGuardado } from '@/features/recepcion/components/modal-confirmar-guardado';
 import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
@@ -88,7 +89,7 @@ export default function RecepcionMercaderiaPage() {
       id: 'acc-1',
       accesorioId: null,
       nombreDiferenciador: '',
-      cantidad: 1,
+      cantidad: 0,
       costoUnitarioBs: 0,
       precioVentaBs: 0,
     },
@@ -113,6 +114,7 @@ export default function RecepcionMercaderiaPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notaCreada, setNotaCreada] = useState<any | null>(null);
+  const [modalConfirmarOpen, setModalConfirmarOpen] = useState(false);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -424,7 +426,7 @@ export default function RecepcionMercaderiaPage() {
         id: `acc-${Date.now()}`,
         accesorioId: null,
         nombreDiferenciador: '',
-        cantidad: 1,
+        cantidad: 0,
         costoUnitarioBs: 0,
         precioVentaBs: 0,
       },
@@ -500,46 +502,77 @@ export default function RecepcionMercaderiaPage() {
     0
   );
   const totalCostoNotaBs = totalCostoTelefonos + totalCostoAccesorios;
+  const totalCostoUsdNota = telefonos.reduce(
+    (sum, t) => sum + (Number(t.costoUsd) || 0),
+    0
+  );
   const totalUnidadesTelefonos = telefonos.filter(
-    (t) => t.numeroSerie.trim().length > 0 || t.imei1.trim().length > 0
+    (t) =>
+      t.numeroSerie.trim().length > 0 ||
+      t.imei1.trim().length > 0 ||
+      t.varianteId !== null ||
+      t.nuevaVariante !== undefined
   ).length;
   const totalUnidadesAccesorios = accesorios.reduce(
     (sum, a) => sum + (Number(a.cantidad) || 0),
     0
   );
 
-  // Envío del Formulario Unificado
+  const proveedorSeleccionado = proveedores.find((p) => p.id === Number(proveedorId));
+  const proveedorNombreDisplay = proveedorSeleccionado
+    ? (proveedorSeleccionado.empresa
+        ? `${proveedorSeleccionado.empresa} (${proveedorSeleccionado.nombre}${proveedorSeleccionado.apellido ? ` ${proveedorSeleccionado.apellido}` : ''})`
+        : `${proveedorSeleccionado.nombre}${proveedorSeleccionado.apellido ? ` ${proveedorSeleccionado.apellido}` : ''}`)
+    : 'Proveedor Mayorista';
+
+  const sucursalSeleccionada = sucursales.find((s) => s.id === Number(sucursalId));
+  const sucursalNombreDisplay = sucursalSeleccionada
+    ? `${sucursalSeleccionada.nombre} (${sucursalSeleccionada.ciudad})`
+    : 'Sucursal Destino';
+
+  // Validación y Apertura de Confirmación Previa
   const handleSubmitNota = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    const telefonosValidos = telefonos.filter(
-      (t) => t.imei1.trim().length > 0 || t.numeroSerie.trim().length > 0
+    // 1. Filtrar filas de teléfonos activas (con algún dato ingresado)
+    const telefonosActivos = telefonos.filter(
+      (t) =>
+        t.varianteId !== null ||
+        t.nuevaVariante !== undefined ||
+        t.numeroSerie.trim().length > 0 ||
+        t.imei1.trim().length > 0 ||
+        Number(t.costoBs) > 0 ||
+        Number(t.costoUsd) > 0
     );
 
-    const accesoriosValidos = accesorios.filter(
+    // 2. Filtrar filas de accesorios activas (con algún dato ingresado)
+    const accesoriosActivos = accesorios.filter(
       (a) =>
-        (a.accesorioId !== null || a.nuevoAccesorio !== undefined) &&
-        a.cantidad > 0 &&
-        a.nombreDiferenciador.trim().length > 0
+        a.accesorioId !== null ||
+        a.nuevoAccesorio !== undefined ||
+        a.nombreDiferenciador.trim().length > 0 ||
+        Number(a.cantidad) > 0 ||
+        Number(a.costoUnitarioBs) > 0
     );
 
-    if (telefonosValidos.length === 0 && accesoriosValidos.length === 0) {
+    if (telefonosActivos.length === 0 && accesoriosActivos.length === 0) {
       setErrorMessage(
         'Debes ingresar al menos un equipo serializado o un lote de accesorios para registrar la nota.'
       );
       return;
     }
 
-    for (const t of telefonosValidos) {
+    // 3. Validar filas de teléfonos activas
+    for (const t of telefonosActivos) {
       if (!t.varianteId && !t.nuevaVariante) {
         setErrorMessage(
-          `El equipo con serie '${t.numeroSerie || t.imei1}' no tiene un modelo/variante seleccionado.`
+          `El equipo con serie '${t.numeroSerie || t.imei1 || 'sin serie'}' no tiene un modelo/variante seleccionado.`
         );
         return;
       }
       if (!t.numeroSerie.trim()) {
-        setErrorMessage(`Todos los equipos deben tener un Número de Serie obligatorio.`);
+        setErrorMessage(`Todos los equipos activos deben tener un Número de Serie obligatorio.`);
         return;
       }
       const noImei =
@@ -560,21 +593,31 @@ export default function RecepcionMercaderiaPage() {
       }
     }
 
-    for (const a of accesorios) {
-      const tieneDatos =
-        a.nombreDiferenciador.trim().length > 0 ||
-        Number(a.cantidad) > 0 ||
-        Number(a.costoUnitarioBs) > 0;
-      if (tieneDatos && !a.accesorioId && !a.nuevoAccesorio) {
+    // 4. Validar filas de accesorios activas
+    for (const a of accesoriosActivos) {
+      if (!a.accesorioId && !a.nuevoAccesorio) {
         setErrorMessage(
-          `El lote de accesorio '${a.nombreDiferenciador || 'sin nombre'}' no tiene un accesorio base seleccionado ni creado al vuelo.`
+          `El lote de accesorio '${a.nombreDiferenciador || 'sin nombre'}' requiere seleccionar un accesorio base del catálogo o crearlo al vuelo.`
+        );
+        return;
+      }
+      if (!a.nombreDiferenciador.trim()) {
+        setErrorMessage(
+          `El lote de accesorio '${a.accesorioDisplay || 'accesorio'}' debe tener un Nombre Diferenciador (ej: Silicona, MagSafe, etc.).`
+        );
+        return;
+      }
+      if (Number(a.cantidad) <= 0) {
+        setErrorMessage(
+          `El lote de accesorio '${a.nombreDiferenciador}' debe tener una cantidad mayor a 0.`
         );
         return;
       }
     }
 
-    const imeis = telefonosValidos.map((t) => t.imei1.trim()).filter((im) => im.length > 0);
-    const series = telefonosValidos.map((t) => t.numeroSerie.trim()).filter((sr) => sr.length > 0);
+    // 5. Validar duplicados de series e IMEIs
+    const imeis = telefonosActivos.map((t) => t.imei1.trim()).filter((im) => im.length > 0);
+    const series = telefonosActivos.map((t) => t.numeroSerie.trim()).filter((sr) => sr.length > 0);
     if (new Set(imeis).size !== imeis.length) {
       setErrorMessage('Hay IMEIs duplicados dentro de la lista de equipos ingresados.');
       return;
@@ -584,7 +627,30 @@ export default function RecepcionMercaderiaPage() {
       return;
     }
 
+    // Si todo es válido: abrir modal de confirmación
+    setErrorMessage(null);
+    setModalConfirmarOpen(true);
+  };
+
+  // Confirmación Definitiva y Envío a la Base de Datos
+  const handleConfirmarGuardado = async () => {
     setIsSubmitting(true);
+    setErrorMessage(null);
+
+    const telefonosValidos = telefonos.filter(
+      (t) =>
+        t.varianteId !== null ||
+        t.nuevaVariante !== undefined ||
+        t.numeroSerie.trim().length > 0 ||
+        t.imei1.trim().length > 0
+    );
+
+    const accesoriosValidos = accesorios.filter(
+      (a) =>
+        (a.accesorioId !== null || a.nuevoAccesorio !== undefined) &&
+        Number(a.cantidad) > 0 &&
+        a.nombreDiferenciador.trim().length > 0
+    );
 
     try {
       const payload = {
@@ -614,9 +680,11 @@ export default function RecepcionMercaderiaPage() {
       };
 
       const res = await api.recepcion.createNotaIngreso(payload);
+      setModalConfirmarOpen(false);
       setNotaCreada(res);
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al procesar la nota de ingreso.');
+      setModalConfirmarOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -644,7 +712,7 @@ export default function RecepcionMercaderiaPage() {
         id: `acc-${Date.now()}`,
         accesorioId: null,
         nombreDiferenciador: '',
-        cantidad: 1,
+        cantidad: 0,
         costoUnitarioBs: 0,
         precioVentaBs: 0,
       },
@@ -808,6 +876,22 @@ export default function RecepcionMercaderiaPage() {
           onOpenRecDetalle={handleOpenRecDetalle}
         />
       )}
+
+      {/* MODAL DE CONFIRMACIÓN PREVIO AL GUARDADO */}
+      <ModalConfirmarGuardado
+        isOpen={modalConfirmarOpen}
+        onClose={() => setModalConfirmarOpen(false)}
+        onConfirm={handleConfirmarGuardado}
+        isSubmitting={isSubmitting}
+        proveedorNombre={proveedorNombreDisplay}
+        sucursalNombre={sucursalNombreDisplay}
+        numeroComprobante={numeroComprobante}
+        observaciones={observaciones}
+        totalTelefonos={totalUnidadesTelefonos}
+        totalAccesorios={totalUnidadesAccesorios}
+        totalCostoBs={totalCostoNotaBs}
+        totalCostoUsd={totalCostoUsdNota}
+      />
 
       {/* MODAL DE AUDITORÍA DE NOTA DE INGRESO */}
       <ModalAuditoriaRecepcion
