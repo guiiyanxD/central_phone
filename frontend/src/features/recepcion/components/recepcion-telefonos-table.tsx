@@ -54,7 +54,7 @@ export function RecepcionTelefonosTable({
     if (telefonos.length > prevLengthRef.current) {
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTo({
-          top: scrollContainerRef.current.scrollHeight,
+          top: 0,
           behavior: 'smooth',
         });
       }
@@ -133,7 +133,7 @@ export function RecepcionTelefonosTable({
               className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
             >
               <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                <span>Unidad #{idx + 1}</span>
+                <span>Unidad #{telefonos.length - idx}</span>
                 {telefonos.length > 1 && (
                   <button
                     type="button"

@@ -34,7 +34,7 @@ export function RecepcionAccesoriosTable({
     if (accesorios.length > prevLengthRef.current) {
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTo({
-          top: scrollContainerRef.current.scrollHeight,
+          top: 0,
           behavior: 'smooth',
         });
       }
@@ -82,7 +82,7 @@ export function RecepcionAccesoriosTable({
             className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
           >
             <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-              <span>Lote #{idx + 1}</span>
+              <span>Lote #{accesorios.length - idx}</span>
               {accesorios.length > 1 && (
                 <button
                   type="button"

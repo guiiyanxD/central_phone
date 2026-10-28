@@ -46,6 +46,10 @@ describe('Contenedores con Scroll Independiente y Barra Flotante', () => {
     // Badge contador
     expect(screen.getByText('2 equipos')).toBeDefined();
 
+    // Numeración LIFO: la fila superior (index 0) es Unidad #2, la siguiente es Unidad #1
+    expect(screen.getByText('Unidad #2')).toBeDefined();
+    expect(screen.getByText('Unidad #1')).toBeDefined();
+
     // Cabecera sticky
     const header = container.querySelector('.sticky.top-0');
     expect(header).not.toBeNull();
@@ -59,12 +63,20 @@ describe('Contenedores con Scroll Independiente y Barra Flotante', () => {
   it('RecepcionAccesoriosTable debe incluir cabecera sticky, badge contador y contenedor max-h-[520px]', () => {
     const mockAccesorios: any[] = [
       {
-        id: 'a-1',
+        id: 'a-2',
         accesorioId: 1,
         nombreDiferenciador: 'Lote MagSafe Azul',
         cantidad: 10,
         costoUnitarioBs: 50,
         precioVentaBs: 100,
+      },
+      {
+        id: 'a-1',
+        accesorioId: 1,
+        nombreDiferenciador: 'Lote Silicona Simple',
+        cantidad: 20,
+        costoUnitarioBs: 20,
+        precioVentaBs: 40,
       },
     ];
 
@@ -80,7 +92,11 @@ describe('Contenedores con Scroll Independiente y Barra Flotante', () => {
     );
 
     // Badge contador
-    expect(screen.getByText('1 lote')).toBeDefined();
+    expect(screen.getByText('2 lotes')).toBeDefined();
+
+    // Numeración LIFO
+    expect(screen.getByText('Lote #2')).toBeDefined();
+    expect(screen.getByText('Lote #1')).toBeDefined();
 
     // Cabecera sticky
     const header = container.querySelector('.sticky.top-0');

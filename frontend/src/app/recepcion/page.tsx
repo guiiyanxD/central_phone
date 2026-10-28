@@ -219,18 +219,18 @@ export default function RecepcionMercaderiaPage() {
 
   // Manejadores para Teléfonos
   const handleAddSiguienteEquipo = (sourceId?: string) => {
-    // Si la última fila ya está vacía (sin número de serie), no acumular filas en blanco: solo enfocarla
-    const ultimaFila = telefonos[telefonos.length - 1];
-    if (ultimaFila && !ultimaFila.numeroSerie.trim()) {
-      const existingInput = document.getElementById(`tel-serie-${ultimaFila.id}`) as HTMLInputElement | null;
+    // Si la fila del tope ya está vacía (sin número de serie), no acumular filas en blanco: solo enfocarla
+    const primeraFila = telefonos[0];
+    if (primeraFila && !primeraFila.numeroSerie.trim()) {
+      const existingInput = document.getElementById(`tel-serie-${primeraFila.id}`) as HTMLInputElement | null;
       if (existingInput) {
         existingInput.focus();
-        existingInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        existingInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
       return;
     }
 
-    const source = (sourceId ? telefonos.find((t) => t.id === sourceId) : null) || ultimaFila;
+    const source = (sourceId ? telefonos.find((t) => t.id === sourceId) : null) || primeraFila;
     const newId = `tel-${Date.now()}`;
     const nuevoEquipo: TelefonoRow = {
       id: newId,
@@ -248,14 +248,14 @@ export default function RecepcionMercaderiaPage() {
       imei1: '',
       imei2: '',
     };
-    setTelefonos((prev) => [...prev, nuevoEquipo]);
+    setTelefonos((prev) => [nuevoEquipo, ...prev]);
 
     // Enfocar automáticamente el nuevo número de serie tras el ciclo de renderizado
     setTimeout(() => {
       const nextInput = document.getElementById(`tel-serie-${newId}`) as HTMLInputElement | null;
       if (nextInput) {
         nextInput.focus();
-        nextInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nextInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }, 60);
   };
@@ -419,8 +419,7 @@ export default function RecepcionMercaderiaPage() {
 
   // Manejadores para Accesorios
   const handleAddAccesorio = () => {
-    setAccesorios([
-      ...accesorios,
+    setAccesorios((prev) => [
       {
         id: `acc-${Date.now()}`,
         accesorioId: null,
@@ -429,6 +428,7 @@ export default function RecepcionMercaderiaPage() {
         costoUnitarioBs: 0,
         precioVentaBs: 0,
       },
+      ...prev,
     ]);
   };
 
