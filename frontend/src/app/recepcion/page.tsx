@@ -676,7 +676,7 @@ export default function RecepcionMercaderiaPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
+    <div className="max-w-6xl mx-auto space-y-6 pb-32 animate-in fade-in duration-300">
       <RecepcionHeader
         isAdmin={isAdmin}
         activeTab={activeTab}

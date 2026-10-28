@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { TelefonoRow } from '../types';
 
 interface RecepcionTelefonosTableProps {
@@ -46,6 +47,20 @@ export function RecepcionTelefonosTable({
   onOpenInlineVarianteModal,
 }: RecepcionTelefonosTableProps) {
   const shiftCharPressedRef = React.useRef(false);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const prevLengthRef = React.useRef(telefonos.length);
+
+  React.useEffect(() => {
+    if (telefonos.length > prevLengthRef.current) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+    prevLengthRef.current = telefonos.length;
+  }, [telefonos.length]);
 
   const handleRowKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Shift') {
@@ -70,14 +85,17 @@ export function RecepcionTelefonosTable({
   };
 
   return (
-    <Card className="border-slate-200">
-      <CardHeader className="p-5 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-slate-200 overflow-hidden">
+      <CardHeader className="sticky top-0 z-10 bg-white border-b border-slate-100 p-5 pb-3.5 flex flex-row items-center justify-between shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <Smartphone className="h-4 w-4 text-slate-700" />
             <CardTitle className="text-base font-semibold text-slate-900">
               2. Equipos Serializados Recibidos
             </CardTitle>
+            <Badge variant="outline" className="text-xs bg-slate-50 font-mono text-slate-700">
+              {telefonos.length} {telefonos.length === 1 ? 'equipo' : 'equipos'}
+            </Badge>
           </div>
           <CardDescription className="text-xs text-slate-500">
             Identificación unívoca por Número de Serie (y obligatorio IMEI 1 en iPhone).
@@ -101,7 +119,10 @@ export function RecepcionTelefonosTable({
         </div>
       </CardHeader>
 
-      <CardContent className="p-5 space-y-4">
+      <CardContent
+        ref={scrollContainerRef}
+        className="p-5 space-y-4 max-h-[520px] overflow-y-auto pr-3.5 scroll-smooth"
+      >
         {telefonos.map((t, idx) => {
           const noAplicaImei = isImeiDeshabilitado(t);
           return (

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { AccesorioRow } from '../types';
 
 interface RecepcionAccesoriosTableProps {
@@ -26,15 +27,33 @@ export function RecepcionAccesoriosTable({
   onUpdateAccesorio,
   onOpenInlineAccesorioModal,
 }: RecepcionAccesoriosTableProps) {
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const prevLengthRef = React.useRef(accesorios.length);
+
+  React.useEffect(() => {
+    if (accesorios.length > prevLengthRef.current) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+    prevLengthRef.current = accesorios.length;
+  }, [accesorios.length]);
+
   return (
-    <Card className="border-slate-200">
-      <CardHeader className="p-5 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-slate-200 overflow-hidden">
+      <CardHeader className="sticky top-0 z-10 bg-white border-b border-slate-100 p-5 pb-3.5 flex flex-row items-center justify-between shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <Headphones className="h-4 w-4 text-slate-700" />
             <CardTitle className="text-base font-semibold text-slate-900">
               3. Lotes Diferenciados de Accesorios
             </CardTitle>
+            <Badge variant="outline" className="text-xs bg-slate-50 font-mono text-slate-700">
+              {accesorios.length} {accesorios.length === 1 ? 'lote' : 'lotes'}
+            </Badge>
           </div>
           <CardDescription className="text-xs text-slate-500">
             Cada lote distingue calidades y precios para el mismo accesorio base (ej: Simple vs MagSafe).
@@ -53,7 +72,10 @@ export function RecepcionAccesoriosTable({
         </Button>
       </CardHeader>
 
-      <CardContent className="p-5 space-y-4">
+      <CardContent
+        ref={scrollContainerRef}
+        className="p-5 space-y-4 max-h-[520px] overflow-y-auto pr-3.5 scroll-smooth"
+      >
         {accesorios.map((a, idx) => (
           <div
             key={a.id}
