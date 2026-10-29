@@ -14,6 +14,8 @@ import {
   CatalogoModelosTab,
   CatalogoAccesoriosTab,
   ModalNuevoModelo,
+  ModalEditarModelo,
+  ModalEliminarModelo,
   ModalVarianteForm,
   ModalVarianteDelete,
   ModalAccesorioForm,
@@ -53,6 +55,17 @@ export default function CatalogoPage() {
   const [primeraVarSim, setPrimeraVarSim] = useState('SIM Físico');
   const [isCreatingModelo, setIsCreatingModelo] = useState(false);
   const [creacionError, setCreacionError] = useState<string | null>(null);
+
+  // Modales de Edición y Eliminación de Modelo (Exclusivo ADMIN)
+  const [modalEditModeloOpen, setModalEditModeloOpen] = useState(false);
+  const [selectedModeloForEditModelo, setSelectedModeloForEditModelo] = useState<ModeloItem | null>(null);
+  const [isUpdatingModelo, setIsUpdatingModelo] = useState(false);
+  const [updateModeloError, setUpdateModeloError] = useState<string | null>(null);
+
+  const [modalDeleteModeloOpen, setModalDeleteModeloOpen] = useState(false);
+  const [selectedModeloForDeleteModelo, setSelectedModeloForDeleteModelo] = useState<ModeloItem | null>(null);
+  const [isDeletingModelo, setIsDeletingModelo] = useState(false);
+  const [deleteModeloError, setDeleteModeloError] = useState<string | null>(null);
 
   // Modal para Agregar Variante a Modelo
   const [modalAddVarianteOpen, setModalAddVarianteOpen] = useState(false);
@@ -231,6 +244,55 @@ export default function CatalogoPage() {
       setCreacionError(err.message || 'Error al crear el modelo.');
     } finally {
       setIsCreatingModelo(false);
+    }
+  };
+
+  const handleOpenEditModelo = (modelo: ModeloItem) => {
+    setSelectedModeloForEditModelo(modelo);
+    setUpdateModeloError(null);
+    setModalEditModeloOpen(true);
+  };
+
+  const handleConfirmUpdateModelo = async (data: {
+    nombreModelo: string;
+    marca: string;
+    tipoId?: number;
+    descripcion?: string;
+  }) => {
+    if (!selectedModeloForEditModelo) return;
+    setIsUpdatingModelo(true);
+    setUpdateModeloError(null);
+
+    try {
+      await api.modelos.update(selectedModeloForEditModelo.id, data);
+      setModalEditModeloOpen(false);
+      await fetchModelos();
+    } catch (err: any) {
+      setUpdateModeloError(err.message || 'Error al actualizar el modelo.');
+    } finally {
+      setIsUpdatingModelo(false);
+    }
+  };
+
+  const handleOpenDeleteModelo = (modelo: ModeloItem) => {
+    setSelectedModeloForDeleteModelo(modelo);
+    setDeleteModeloError(null);
+    setModalDeleteModeloOpen(true);
+  };
+
+  const handleConfirmDeleteModelo = async () => {
+    if (!selectedModeloForDeleteModelo) return;
+    setIsDeletingModelo(true);
+    setDeleteModeloError(null);
+
+    try {
+      await api.modelos.delete(selectedModeloForDeleteModelo.id);
+      setModalDeleteModeloOpen(false);
+      await fetchModelos();
+    } catch (err: any) {
+      setDeleteModeloError(err.message || 'Error al eliminar el modelo.');
+    } finally {
+      setIsDeletingModelo(false);
     }
   };
 
@@ -426,6 +488,8 @@ export default function CatalogoPage() {
           isAdmin={isAdmin}
           onOpenNuevoModelo={handleOpenNuevoModelo}
           onOpenGestionarTipos={() => setModalGestionarTiposOpen(true)}
+          onOpenEditModelo={handleOpenEditModelo}
+          onOpenDeleteModelo={handleOpenDeleteModelo}
           onOpenAddVariante={handleOpenAddVariante}
           onOpenEditVariante={handleOpenEditVariante}
           onOpenDeleteVariante={handleOpenDeleteVariante}
@@ -464,6 +528,25 @@ export default function CatalogoPage() {
         creacionError={creacionError}
         onSubmit={handleCreateModelo}
         onTipoCreado={handleTipoCreado}
+      />
+
+      <ModalEditarModelo
+        isOpen={modalEditModeloOpen}
+        onClose={() => setModalEditModeloOpen(false)}
+        modelo={selectedModeloForEditModelo}
+        tipos={tiposDispositivo}
+        isLoading={isUpdatingModelo}
+        error={updateModeloError}
+        onConfirm={handleConfirmUpdateModelo}
+      />
+
+      <ModalEliminarModelo
+        isOpen={modalDeleteModeloOpen}
+        onClose={() => setModalDeleteModeloOpen(false)}
+        modelo={selectedModeloForDeleteModelo}
+        isLoading={isDeletingModelo}
+        error={deleteModeloError}
+        onConfirm={handleConfirmDeleteModelo}
       />
 
       <ModalGestionarTiposDispositivo

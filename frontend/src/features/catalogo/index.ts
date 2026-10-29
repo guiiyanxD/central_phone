@@ -3,6 +3,8 @@ export * from './components/catalogo-header';
 export * from './components/catalogo-modelos-tab';
 export * from './components/catalogo-accesorios-tab';
 export * from './components/modal-nuevo-modelo';
+export * from './components/modal-editar-modelo';
+export * from './components/modal-eliminar-modelo';
 export * from './components/modal-variante-form';
 export * from './components/modal-variante-delete';
 export * from './components/modal-accesorio-form';

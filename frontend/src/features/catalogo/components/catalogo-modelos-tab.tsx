@@ -14,6 +14,8 @@ interface CatalogoModelosTabProps {
   isAdmin: boolean;
   onOpenNuevoModelo: () => void;
   onOpenGestionarTipos: () => void;
+  onOpenEditModelo?: (modelo: ModeloItem) => void;
+  onOpenDeleteModelo?: (modelo: ModeloItem) => void;
   onOpenAddVariante: (modelo: ModeloItem) => void;
   onOpenEditVariante: (modelo: ModeloItem, variante: any) => void;
   onOpenDeleteVariante: (modelo: ModeloItem, variante: any) => void;
@@ -25,6 +27,8 @@ export function CatalogoModelosTab({
   isAdmin,
   onOpenNuevoModelo,
   onOpenGestionarTipos,
+  onOpenEditModelo,
+  onOpenDeleteModelo,
   onOpenAddVariante,
   onOpenEditVariante,
   onOpenDeleteVariante,
@@ -84,12 +88,12 @@ export function CatalogoModelosTab({
             >
               <div>
                 <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base font-bold text-slate-900">
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base font-bold text-slate-900 truncate">
                         {m.nombreModelo}
                       </CardTitle>
-                      <Badge variant="outline" className="text-[10px] font-mono">
+                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">
                         {m.tipo || 'IPHONE'}
                       </Badge>
                     </div>
@@ -97,7 +101,31 @@ export function CatalogoModelosTab({
                       Marca: {m.marca}
                     </CardDescription>
                   </div>
-                  <Badge variant="mono">{m.variantes?.length || 0} variantes</Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="mono" className="text-xs">{m.variantes?.length || 0} var.</Badge>
+                    {isAdmin && (
+                      <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1 ml-0.5">
+                        <button
+                          type="button"
+                          onClick={() => onOpenEditModelo && onOpenEditModelo(m)}
+                          className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900"
+                          title={`Editar modelo ${m.nombreModelo}`}
+                          aria-label={`Editar modelo ${m.nombreModelo}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenDeleteModelo && onOpenDeleteModelo(m)}
+                          className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                          title={`Eliminar modelo ${m.nombreModelo}`}
+                          aria-label={`Eliminar modelo ${m.nombreModelo}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-4 pt-3">
                   <p className="text-xs font-semibold text-slate-700 mb-2">

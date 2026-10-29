@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ModelosService } from './modelos.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
+import { UpdateModeloDto } from './dto/update-modelo.dto';
 import { CreateTipoDispositivoDto } from './dto/create-tipo-dispositivo.dto';
 import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
@@ -93,6 +94,25 @@ export class ModelosController {
   @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
   async create(@Body() createModeloDto: CreateModeloDto) {
     return this.modelosService.create(createModeloDto);
+  }
+
+  // Modificar modelo existente (Exclusivo ADMIN)
+  @Put(':id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateModeloDto: UpdateModeloDto,
+  ) {
+    return this.modelosService.update(id, updateModeloDto);
+  }
+
+  // Eliminar modelo físicamente (Exclusivo ADMIN)
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async delete(@Param('id', ParseIntPipe) id: number) {
+    return this.modelosService.delete(id);
   }
 
   // Agregar variante a modelo (Abierto a todos los usuarios autenticados)

@@ -579,4 +579,156 @@ describe('ModelosService', () => {
       expect(res.venta).toBeNull();
     });
   });
+
+  describe('update (gestión de modelos)', () => {
+    it('debe lanzar NotFoundException si el modelo a actualizar no existe', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.update(999, { nombreModelo: 'iPhone 17' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe rechazar con BadRequestException si se intenta cambiar el tipo de un modelo con existencias físicas', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        nombreModelo: 'iPhone 15',
+        marca: 'Apple',
+        tipo: 'IPHONE',
+        tipoId: 1,
+        variantes: [
+          {
+            id: 10,
+            color: 'Negro',
+            capacidadGb: 128,
+            tipoSim: 'SIM Físico',
+            _count: { dispositivos: 3 }, // Tiene 3 dispositivos asociados
+          },
+        ],
+      } as any);
+
+      prisma.tipoDispositivo.findUnique.mockResolvedValue({
+        id: 2,
+        nombre: 'MAC',
+      } as any);
+
+      await expect(
+        service.update(1, { tipoId: 2 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar con ConflictException si el nuevo nombre ya está ocupado en la misma marca', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        nombreModelo: 'iPhone 15',
+        marca: 'Apple',
+        tipo: 'IPHONE',
+        tipoId: 1,
+        variantes: [],
+      } as any);
+
+      prisma.modeloDispositivo.findFirst.mockResolvedValue({
+        id: 2,
+        nombreModelo: 'iPhone 16',
+        marca: 'Apple',
+      } as any);
+
+      await expect(
+        service.update(1, { nombreModelo: 'iPhone 16' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe actualizar el modelo exitosamente cuando los datos son válidos', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        nombreModelo: 'iPhone 15 Pro',
+        marca: 'Apple',
+        tipo: 'IPHONE',
+        tipoId: 1,
+        descripcion: 'Antigua',
+        variantes: [
+          {
+            id: 10,
+            color: 'Titanio',
+            capacidadGb: 256,
+            tipoSim: 'SIM Físico',
+            _count: { dispositivos: 0 },
+          },
+        ],
+      } as any);
+
+      prisma.modeloDispositivo.findFirst.mockResolvedValue(null);
+
+      prisma.modeloDispositivo.update.mockResolvedValue({
+        id: 1,
+        nombreModelo: 'iPhone 15 Pro Max',
+        marca: 'Apple',
+        tipo: 'IPHONE',
+        tipoId: 1,
+        descripcion: 'Actualizada',
+        variantes: [],
+      } as any);
+
+      const res = await service.update(1, {
+        nombreModelo: 'iPhone 15 Pro Max',
+        descripcion: 'Actualizada',
+      });
+
+      expect(res.nombreModelo).toBe('iPhone 15 Pro Max');
+      expect(prisma.modeloDispositivo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({
+            nombreModelo: 'iPhone 15 Pro Max',
+            descripcion: 'Actualizada',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('delete (eliminación física de modelo)', () => {
+    it('debe lanzar NotFoundException si el modelo a eliminar no existe', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(service.delete(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe rechazar con ConflictException si alguna variante tiene dispositivos físicos asociados', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue({
+        id: 5,
+        nombreModelo: 'iPhone 13',
+        variantes: [
+          { id: 1, _count: { dispositivos: 0 } },
+          { id: 2, _count: { dispositivos: 4 } }, // 4 equipos asociados
+        ],
+        _count: { variantes: 2 },
+      } as any);
+
+      await expect(service.delete(5)).rejects.toThrow(ConflictException);
+      expect(prisma.modeloDispositivo.delete).not.toHaveBeenCalled();
+    });
+
+    it('debe eliminar físicamente el modelo y sus variantes cuando no tiene dispositivos asociados', async () => {
+      prisma.modeloDispositivo.findUnique.mockResolvedValue({
+        id: 8,
+        nombreModelo: 'Modelo Obsoleto Prueba',
+        variantes: [
+          { id: 21, _count: { dispositivos: 0 } },
+          { id: 22, _count: { dispositivos: 0 } },
+        ],
+        _count: { variantes: 2 },
+      } as any);
+
+      prisma.modeloDispositivo.delete.mockResolvedValue({ id: 8 } as any);
+
+      const res = await service.delete(8);
+
+      expect(res.success).toBe(true);
+      expect(res.modeloId).toBe(8);
+      expect(prisma.modeloDispositivo.delete).toHaveBeenCalledWith({
+        where: { id: 8 },
+      });
+    });
+  });
 });

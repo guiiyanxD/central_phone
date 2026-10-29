@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
+import { UpdateModeloDto } from './dto/update-modelo.dto';
 import { CreateTipoDispositivoDto } from './dto/create-tipo-dispositivo.dto';
 import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
@@ -194,14 +195,13 @@ export class ModelosService {
     return this.prisma.modeloDispositivo.findMany({
       orderBy: { nombreModelo: 'asc' },
       include: {
+        tipoDispositivo: true,
         variantes: {
           orderBy: [{ capacidadGb: 'asc' }, { color: 'asc' }],
           include: {
             _count: {
               select: {
-                dispositivos: {
-                  where: { estadoInventario: 'DISPONIBLE' },
-                },
+                dispositivos: true,
               },
             },
           },
@@ -562,6 +562,140 @@ export class ModelosService {
     }
 
     return modelo;
+  }
+
+  async update(id: number, dto: UpdateModeloDto) {
+    const modelo = await this.prisma.modeloDispositivo.findUnique({
+      where: { id },
+      include: {
+        tipoDispositivo: true,
+        variantes: {
+          include: {
+            _count: {
+              select: { dispositivos: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!modelo) {
+      throw new NotFoundException(`El modelo con ID ${id} no existe.`);
+    }
+
+    const totalDispositivos = modelo.variantes.reduce(
+      (sum, v) => sum + (v._count?.dispositivos || 0),
+      0,
+    );
+
+    let targetTipoNombre = dto.tipo ? dto.tipo.trim().toUpperCase() : undefined;
+    let targetTipoId = dto.tipoId;
+
+    if (targetTipoId !== undefined && targetTipoId !== null) {
+      const tipoObj = await this.prisma.tipoDispositivo.findUnique({
+        where: { id: targetTipoId },
+      });
+      if (!tipoObj) {
+        throw new NotFoundException(
+          `El tipo de dispositivo con ID ${targetTipoId} no existe.`,
+        );
+      }
+      targetTipoNombre = tipoObj.nombre;
+    }
+
+    const isChangingTipo =
+      (targetTipoId !== undefined && targetTipoId !== modelo.tipoId) ||
+      (targetTipoNombre !== undefined && targetTipoNombre !== modelo.tipo);
+
+    if (isChangingTipo && totalDispositivos > 0) {
+      throw new BadRequestException(
+        `No se puede cambiar el tipo de dispositivo de '${modelo.nombreModelo}' porque cuenta con ${totalDispositivos} equipo(s) físico(s) registrado(s). Reclasificar el tipo invalidaría las reglas de IMEI y serialización existentes.`,
+      );
+    }
+
+    const nuevoNombre = dto.nombreModelo ? dto.nombreModelo.trim() : undefined;
+    const nuevaMarca = dto.marca ? dto.marca.trim() : modelo.marca;
+
+    if (nuevoNombre && (nuevoNombre !== modelo.nombreModelo || nuevaMarca !== modelo.marca)) {
+      const existing = await this.prisma.modeloDispositivo.findFirst({
+        where: {
+          nombreModelo: { equals: nuevoNombre, mode: 'insensitive' },
+          marca: { equals: nuevaMarca, mode: 'insensitive' },
+          id: { not: id },
+        },
+      });
+
+      if (existing) {
+        throw new ConflictException(
+          `Ya existe otro modelo con el nombre '${nuevoNombre}' para la marca '${nuevaMarca}'.`,
+        );
+      }
+    }
+
+    return this.prisma.modeloDispositivo.update({
+      where: { id },
+      data: {
+        ...(nuevoNombre ? { nombreModelo: nuevoNombre } : {}),
+        ...(dto.marca ? { marca: nuevaMarca } : {}),
+        ...(targetTipoNombre ? { tipo: targetTipoNombre } : {}),
+        ...(targetTipoId !== undefined ? { tipoId: targetTipoId } : {}),
+        ...(dto.descripcion !== undefined ? { descripcion: dto.descripcion?.trim() || null } : {}),
+      },
+      include: {
+        tipoDispositivo: true,
+        variantes: {
+          orderBy: [{ capacidadGb: 'asc' }, { color: 'asc' }],
+          include: {
+            _count: {
+              select: { dispositivos: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async delete(id: number) {
+    const modelo = await this.prisma.modeloDispositivo.findUnique({
+      where: { id },
+      include: {
+        variantes: {
+          include: {
+            _count: {
+              select: { dispositivos: true },
+            },
+          },
+        },
+        _count: {
+          select: { variantes: true },
+        },
+      },
+    });
+
+    if (!modelo) {
+      throw new NotFoundException(`El modelo con ID ${id} no existe.`);
+    }
+
+    const totalDispositivos = modelo.variantes.reduce(
+      (sum, v) => sum + (v._count?.dispositivos || 0),
+      0,
+    );
+
+    if (totalDispositivos > 0) {
+      throw new ConflictException(
+        `No se puede eliminar físicamente el modelo '${modelo.nombreModelo}' porque cuenta con ${totalDispositivos} equipo(s) asociado(s) en inventario o ventas.`,
+      );
+    }
+
+    await this.prisma.modeloDispositivo.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      message: `Modelo '${modelo.nombreModelo}' y sus ${modelo._count.variantes} variante(s) eliminados exitosamente.`,
+      modeloId: id,
+    };
   }
 
   async addVariante(modeloId: number, dto: AddVarianteDto) {

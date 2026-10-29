@@ -25,6 +25,14 @@ export interface ModeloListItem {
   _count?: { variantes: number };
 }
 
+export interface UpdateModeloData {
+  nombreModelo?: string;
+  marca?: string;
+  tipo?: string;
+  tipoId?: number;
+  descripcion?: string;
+}
+
 export interface DispositivoItem {
   id: number;
   varianteId: number;
@@ -153,6 +161,15 @@ export const modelosApi = {
     request<any>('/modelos', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+  update: (id: number, data: UpdateModeloData) =>
+    request<ModeloListItem>(`/modelos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    request<{ success: boolean; message: string; modeloId: number }>(`/modelos/${id}`, {
+      method: 'DELETE',
     }),
   addVariante: (
     modeloId: number,
