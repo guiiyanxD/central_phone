@@ -8,6 +8,7 @@ interface PosCatalogAccessoriesProps {
   setSearchAccessory: (val: string) => void;
   filteredAccessories: Array<{ acc: any; lote: any }>;
   onAddAccessory: (acc: any, lote: any) => void;
+  currentSucursalId?: number;
 }
 
 export function PosCatalogAccessories({
@@ -15,6 +16,7 @@ export function PosCatalogAccessories({
   setSearchAccessory,
   filteredAccessories,
   onAddAccessory,
+  currentSucursalId,
 }: PosCatalogAccessoriesProps) {
   return (
     <div className="space-y-3">
@@ -44,11 +46,18 @@ export function PosCatalogAccessories({
               className="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-subtle transition-all text-xs flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1 flex-wrap">
                   <span className="font-bold text-slate-900">{acc.nombre}</span>
-                  <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                    {lote.stockActual} u. en stock
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {currentSucursalId && lote.sucursalId && lote.sucursalId !== currentSucursalId && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-300">
+                        {lote.sucursal?.nombre || `Sucursal #${lote.sucursalId}`}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                      {lote.stockActual} u. en stock
+                    </span>
+                  </div>
                 </div>
                 <p className="text-slate-700 font-medium text-[11px] mt-0.5">
                   {lote.nombreDiferenciador}

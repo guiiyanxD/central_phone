@@ -19,6 +19,7 @@ import { PosCatalogAccessories } from '@/features/pos/components/pos-catalog-acc
 import { PosCartPanel } from '@/features/pos/components/pos-cart-panel';
 import { ModalQrOficial } from '@/features/pos/components/modal-qr-oficial';
 import { ModalTicketVenta } from '@/features/pos/components/modal-ticket-venta';
+import { ModalConfirmarInterSucursal } from '@/features/pos/components/modal-confirmar-inter-sucursal';
 import { printReceipt } from '@/features/pos/utils/receipt-printer';
 
 export default function PosPage() {
@@ -70,17 +71,39 @@ export default function PosPage() {
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [modalQrOpen, setModalQrOpen] = useState(false);
 
+  // Modal de confirmación para venta inter-sucursal (Exclusivo ADMIN)
+  const [modalInterSucursalOpen, setModalInterSucursalOpen] = useState(false);
+  const [pendingInterSucursalItem, setPendingInterSucursalItem] = useState<{
+    tipo: 'DISPOSITIVO' | 'ACCESORIO';
+    disp?: any;
+    acc?: any;
+    lote?: any;
+  } | null>(null);
+
+  const currentSucursalId = sessionData?.caja?.sucursalId || user?.sucursal?.id;
+  const currentSucursalNombre =
+    sessionData?.caja?.sucursal?.nombre || user?.sucursal?.nombre || 'Sucursal Actual';
+
   // Carga de datos
   const loadData = async () => {
     setIsLoadingSession(true);
     try {
-      const [cajaRes, dispRes, accRes, configRes] = await Promise.all([
-        api.caja.getActiva(),
-        api.modelos.getDispositivos({ estado: 'DISPONIBLE', limit: 100 }),
-        api.accesorios.getAll(),
+      const cajaRes = await api.caja.getActiva();
+      setSessionData(cajaRes);
+
+      const targetSucursalId = isAdmin
+        ? undefined
+        : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
+
+      const [dispRes, accRes, configRes] = await Promise.all([
+        api.modelos.getDispositivos({
+          estado: 'DISPONIBLE',
+          limit: 100,
+          ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
+        }),
+        api.accesorios.getAll(undefined, targetSucursalId),
         api.configuracion.get(),
       ]);
-      setSessionData(cajaRes);
       setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
       setConfiguracion(configRes);
@@ -93,12 +116,21 @@ export default function PosPage() {
 
   const silentRefresh = async () => {
     try {
-      const [cajaRes, dispRes, accRes] = await Promise.all([
-        api.caja.getActiva(),
-        api.modelos.getDispositivos({ estado: 'DISPONIBLE', limit: 100 }),
-        api.accesorios.getAll(),
-      ]);
+      const cajaRes = await api.caja.getActiva();
       setSessionData(cajaRes);
+
+      const targetSucursalId = isAdmin
+        ? undefined
+        : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
+
+      const [dispRes, accRes] = await Promise.all([
+        api.modelos.getDispositivos({
+          estado: 'DISPONIBLE',
+          limit: 100,
+          ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
+        }),
+        api.accesorios.getAll(undefined, targetSucursalId),
+      ]);
       setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
     } catch {
@@ -145,7 +177,7 @@ export default function PosPage() {
   }, [modalQrOpen, completedSale, lastRemovedItem]);
 
   // Manejadores de Carrito
-  const handleAddPhoneToCart = (disp: any) => {
+  const commitAddPhone = (disp: any, isInterSucursal = false) => {
     if (cart.some((item) => item.dispositivoId === disp.id)) {
       playScanErrorSound();
       setScanFeedback(`El equipo ${disp.variante?.modelo?.nombreModelo} (${disp.imei1 || disp.numeroSerie}) ya está en el ticket.`);
@@ -171,13 +203,39 @@ export default function PosPage() {
       cantidad: 1,
       precioUnitarioBs: precioSugerido,
       precioSugeridoOriginal: precioSugerido,
+      sucursalId: disp.sucursalId,
+      sucursalNombre: disp.sucursal?.nombre,
+      isInterSucursal,
     };
 
     setCart((prev) => [...prev, newItem]);
     playScanBeep();
   };
 
-  const handleAddAccessoryToCart = (acc: any, lote: any) => {
+  const handleAddPhoneToCart = (disp: any) => {
+    const isForeign =
+      disp.sucursalId &&
+      currentSucursalId &&
+      Number(disp.sucursalId) !== Number(currentSucursalId);
+
+    if (isForeign) {
+      if (isAdmin) {
+        setPendingInterSucursalItem({ tipo: 'DISPOSITIVO', disp });
+        setModalInterSucursalOpen(true);
+        return;
+      } else {
+        playScanErrorSound();
+        setScanFeedback(
+          `El equipo pertenece a otra sucursal y no puede venderse en esta tienda.`
+        );
+        setTimeout(() => setScanFeedback(null), 3000);
+        return;
+      }
+    }
+    commitAddPhone(disp, false);
+  };
+
+  const commitAddAccessory = (acc: any, lote: any, isInterSucursal = false) => {
     const existing = cart.find((item) => item.loteAccesorioId === lote.id);
     if (existing) {
       if (existing.cantidad < lote.stockActual) {
@@ -200,10 +258,50 @@ export default function PosPage() {
         cantidad: 1,
         precioUnitarioBs: Number(lote.precioVentaBs),
         precioSugeridoOriginal: Number(lote.precioVentaBs),
+        sucursalId: lote.sucursalId,
+        sucursalNombre: lote.sucursal?.nombre,
+        isInterSucursal,
       };
       setCart((prev) => [...prev, newItem]);
     }
     playScanBeep();
+  };
+
+  const handleAddAccessoryToCart = (acc: any, lote: any) => {
+    const isForeign =
+      lote.sucursalId &&
+      currentSucursalId &&
+      Number(lote.sucursalId) !== Number(currentSucursalId);
+
+    if (isForeign) {
+      if (isAdmin) {
+        setPendingInterSucursalItem({ tipo: 'ACCESORIO', acc, lote });
+        setModalInterSucursalOpen(true);
+        return;
+      } else {
+        return;
+      }
+    }
+    commitAddAccessory(acc, lote, false);
+  };
+
+  const handleConfirmInterSucursal = () => {
+    if (!pendingInterSucursalItem) return;
+    if (pendingInterSucursalItem.tipo === 'DISPOSITIVO') {
+      commitAddPhone(pendingInterSucursalItem.disp, true);
+      setScanFeedback(
+        `✓ Agregado (Inter-sucursal): ${pendingInterSucursalItem.disp?.variante?.modelo?.nombreModelo}`
+      );
+      setTimeout(() => setScanFeedback(null), 3000);
+    } else if (pendingInterSucursalItem.tipo === 'ACCESORIO') {
+      commitAddAccessory(
+        pendingInterSucursalItem.acc,
+        pendingInterSucursalItem.lote,
+        true
+      );
+    }
+    setModalInterSucursalOpen(false);
+    setPendingInterSucursalItem(null);
   };
 
   const handleUpdateQuantity = (cartId: string, delta: number) => {
@@ -338,7 +436,7 @@ export default function PosPage() {
         setTimeout(() => setScanFeedback(null), 3000);
       }
     },
-    enabled: !modalQrOpen && !completedSale,
+    enabled: !modalQrOpen && !completedSale && !modalInterSucursalOpen,
   });
 
   // Manejador del input de búsqueda con Enter
@@ -452,6 +550,7 @@ export default function PosPage() {
       const backendMetodoPago = metodoPagoCodigo === 'MIXTO' ? 'QR_SIMPLE' : metodoPagoCodigo;
 
       const payload = {
+        sucursalId: currentSucursalId,
         metodoPagoCodigo: backendMetodoPago,
         comprobanteReferencia: refText,
         cliente: {
@@ -569,6 +668,7 @@ export default function PosPage() {
               onSearchKeyDown={handleSearchKeyDown}
               onAddPhone={handleAddPhoneToCart}
               getPhoneDisplayPrice={getPhoneDisplayPrice}
+              currentSucursalId={currentSucursalId}
             />
           ) : (
             <PosCatalogAccessories
@@ -576,6 +676,7 @@ export default function PosPage() {
               setSearchAccessory={setSearchAccessory}
               filteredAccessories={filteredAccessories}
               onAddAccessory={handleAddAccessoryToCart}
+              currentSucursalId={currentSucursalId}
             />
           )}
         </div>
@@ -640,6 +741,18 @@ export default function PosPage() {
         sale={completedSale}
         onClose={() => setCompletedSale(null)}
         onPrintReceipt={() => printReceipt(completedSale)}
+      />
+
+      {/* Modal de Confirmación Venta Inter-Sucursal */}
+      <ModalConfirmarInterSucursal
+        isOpen={modalInterSucursalOpen}
+        onClose={() => {
+          setModalInterSucursalOpen(false);
+          setPendingInterSucursalItem(null);
+        }}
+        pendingItem={pendingInterSucursalItem}
+        currentSucursalNombre={currentSucursalNombre}
+        onConfirm={handleConfirmInterSucursal}
       />
 
       {/* Toast Flotante de Deshacer Eliminación */}

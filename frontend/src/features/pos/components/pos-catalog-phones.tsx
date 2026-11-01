@@ -16,6 +16,7 @@ interface PosCatalogPhonesProps {
   onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onAddPhone: (disp: any) => void;
   getPhoneDisplayPrice: (disp: any) => number;
+  currentSucursalId?: number;
 }
 
 export function PosCatalogPhones({
@@ -28,6 +29,7 @@ export function PosCatalogPhones({
   onSearchKeyDown,
   onAddPhone,
   getPhoneDisplayPrice,
+  currentSucursalId,
 }: PosCatalogPhonesProps) {
   return (
     <div className="space-y-3">
@@ -79,20 +81,27 @@ export function PosCatalogPhones({
                 )}
               >
                 <div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1 flex-wrap">
                     <span className="font-bold text-slate-900">
                       {d.variante?.modelo?.nombreModelo}
                     </span>
-                    <span
-                      className={cn(
-                        'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
-                        d.condicion === 'NUEVO'
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-slate-100 text-slate-800 border-slate-200'
+                    <div className="flex items-center gap-1">
+                      {currentSucursalId && d.sucursalId && d.sucursalId !== currentSucursalId && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-300">
+                          {d.sucursal?.nombre || `Sucursal #${d.sucursalId}`}
+                        </span>
                       )}
-                    >
-                      {d.condicion}
-                    </span>
+                      <span
+                        className={cn(
+                          'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
+                          d.condicion === 'NUEVO'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-slate-100 text-slate-800 border-slate-200'
+                        )}
+                      >
+                        {d.condicion}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     {d.variante?.color} •{' '}

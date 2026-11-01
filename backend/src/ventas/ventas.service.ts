@@ -185,7 +185,8 @@ export class VentasService {
         }
 
         // Regla de Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-006):
-        if (disp.sucursalId !== sucursalId) {
+        // Exclusivo ADMIN: Se permite venta inter-sucursal; para VENDEDOR se bloquea estrictamente.
+        if (disp.sucursalId !== sucursalId && userRole !== 'ADMIN') {
           throw new BadRequestException(
             `El equipo '${disp.variante.modelo.nombreModelo}' (IMEI: ${disp.imei1}) pertenece a otra sucursal y no puede venderse en esta tienda.`,
           );
@@ -250,7 +251,8 @@ export class VentasService {
         }
 
         // Regla de Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-006):
-        if (lote.sucursalId !== sucursalId) {
+        // Exclusivo ADMIN: Se permite venta inter-sucursal; para VENDEDOR se bloquea estrictamente.
+        if (lote.sucursalId !== sucursalId && userRole !== 'ADMIN') {
           throw new BadRequestException(
             `El lote de accesorio '${lote.accesorio.nombre}' [${lote.nombreDiferenciador}] pertenece a otra sucursal y no puede venderse en esta tienda.`,
           );

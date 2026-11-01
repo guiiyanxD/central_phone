@@ -130,9 +130,16 @@ export function PosCartPanel({
                 className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs flex items-center justify-between gap-2 transition-colors hover:bg-slate-50"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 truncate">
-                    {item.nombre}
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-bold text-slate-900 truncate">
+                      {item.nombre}
+                    </p>
+                    {item.isInterSucursal && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded border bg-amber-50 text-amber-800 border-amber-300 shrink-0">
+                        De: {item.sucursalNombre || `Sucursal #${item.sucursalId}`}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-slate-500 truncate">
                     {item.subtitulo}
                   </p>

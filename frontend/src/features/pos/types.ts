@@ -11,4 +11,7 @@ export interface CartItem {
   cantidad: number;
   precioUnitarioBs: number;
   precioSugeridoOriginal?: number;
+  sucursalId?: number;
+  sucursalNombre?: string;
+  isInterSucursal?: boolean;
 }

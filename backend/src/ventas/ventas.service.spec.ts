@@ -114,7 +114,7 @@ describe('VentasService', () => {
       expect(res.id).toBe(200);
     });
 
-    it('debe lanzar BadRequestException si el dispositivo pertenece a otra sucursal (CENTRALPHONE-CONF-006)', async () => {
+    it('debe lanzar BadRequestException si el dispositivo pertenece a otra sucursal para un VENDEDOR (CENTRALPHONE-CONF-006)', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
 
@@ -128,15 +128,63 @@ describe('VentasService', () => {
       } as any);
 
       await expect(
-        service.createVenta(usuarioId, sucursalId, {
-          metodoPagoCodigo: 'EFECTIVO',
-          cliente: clienteValido,
-          dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
-        })
+        service.createVenta(
+          usuarioId,
+          sucursalId,
+          {
+            metodoPagoCodigo: 'EFECTIVO',
+            cliente: clienteValido,
+            dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
+          },
+          'VENDEDOR',
+        ),
       ).rejects.toThrow(/pertenece a otra sucursal/);
     });
 
-    it('debe lanzar BadRequestException si el lote de accesorio pertenece a otra sucursal (CENTRALPHONE-CONF-006)', async () => {
+    it('debe permitir a un usuario ADMIN vender un dispositivo de otra sucursal en la sucursal actual (venta inter-sucursal)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+
+      // Teléfono pertenece a sucursal 2, pero el ADMIN vende en sucursal 1
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 2,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 4000,
+        variante: { modelo: { nombreModelo: 'iPhone 15 Pro' } },
+      } as any);
+
+      prisma.dispositivo.updateMany.mockResolvedValue({ count: 1 });
+      prisma.venta.create.mockResolvedValue({ id: 202, totalVentaBs: 5000 } as any);
+      prisma.detalleVenta.create.mockResolvedValue({ id: 1 } as any);
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 202,
+        totalVentaBs: 5000,
+        cliente: { id: 99, ...clienteValido },
+        detalles: [
+          { tipoItem: TipoItemVenta.DISPOSITIVO, cantidad: 1, costoUnitarioBs: 4000, precioUnitarioBs: 5000 },
+        ],
+      } as any);
+
+      const res = await service.createVenta(
+        usuarioId,
+        sucursalId,
+        {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
+        },
+        'ADMIN',
+      );
+
+      expect(res.id).toBe(202);
+      expect(prisma.dispositivo.updateMany).toHaveBeenCalledWith({
+        where: { id: 10, estadoInventario: EstadoInventario.DISPONIBLE },
+        data: { estadoInventario: EstadoInventario.VENDIDO },
+      });
+    });
+
+    it('debe lanzar BadRequestException si el lote de accesorio pertenece a otra sucursal para un VENDEDOR (CENTRALPHONE-CONF-006)', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
 
@@ -151,12 +199,61 @@ describe('VentasService', () => {
       } as any);
 
       await expect(
-        service.createVenta(usuarioId, sucursalId, {
+        service.createVenta(
+          usuarioId,
+          sucursalId,
+          {
+            metodoPagoCodigo: 'EFECTIVO',
+            cliente: clienteValido,
+            accesorios: [{ loteAccesorioId: 30, cantidad: 1, precioVentaBs: 50 }],
+          },
+          'VENDEDOR',
+        ),
+      ).rejects.toThrow(/pertenece a otra sucursal/);
+    });
+
+    it('debe permitir a un usuario ADMIN vender un lote de accesorio de otra sucursal en la sucursal actual (venta inter-sucursal)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+
+      // Lote pertenece a sucursal 2, pero el ADMIN vende en sucursal 1
+      prisma.loteAccesorio.findUnique.mockResolvedValue({
+        id: 30,
+        sucursalId: 2,
+        stockActual: 10,
+        costoUnitarioBs: 20,
+        accesorio: { nombre: 'Funda MagSafe' },
+        nombreDiferenciador: 'Silicona Azul',
+      } as any);
+
+      prisma.loteAccesorio.updateMany.mockResolvedValue({ count: 1 });
+      prisma.venta.create.mockResolvedValue({ id: 203, totalVentaBs: 50 } as any);
+      prisma.detalleVenta.create.mockResolvedValue({ id: 2 } as any);
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 203,
+        totalVentaBs: 50,
+        cliente: { id: 99, ...clienteValido },
+        detalles: [
+          { tipoItem: TipoItemVenta.ACCESORIO, cantidad: 1, costoUnitarioBs: 20, precioUnitarioBs: 50 },
+        ],
+      } as any);
+
+      const res = await service.createVenta(
+        usuarioId,
+        sucursalId,
+        {
           metodoPagoCodigo: 'EFECTIVO',
           cliente: clienteValido,
           accesorios: [{ loteAccesorioId: 30, cantidad: 1, precioVentaBs: 50 }],
-        })
-      ).rejects.toThrow(/pertenece a otra sucursal/);
+        },
+        'ADMIN',
+      );
+
+      expect(res.id).toBe(203);
+      expect(prisma.loteAccesorio.updateMany).toHaveBeenCalledWith({
+        where: { id: 30, stockActual: { gte: 1 } },
+        data: { stockActual: { decrement: 1 } },
+      });
     });
 
     it('debe lanzar BadRequestException si no se proporcionan los datos obligatorios del comprador (nombre o teléfono)', async () => {
