@@ -33,7 +33,7 @@ export class GastoInicialPermutaDto {
   concepto: string;
 
   @IsNumber({}, { message: 'El costo del gasto en Bs debe ser numérico.' })
-  @Min(0, { message: 'El costo no puede ser negativo.' })
+  @Min(0.01, { message: 'El costo del gasto debe ser mayor a 0.' })
   costoBs: number;
 
   @IsString()

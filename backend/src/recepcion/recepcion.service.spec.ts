@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { RecepcionService } from './recepcion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPrismaMock, MockPrismaService } from '../prisma/prisma.mock';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('RecepcionService', () => {
   let service: RecepcionService;
@@ -809,6 +809,38 @@ describe('RecepcionService', () => {
       await expect(
         service.anularPermuta(100, { motivo: 'Intento ilegal' }, usuarioId),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar permuta si un vendedor intenta registrarla para otra sucursal (H-03)', async () => {
+      await expect(
+        service.createPermuta(
+          { ...basePermutaDto, sucursalId: 2 },
+          usuarioId,
+          'VENDEDOR',
+          1, // sucursal asignada: 1
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('debe rechazar gastos con aplicoEnCaja si no existe caja abierta en la sucursal (H-02)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createPermuta(basePermutaDto, usuarioId, 'ADMIN', 1),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe bloquear edición de permuta si un vendedor intenta modificarla en otra sucursal (H-03)', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 50,
+        sucursalId: 2,
+        estado: 'REGISTRADA',
+        dispositivos: [{ id: 1, estadoInventario: 'DISPONIBLE', detalleVentas: [], gastos: [] }],
+      } as any);
+
+      await expect(
+        service.updatePermuta(50, {}, usuarioId, 'VENDEDOR', 1),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

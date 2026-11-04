@@ -66,18 +66,18 @@ export class RecepcionController {
   @Post('permutas')
   async createPermuta(
     @Body() dto: CreatePermutaDto,
-    @CurrentUser('id') usuarioId: number,
+    @CurrentUser() user: any,
   ) {
-    return this.recepcionService.createPermuta(dto, usuarioId);
+    return this.recepcionService.createPermuta(dto, user.id, user.rol, user.sucursalId);
   }
 
   @Put('permutas/:id')
   async updatePermuta(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePermutaDto,
-    @CurrentUser('id') usuarioId: number,
+    @CurrentUser() user: any,
   ) {
-    return this.recepcionService.updatePermuta(id, dto, usuarioId);
+    return this.recepcionService.updatePermuta(id, dto, user.id, user.rol, user.sucursalId);
   }
 
   @Post('permutas/:id/anular')

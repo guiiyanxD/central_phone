@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -1147,7 +1148,12 @@ export class RecepcionService {
   // MÓDULO DE PERMUTAS (TRADE-IN)
   // ==========================================
 
-  async createPermuta(dto: CreatePermutaDto, usuarioId: number) {
+  async createPermuta(
+    dto: CreatePermutaDto,
+    usuarioId: number,
+    userRol?: string,
+    userSucursalId?: number,
+  ) {
     const {
       proveedorMinorista,
       sucursalId,
@@ -1155,6 +1161,12 @@ export class RecepcionService {
       gastosIniciales = [],
       observaciones,
     } = dto;
+
+    if (userRol && userRol !== 'ADMIN' && userSucursalId && sucursalId !== userSucursalId) {
+      throw new ForbiddenException(
+        'Los vendedores solo pueden registrar permutas para su sucursal asignada.',
+      );
+    }
 
     const sucursal = await this.prisma.sucursal.findUnique({
       where: { id: sucursalId },
@@ -1316,9 +1328,12 @@ export class RecepcionService {
           const cajaActiva = await tx.cajaDiaria.findFirst({
             where: { sucursalId, estado: 'ABIERTA' },
           });
-          if (cajaActiva) {
-            cajaActivaId = cajaActiva.id;
+          if (!cajaActiva) {
+            throw new BadRequestException(
+              'No existe una sesión de caja abierta en la sucursal para registrar el egreso de gastos en efectivo.',
+            );
           }
+          cajaActivaId = cajaActiva.id;
         }
 
         for (const g of gastosIniciales) {
@@ -1355,7 +1370,13 @@ export class RecepcionService {
     });
   }
 
-  async updatePermuta(id: number, dto: UpdatePermutaDto, usuarioId: number) {
+  async updatePermuta(
+    id: number,
+    dto: UpdatePermutaDto,
+    usuarioId: number,
+    userRol?: string,
+    userSucursalId?: number,
+  ) {
     const nota = await this.prisma.notaIngreso.findUnique({
       where: { id },
       include: {
@@ -1375,6 +1396,12 @@ export class RecepcionService {
 
     if (!nota) {
       throw new NotFoundException(`La permuta con ID ${id} no existe.`);
+    }
+
+    if (userRol && userRol !== 'ADMIN' && userSucursalId && nota.sucursalId !== userSucursalId) {
+      throw new ForbiddenException(
+        'No tienes permisos para modificar permutas registradas en otra sucursal.',
+      );
     }
 
     if (nota.estado === 'ANULADA') {

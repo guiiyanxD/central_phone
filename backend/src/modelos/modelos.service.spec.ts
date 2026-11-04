@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ModelosService } from './modelos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPrismaMock, MockPrismaService } from '../prisma/prisma.mock';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('ModelosService', () => {
   let service: ModelosService;
@@ -829,6 +829,75 @@ describe('ModelosService', () => {
       await expect(
         service.anularGastoDispositivo(1, { motivo: 'Intento duplicado' }, 1),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe rechazar registrar gasto si el equipo ya fue VENDIDO (H-01)', async () => {
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 50,
+        sucursalId: 1,
+        estadoInventario: 'VENDIDO',
+        detalleVentas: [{ id: 1 }],
+      } as any);
+
+      await expect(
+        service.addGastoDispositivo(50, { concepto: 'Pantalla', costoBs: 100 }, 1, 1),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar registrar gasto si aplicoEnCaja es true y no hay caja abierta (H-02)', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addGastoDispositivo(50, { concepto: 'Pantalla', costoBs: 100, aplicoEnCaja: true }, 1, 1),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar gasto si un vendedor intenta registrarlo en otra sucursal (H-03)', async () => {
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 50,
+        sucursalId: 2, // equipo en sucursal 2
+        estadoInventario: 'DISPONIBLE',
+        detalleVentas: [],
+      } as any);
+
+      await expect(
+        service.addGastoDispositivo(
+          50,
+          { concepto: 'Pantalla', costoBs: 100, aplicoEnCaja: false },
+          1,
+          1, // usuario en sucursal 1
+          'VENDEDOR',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('debe bloquear modificación de costo si la caja asociada ya fue CERRADA (H-04)', async () => {
+      prisma.gastoDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        dispositivoId: 50,
+        costoBs: 100,
+        estado: 'ACTIVO',
+        caja: { id: 10, estado: 'CERRADA' },
+        dispositivo: { id: 50, sucursalId: 1, estadoInventario: 'DISPONIBLE', detalleVentas: [] },
+      } as any);
+
+      await expect(
+        service.updateGastoDispositivo(1, { costoBs: 200 }, 1, 1, 'ADMIN'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe bloquear anulación de gasto si el equipo ya fue VENDIDO (H-01)', async () => {
+      prisma.gastoDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        dispositivoId: 50,
+        costoBs: 100,
+        estado: 'ACTIVO',
+        dispositivo: { id: 50, estadoInventario: 'VENDIDO', detalleVentas: [{ id: 1 }] },
+      } as any);
+
+      await expect(
+        service.anularGastoDispositivo(1, { motivo: 'Intento en vendido' }, 1),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

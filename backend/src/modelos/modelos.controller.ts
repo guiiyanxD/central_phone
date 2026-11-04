@@ -153,10 +153,9 @@ export class ModelosController {
   async addGastoDispositivo(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateGastoDispositivoDto,
-    @CurrentUser('id') usuarioId: number,
-    @CurrentUser('sucursalId') usuarioSucursalId: number,
+    @CurrentUser() user: any,
   ) {
-    return this.modelosService.addGastoDispositivo(id, dto, usuarioId, usuarioSucursalId);
+    return this.modelosService.addGastoDispositivo(id, dto, user.id, user.sucursalId, user.rol);
   }
 
   @Put('dispositivos/gastos/:gastoId')
@@ -165,9 +164,9 @@ export class ModelosController {
   async updateGastoDispositivo(
     @Param('gastoId', ParseIntPipe) gastoId: number,
     @Body() dto: UpdateGastoDispositivoDto,
-    @CurrentUser('id') usuarioId: number,
+    @CurrentUser() user: any,
   ) {
-    return this.modelosService.updateGastoDispositivo(gastoId, dto, usuarioId);
+    return this.modelosService.updateGastoDispositivo(gastoId, dto, user.id, user.sucursalId, user.rol);
   }
 
   @Post('dispositivos/gastos/:gastoId/anular')

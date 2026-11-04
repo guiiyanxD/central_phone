@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,6 +18,7 @@ import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
 import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
 import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
 import { roundMoney } from '../common/utils/money.util';
+import { EstadoInventario, EstadoVenta, EstadoCaja } from '@prisma/client';
 
 @Injectable()
 export class ModelosService {
@@ -874,13 +876,41 @@ export class ModelosService {
     dto: CreateGastoDispositivoDto,
     usuarioId: number,
     usuarioSucursalId?: number,
+    userRol?: string,
   ) {
     const dispositivo = await this.prisma.dispositivo.findUnique({
       where: { id: dispositivoId },
+      include: {
+        detalleVentas: {
+          where: { venta: { estado: EstadoVenta.COMPLETADA } },
+        },
+      },
     });
 
     if (!dispositivo) {
       throw new NotFoundException(`El dispositivo con ID ${dispositivoId} no existe.`);
+    }
+
+    // 1. Aislamiento multi-sucursal para vendedores
+    if (
+      userRol &&
+      userRol !== 'ADMIN' &&
+      usuarioSucursalId &&
+      dispositivo.sucursalId !== usuarioSucursalId
+    ) {
+      throw new ForbiddenException(
+        'No tienes permisos para registrar gastos en dispositivos de otra sucursal.',
+      );
+    }
+
+    // 2. H-01: Validar que el equipo no esté vendido
+    if (
+      dispositivo.estadoInventario === EstadoInventario.VENDIDO ||
+      (dispositivo.detalleVentas && dispositivo.detalleVentas.length > 0)
+    ) {
+      throw new BadRequestException(
+        'No se pueden registrar gastos en un dispositivo que ya ha sido vendido.',
+      );
     }
 
     const aplicoEnCaja = dto.aplicoEnCaja !== false;
@@ -894,9 +924,12 @@ export class ModelosService {
           estado: 'ABIERTA',
         },
       });
-      if (cajaAbierta) {
-        cajaId = cajaAbierta.id;
+      if (!cajaAbierta) {
+        throw new BadRequestException(
+          'No existe una sesión de caja abierta en la sucursal para registrar el egreso del gasto en efectivo.',
+        );
       }
+      cajaId = cajaAbierta.id;
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -947,10 +980,21 @@ export class ModelosService {
     gastoId: number,
     dto: UpdateGastoDispositivoDto,
     usuarioId: number,
+    usuarioSucursalId?: number,
+    userRol?: string,
   ) {
     const gasto = await this.prisma.gastoDispositivo.findUnique({
       where: { id: gastoId },
-      include: { dispositivo: true },
+      include: {
+        dispositivo: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        },
+        caja: true,
+      },
     });
 
     if (!gasto) {
@@ -959,6 +1003,39 @@ export class ModelosService {
 
     if (gasto.estado === 'ANULADO') {
       throw new BadRequestException('No se puede modificar un gasto que ha sido anulado.');
+    }
+
+    // 1. Aislamiento multi-sucursal para vendedores
+    if (
+      userRol &&
+      userRol !== 'ADMIN' &&
+      usuarioSucursalId &&
+      gasto.dispositivo.sucursalId !== usuarioSucursalId
+    ) {
+      throw new ForbiddenException(
+        'No tienes permisos para modificar gastos de dispositivos de otra sucursal.',
+      );
+    }
+
+    // 2. H-01: Validar que el dispositivo no esté vendido
+    if (
+      gasto.dispositivo.estadoInventario === EstadoInventario.VENDIDO ||
+      (gasto.dispositivo.detalleVentas && gasto.dispositivo.detalleVentas.length > 0)
+    ) {
+      throw new BadRequestException(
+        'No se pueden modificar los gastos de un dispositivo que ya ha sido vendido.',
+      );
+    }
+
+    // 3. H-04: Bloquear modificación de costo si la caja ya fue cerrada
+    if (
+      dto.costoBs !== undefined &&
+      gasto.caja &&
+      gasto.caja.estado === EstadoCaja.CERRADA
+    ) {
+      throw new BadRequestException(
+        'No se puede modificar el costo de un gasto cuya sesión de caja ya fue cerrada con arqueo definitivo.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -1009,7 +1086,15 @@ export class ModelosService {
   ) {
     const gasto = await this.prisma.gastoDispositivo.findUnique({
       where: { id: gastoId },
-      include: { dispositivo: true },
+      include: {
+        dispositivo: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        },
+      },
     });
 
     if (!gasto) {
@@ -1018,6 +1103,15 @@ export class ModelosService {
 
     if (gasto.estado === 'ANULADO') {
       throw new ConflictException('Este gasto ya se encuentra anulado.');
+    }
+
+    if (
+      gasto.dispositivo.estadoInventario === EstadoInventario.VENDIDO ||
+      (gasto.dispositivo.detalleVentas && gasto.dispositivo.detalleVentas.length > 0)
+    ) {
+      throw new BadRequestException(
+        'No se puede anular un gasto de un dispositivo que ya ha sido vendido.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
