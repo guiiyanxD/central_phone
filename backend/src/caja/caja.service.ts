@@ -43,6 +43,15 @@ export class CajaService {
           include: {
             metodoPago: true,
             cliente: true,
+            usuario: { select: { id: true, nombre: true, email: true } },
+            anuladoPor: { select: { id: true, nombre: true, email: true } },
+            permutaDispositivo: {
+              include: {
+                variante: {
+                  include: { modelo: true },
+                },
+              },
+            },
             detalles: {
               include: {
                 dispositivo: {
@@ -605,6 +614,13 @@ export class CajaService {
             cliente: true,
             usuario: { select: { id: true, nombre: true, email: true } },
             anuladoPor: { select: { id: true, nombre: true, email: true } },
+            permutaDispositivo: {
+              include: {
+                variante: {
+                  include: { modelo: true },
+                },
+              },
+            },
             detalles: {
               include: {
                 dispositivo: {

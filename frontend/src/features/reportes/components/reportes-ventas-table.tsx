@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Ban } from 'lucide-react';
+import { Ban, Eye } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,11 +10,13 @@ import { TransaccionVentaReporte } from '../types';
 interface ReportesVentasTableProps {
   transacciones: TransaccionVentaReporte[];
   onOpenAnulacion: (t: TransaccionVentaReporte) => void;
+  onSelectVenta?: (t: TransaccionVentaReporte) => void;
 }
 
 export function ReportesVentasTable({
   transacciones,
   onOpenAnulacion,
+  onSelectVenta,
 }: ReportesVentasTableProps) {
   return (
     <Card className="border-slate-200 overflow-hidden">
@@ -113,28 +115,41 @@ export function ReportesVentasTable({
                     </span>
                   </td>
                   <td className="py-2.5 px-3 text-right">
-                    {t.estado === 'COMPLETADA' ? (
+                    <div className="flex items-center justify-end gap-1.5">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="text-[11px] h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-                        onClick={() => onOpenAnulacion(t)}
+                        className="text-[11px] h-7 px-2 border-slate-300 text-slate-700 hover:bg-slate-100 gap-1"
+                        onClick={() => onSelectVenta?.(t)}
+                        title="Ver ticket de venta completo"
                       >
-                        <Ban className="h-3 w-3 mr-1" />
-                        Anular
+                        <Eye className="h-3 w-3" />
+                        <span>Ticket</span>
                       </Button>
-                    ) : (
-                      <div className="text-[10px] text-slate-400 italic text-right" title={t.motivoAnulacion || ''}>
-                        {t.motivoAnulacion ? (
-                          <span className="cursor-help" title={`Motivo: ${t.motivoAnulacion} | Por: ${t.anuladoPor || 'Admin'}`}>
-                            Anulada
-                          </span>
-                        ) : (
-                          'Anulada'
-                        )}
-                      </div>
-                    )}
+                      {t.estado === 'COMPLETADA' ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-[11px] h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+                          onClick={() => onOpenAnulacion(t)}
+                        >
+                          <Ban className="h-3 w-3 mr-1" />
+                          Anular
+                        </Button>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 italic text-right" title={t.motivoAnulacion || ''}>
+                          {t.motivoAnulacion ? (
+                            <span className="cursor-help" title={`Motivo: ${t.motivoAnulacion} | Por: ${t.anuladoPor || 'Admin'}`}>
+                              Anulada
+                            </span>
+                          ) : (
+                            'Anulada'
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

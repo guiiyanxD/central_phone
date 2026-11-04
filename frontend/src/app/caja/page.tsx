@@ -13,6 +13,7 @@ import { CajaMovimientosTurno } from '@/features/caja/components/caja-movimiento
 import { ModalRegistroGasto } from '@/features/caja/components/modal-registro-gasto';
 import { ModalCierreArqueo } from '@/features/caja/components/modal-cierre-arqueo';
 import { ModalAuditoriaCaja } from '@/features/caja/components/modal-auditoria-caja';
+import { ModalDetalleVenta } from '@/features/caja/components/modal-detalle-venta';
 import { CajaHistorialTable } from '@/features/caja/components/caja-historial-table';
 
 export default function CajaDiariaPage() {
@@ -62,6 +63,19 @@ export default function CajaDiariaPage() {
   const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
   const [cajaDetalleData, setCajaDetalleData] = useState<any | null>(null);
   const [isLoadingDetalle, setIsLoadingDetalle] = useState(false);
+
+  // Modal Detalle de Venta / Ticket Dedicado
+  const [selectedVentaParaDetalle, setSelectedVentaParaDetalle] = useState<any | null>(null);
+  const [modalVentaDetalleOpen, setModalVentaDetalleOpen] = useState(false);
+
+  const handleVerDetalleVenta = (venta: any) => {
+    const ventaConContexto = {
+      ...venta,
+      caja: venta.caja || sessionData?.caja || cajaDetalleData?.caja,
+    };
+    setSelectedVentaParaDetalle(ventaConContexto);
+    setModalVentaDetalleOpen(true);
+  };
 
   // Formularios
   const [montoApertura, setMontoApertura] = useState<number>(300);
@@ -347,6 +361,7 @@ export default function CajaDiariaPage() {
             />
             <CajaMovimientosTurno
               sessionData={sessionData}
+              onSelectVenta={handleVerDetalleVenta}
             />
           </div>
         ) : (
@@ -426,6 +441,14 @@ export default function CajaDiariaPage() {
         onClose={() => setModalDetalleOpen(false)}
         cajaDetalleData={cajaDetalleData}
         isLoadingDetalle={isLoadingDetalle}
+        isAdmin={isAdmin}
+        onSelectVenta={handleVerDetalleVenta}
+      />
+
+      <ModalDetalleVenta
+        isOpen={modalVentaDetalleOpen}
+        onClose={() => setModalVentaDetalleOpen(false)}
+        venta={selectedVentaParaDetalle}
         isAdmin={isAdmin}
       />
     </div>

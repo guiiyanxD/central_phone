@@ -12,6 +12,7 @@ import { ReportesHeader } from '@/features/reportes/components/reportes-header';
 import { ReportesKpiCards } from '@/features/reportes/components/reportes-kpi-cards';
 import { ReportesVentasTable } from '@/features/reportes/components/reportes-ventas-table';
 import { ModalAnularVenta } from '@/features/reportes/components/modal-anular-venta';
+import { ModalDetalleVenta } from '@/features/caja/components/modal-detalle-venta';
 
 export default function ReportesPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -33,6 +34,26 @@ export default function ReportesPage() {
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [isAnulando, setIsAnulando] = useState(false);
   const [errorAnulacion, setErrorAnulacion] = useState<string | null>(null);
+
+  // Modal Detalle de Venta / Ticket Dedicado
+  const [selectedVentaParaDetalle, setSelectedVentaParaDetalle] = useState<any | null>(null);
+  const [modalVentaDetalleOpen, setModalVentaDetalleOpen] = useState(false);
+  const [isLoadingVentaDetalle, setIsLoadingVentaDetalle] = useState(false);
+
+  const handleVerTicket = async (t: TransaccionVentaReporte) => {
+    try {
+      setIsLoadingVentaDetalle(true);
+      const fullVenta = await api.ventas.getOne(t.id);
+      setSelectedVentaParaDetalle(fullVenta);
+      setModalVentaDetalleOpen(true);
+    } catch (err: any) {
+      setError(
+        err instanceof ApiError ? err.message : 'Error al cargar el detalle del ticket.'
+      );
+    } finally {
+      setIsLoadingVentaDetalle(false);
+    }
+  };
 
   // Formateador de fechas a YYYY-MM-DD en hora local
   const formatLocalDate = (d: Date): string => {
@@ -177,6 +198,7 @@ export default function ReportesPage() {
             setMotivoAnulacion('');
             setErrorAnulacion(null);
           }}
+          onSelectVenta={handleVerTicket}
         />
       )}
 
@@ -189,6 +211,13 @@ export default function ReportesPage() {
         isAnulando={isAnulando}
         errorAnulacion={errorAnulacion}
         onSubmit={handleConfirmarAnulacion}
+      />
+
+      <ModalDetalleVenta
+        isOpen={modalVentaDetalleOpen}
+        onClose={() => setModalVentaDetalleOpen(false)}
+        venta={selectedVentaParaDetalle}
+        isAdmin={true}
       />
     </div>
   );

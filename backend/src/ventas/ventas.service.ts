@@ -623,6 +623,11 @@ export class VentasService {
         usuario: { select: { id: true, nombre: true } },
         anuladoPor: { select: { id: true, nombre: true } },
         metodoPago: true,
+        permutaDispositivo: {
+          include: {
+            variante: { include: { modelo: true } },
+          },
+        },
         caja: {
           include: {
             sucursal: { select: { id: true, nombre: true, ciudad: true } },
@@ -683,6 +688,11 @@ export class VentasService {
         usuario: { select: { id: true, nombre: true } },
         anuladoPor: { select: { id: true, nombre: true } },
         metodoPago: true,
+        permutaDispositivo: {
+          include: {
+            variante: { include: { modelo: true } },
+          },
+        },
         caja: {
           include: {
             sucursal: { select: { id: true, nombre: true, ciudad: true } },
@@ -833,7 +843,13 @@ export class VentasService {
       include: {
         cliente: true,
         usuario: { select: { id: true, nombre: true } },
+        anuladoPor: { select: { id: true, nombre: true } },
         metodoPago: true,
+        permutaDispositivo: {
+          include: {
+            variante: { include: { modelo: true } },
+          },
+        },
         caja: {
           include: {
             sucursal: true,

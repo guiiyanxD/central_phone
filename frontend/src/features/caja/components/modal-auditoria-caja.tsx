@@ -10,6 +10,7 @@ import {
   QrCode,
   Smartphone,
   Package,
+  Eye,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ interface ModalAuditoriaCajaProps {
   cajaDetalleData: any;
   isLoadingDetalle: boolean;
   isAdmin: boolean;
+  onSelectVenta?: (venta: any) => void;
 }
 
 export function ModalAuditoriaCaja({
@@ -31,6 +33,7 @@ export function ModalAuditoriaCaja({
   cajaDetalleData,
   isLoadingDetalle,
   isAdmin,
+  onSelectVenta,
 }: ModalAuditoriaCajaProps) {
   const [detalleTab, setDetalleTab] = useState<'ventas' | 'gastos' | 'arqueo'>('ventas');
 
@@ -222,6 +225,7 @@ export function ModalAuditoriaCaja({
                               <th className="py-2.5 px-3 text-right">Total Venta</th>
                               {isAdmin && <th className="py-2.5 px-3 text-right">Ganancia Neta</th>}
                               <th className="py-2.5 px-3 text-center">Estado</th>
+                              <th className="py-2.5 px-3 text-center">Acción</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -298,7 +302,12 @@ export function ModalAuditoriaCaja({
                                   </td>
 
                                   <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
-                                    Bs {Number(v.totalVentaBs).toFixed(2)}
+                                    <div>Bs {Number(v.totalVentaBs).toFixed(2)}</div>
+                                    {v.montoPermutaBs && Number(v.montoPermutaBs) > 0 && (
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded mt-0.5">
+                                        🔄 Permuta -Bs {Number(v.montoPermutaBs).toFixed(2)}
+                                      </span>
+                                    )}
                                   </td>
 
                                   {isAdmin && (
@@ -335,6 +344,20 @@ export function ModalAuditoriaCaja({
                                         Completada
                                       </Badge>
                                     )}
+                                  </td>
+
+                                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs px-2 gap-1 border-slate-300 hover:bg-slate-100"
+                                      onClick={() => onSelectVenta?.(v)}
+                                      title="Ver detalle del ticket de venta"
+                                    >
+                                      <Eye className="h-3.5 w-3.5 text-slate-600" />
+                                      <span>Ticket</span>
+                                    </Button>
                                   </td>
                                 </tr>
                               );
