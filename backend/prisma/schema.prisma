@@ -135,11 +135,12 @@ model NotaIngreso {
   anuladaEn         DateTime? @map("anulada_en")
   motivoAnulacion   String?   @map("motivo_anulacion") @db.Text
 
-  proveedor      Proveedor       @relation(fields: [proveedorId], references: [id])
-  sucursal       Sucursal        @relation(fields: [sucursalId], references: [id])
-  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
-  dispositivos   Dispositivo[]
-  lotesAccesorio LoteAccesorio[]
+  proveedor        Proveedor       @relation(fields: [proveedorId], references: [id])
+  sucursal         Sucursal        @relation(fields: [sucursalId], references: [id])
+  usuario          Usuario         @relation(fields: [usuarioId], references: [id])
+  dispositivos     Dispositivo[]
+  lotesAccesorio   LoteAccesorio[]
+  ventasPermutadas Venta[]         @relation("NotaIngresoPermutaVenta")
 
   @@map("notas_ingreso")
 }
@@ -217,11 +218,12 @@ model Dispositivo {
   porcentajeBateria     Int?                 @map("porcentaje_bateria")
   estadoInventario      EstadoInventario     @default(DISPONIBLE) @map("estado_inventario")
 
-  variante      VarianteDispositivo @relation(fields: [varianteId], references: [id])
-  sucursal      Sucursal            @relation(fields: [sucursalId], references: [id])
-  notaIngreso   NotaIngreso         @relation(fields: [notaIngresoId], references: [id])
-  detalleVentas DetalleVenta[]
-  gastos        GastoDispositivo[]
+  variante       VarianteDispositivo @relation(fields: [varianteId], references: [id])
+  sucursal       Sucursal            @relation(fields: [sucursalId], references: [id])
+  notaIngreso    NotaIngreso         @relation(fields: [notaIngresoId], references: [id])
+  detalleVentas  DetalleVenta[]
+  gastos         GastoDispositivo[]
+  ventaPermutado Venta?              @relation("DispositivoPermutadoEnVenta")
 
   @@map("dispositivos")
 }
@@ -395,6 +397,11 @@ model Venta {
   metodoPagoId          Int         @map("metodo_pago_id")
   fechaHora             DateTime    @default(now()) @map("fecha_hora")
   totalVentaBs          Decimal     @map("total_venta_bs") @db.Decimal(10, 2)
+  montoPermutaBs        Decimal     @default(0.00) @map("monto_permuta_bs") @db.Decimal(10, 2)
+  montoEfectivoBs       Decimal?    @map("monto_efectivo_bs") @db.Decimal(10, 2)
+  montoDigitalBs        Decimal?    @map("monto_digital_bs") @db.Decimal(10, 2)
+  permutaDispositivoId  Int?        @unique @map("permuta_dispositivo_id")
+  permutaNotaIngresoId  Int?        @map("permuta_nota_ingreso_id")
   comprobanteReferencia String?     @map("comprobante_referencia") @db.VarChar(100)
   comprobanteImagenUrl  String?     @map("comprobante_imagen_url") @db.VarChar(500)
   estado                EstadoVenta @default(COMPLETADA)
@@ -402,12 +409,14 @@ model Venta {
   anuladoPorUsuarioId   Int?        @map("anulado_por_usuario_id")
   fechaAnulacion        DateTime?   @map("fecha_anulacion")
 
-  caja        CajaDiaria     @relation(fields: [cajaId], references: [id])
-  usuario     Usuario        @relation(fields: [usuarioId], references: [id])
-  anuladoPor  Usuario?       @relation("VentasAnuladas", fields: [anuladoPorUsuarioId], references: [id])
-  cliente     Cliente?       @relation(fields: [clienteId], references: [id])
-  metodoPago  MetodoPago     @relation(fields: [metodoPagoId], references: [id])
-  detalles    DetalleVenta[]
+  caja               CajaDiaria     @relation(fields: [cajaId], references: [id])
+  usuario            Usuario        @relation(fields: [usuarioId], references: [id])
+  anuladoPor         Usuario?       @relation("VentasAnuladas", fields: [anuladoPorUsuarioId], references: [id])
+  cliente            Cliente?       @relation(fields: [clienteId], references: [id])
+  metodoPago         MetodoPago     @relation(fields: [metodoPagoId], references: [id])
+  permutaDispositivo Dispositivo?   @relation("DispositivoPermutadoEnVenta", fields: [permutaDispositivoId], references: [id])
+  permutaNotaIngreso NotaIngreso?   @relation("NotaIngresoPermutaVenta", fields: [permutaNotaIngresoId], references: [id])
+  detalles           DetalleVenta[]
 
   @@map("ventas")
 }

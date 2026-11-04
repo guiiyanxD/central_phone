@@ -20,6 +20,8 @@ import { PosCartPanel } from '@/features/pos/components/pos-cart-panel';
 import { ModalQrOficial } from '@/features/pos/components/modal-qr-oficial';
 import { ModalTicketVenta } from '@/features/pos/components/modal-ticket-venta';
 import { ModalConfirmarInterSucursal } from '@/features/pos/components/modal-confirmar-inter-sucursal';
+import { ModalPermutaCheckout } from '@/features/pos/components/modal-permuta-checkout';
+import { PermutaTradeInDto } from '@/lib/api/ventas.api';
 import { printReceipt } from '@/features/pos/utils/receipt-printer';
 
 export default function PosPage() {
@@ -40,6 +42,7 @@ export default function PosPage() {
   // Catálogo disponible para venta
   const [dispositivos, setDispositivos] = useState<any[]>([]);
   const [accesorios, setAccesorios] = useState<any[]>([]);
+  const [modelos, setModelos] = useState<any[]>([]);
   const [configuracion, setConfiguracion] = useState<any | null>(null);
 
   // Filtros de búsqueda
@@ -52,6 +55,16 @@ export default function PosPage() {
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [clienteCiNit, setClienteCiNit] = useState('');
+
+  // Permuta (Trade-In) como crédito en checkout
+  const [permutaModalOpen, setPermutaModalOpen] = useState(false);
+  const [permutaTradeIn, setPermutaTradeIn] = useState<PermutaTradeInDto | null>(null);
+  const [permutaSummary, setPermutaSummary] = useState<{
+    modeloNombre: string;
+    varianteDetalle: string;
+    imei1: string;
+    valorTomaBs: number;
+  } | null>(null);
 
   // Método de pago y checkout
   const [metodoPagoCodigo, setMetodoPagoCodigo] = useState<'EFECTIVO' | 'QR_SIMPLE' | 'TRANSFERENCIA' | 'MIXTO'>('EFECTIVO');
@@ -95,7 +108,7 @@ export default function PosPage() {
         ? undefined
         : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
 
-      const [dispRes, accRes, configRes] = await Promise.all([
+      const [dispRes, accRes, configRes, modRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
           limit: 100,
@@ -103,10 +116,12 @@ export default function PosPage() {
         }),
         api.accesorios.getAll(undefined, targetSucursalId),
         api.configuracion.get(),
+        api.modelos.getAll(),
       ]);
       setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
       setConfiguracion(configRes);
+      setModelos(modRes || []);
     } catch {
       // Manejar error silenciosamente
     } finally {
@@ -123,16 +138,18 @@ export default function PosPage() {
         ? undefined
         : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
 
-      const [dispRes, accRes] = await Promise.all([
+      const [dispRes, accRes, modRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
           limit: 100,
           ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
         }),
         api.accesorios.getAll(undefined, targetSucursalId),
+        api.modelos.getAll(),
       ]);
       setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
+      setModelos(modRes || []);
     } catch {
       // Silencioso
     }
@@ -374,6 +391,8 @@ export default function PosPage() {
     if (cart.length === 0) return;
     if (window.confirm('¿Deseas descartar y vaciar todos los productos del ticket actual?')) {
       setCart([]);
+      setPermutaTradeIn(null);
+      setPermutaSummary(null);
       setMontoRecibidoBs('');
       setPriceWarning(null);
       setUndoToastVisible(false);
@@ -514,7 +533,11 @@ export default function PosPage() {
       return;
     }
 
+    const montoPermuta = permutaTradeIn?.valorTomaBs || 0;
+    const saldoACobrar = Math.max(0, totalBs - montoPermuta);
+
     if (
+      saldoACobrar > 0 &&
       (metodoPagoCodigo === 'QR_SIMPLE' || metodoPagoCodigo === 'TRANSFERENCIA') &&
       (!comprobanteRef || comprobanteRef.trim().length === 0)
     ) {
@@ -522,13 +545,13 @@ export default function PosPage() {
       return;
     }
 
-    if (metodoPagoCodigo === 'MIXTO') {
+    if (saldoACobrar > 0 && metodoPagoCodigo === 'MIXTO') {
       if (!montoEfectivoMixtoBs || Number(montoEfectivoMixtoBs) <= 0) {
         setSaleError('En pago mixto, debes ingresar el monto de anticipo en efectivo recibido.');
         return;
       }
-      if (Number(montoEfectivoMixtoBs) >= totalBs) {
-        setSaleError('En pago mixto, el anticipo en efectivo debe ser menor al total (usa Efectivo puro).');
+      if (Number(montoEfectivoMixtoBs) >= saldoACobrar) {
+        setSaleError('En pago mixto, el anticipo en efectivo debe ser menor al saldo a cobrar (usa Efectivo puro).');
         return;
       }
       if (!comprobanteRef || comprobanteRef.trim().length === 0) {
@@ -538,24 +561,34 @@ export default function PosPage() {
     }
 
     if (
+      saldoACobrar > 0 &&
       metodoPagoCodigo === 'EFECTIVO' &&
       typeof montoRecibidoBs === 'number' &&
       montoRecibidoBs > 0 &&
-      montoRecibidoBs < totalBs
+      montoRecibidoBs < saldoACobrar
     ) {
-      setSaleError(`El efectivo entregado (Bs ${montoRecibidoBs}) es menor al total a cobrar (Bs ${totalBs.toFixed(2)}).`);
+      setSaleError(`El efectivo entregado (Bs ${montoRecibidoBs}) es menor al saldo a cobrar (Bs ${saldoACobrar.toFixed(2)}).`);
       return;
     }
 
     setIsSubmittingSale(true);
 
     try {
-      const refText =
-        metodoPagoCodigo === 'MIXTO'
-          ? `MIXTO: Ef. Bs ${Number(montoEfectivoMixtoBs).toFixed(2)} + QR Bs ${(totalBs - Number(montoEfectivoMixtoBs)).toFixed(2)} [Ref: ${comprobanteRef.trim()}]`
-          : comprobanteRef.trim() || undefined;
+      let refText: string | undefined = undefined;
+      if (saldoACobrar === 0) {
+        refText = `PERMUTA_TOTAL [Ref: ${comprobanteRef.trim() || 'N/A'}]`;
+      } else if (metodoPagoCodigo === 'MIXTO') {
+        refText = `MIXTO: Ef. Bs ${Number(montoEfectivoMixtoBs).toFixed(2)} + QR Bs ${(saldoACobrar - Number(montoEfectivoMixtoBs)).toFixed(2)} [Ref: ${comprobanteRef.trim()}]`;
+      } else {
+        refText = comprobanteRef.trim() || undefined;
+      }
 
-      const backendMetodoPago = metodoPagoCodigo === 'MIXTO' ? 'QR_SIMPLE' : metodoPagoCodigo;
+      const backendMetodoPago =
+        saldoACobrar === 0
+          ? 'EFECTIVO'
+          : metodoPagoCodigo === 'MIXTO'
+          ? 'QR_SIMPLE'
+          : metodoPagoCodigo;
 
       const payload = {
         sucursalId: currentSucursalId,
@@ -579,12 +612,19 @@ export default function PosPage() {
             cantidad: i.cantidad,
             precioVentaBs: i.precioUnitarioBs,
           })),
+        permuta: permutaTradeIn || undefined,
+        montoEfectivoMixtoBs:
+          saldoACobrar > 0 && metodoPagoCodigo === 'MIXTO'
+            ? Number(montoEfectivoMixtoBs)
+            : undefined,
       };
 
       const res = await api.ventas.create(payload);
       playSaleSuccessSound();
       setCompletedSale(res);
       setCart([]);
+      setPermutaTradeIn(null);
+      setPermutaSummary(null);
       setClienteNombre('');
       setClienteTelefono('');
       setClienteCiNit('');
@@ -592,6 +632,7 @@ export default function PosPage() {
       setMontoRecibidoBs('');
       setMontoEfectivoMixtoBs('');
       setModalQrOpen(false);
+      setPermutaModalOpen(false);
       await silentRefresh();
     } catch (err: any) {
       setSaleError(err.message || 'Error al procesar la venta.');
@@ -736,6 +777,13 @@ export default function PosPage() {
             saleError={saleError}
             isSubmittingSale={isSubmittingSale}
             onProcessCheckout={handleProcessCheckout}
+            permutaTradeIn={permutaTradeIn}
+            permutaSummary={permutaSummary}
+            onOpenModalPermuta={() => setPermutaModalOpen(true)}
+            onRemovePermuta={() => {
+              setPermutaTradeIn(null);
+              setPermutaSummary(null);
+            }}
           />
         </div>
       </div>
@@ -745,7 +793,7 @@ export default function PosPage() {
         isOpen={modalQrOpen}
         onClose={() => setModalQrOpen(false)}
         configuracion={configuracion}
-        totalBs={totalBs}
+        totalBs={Math.max(0, totalBs - (permutaTradeIn?.valorTomaBs || 0))}
         cart={cart}
         clienteNombre={clienteNombre}
         comprobanteRef={comprobanteRef}
@@ -754,11 +802,24 @@ export default function PosPage() {
         montoEfectivoMixtoBs={montoEfectivoMixtoBs}
         saldoQrBs={
           metodoPagoCodigo === 'MIXTO' && typeof montoEfectivoMixtoBs === 'number'
-            ? Math.max(0, totalBs - montoEfectivoMixtoBs)
-            : totalBs
+            ? Math.max(0, Math.max(0, totalBs - (permutaTradeIn?.valorTomaBs || 0)) - montoEfectivoMixtoBs)
+            : Math.max(0, totalBs - (permutaTradeIn?.valorTomaBs || 0))
         }
         isSubmittingSale={isSubmittingSale}
         onConfirmCheckout={handleProcessCheckout}
+      />
+
+      {/* Modal de Permuta Trade-In Checkout */}
+      <ModalPermutaCheckout
+        isOpen={permutaModalOpen}
+        onClose={() => setPermutaModalOpen(false)}
+        totalBs={totalBs}
+        initialPermuta={permutaTradeIn}
+        modelos={modelos}
+        onApplyPermuta={(permuta, summary) => {
+          setPermutaTradeIn(permuta);
+          setPermutaSummary(summary);
+        }}
       />
 
       {/* Modal Ticket de Venta */}

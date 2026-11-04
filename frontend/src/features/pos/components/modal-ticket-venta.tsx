@@ -101,12 +101,31 @@ export function ModalTicketVenta({
             ))}
           </div>
 
-          <div className="flex justify-between items-baseline text-sm font-bold pt-1">
-            <span>TOTAL:</span>
-            <span className="text-slate-900">
-              Bs {Number(sale.totalVentaBs).toFixed(2)}
-            </span>
-          </div>
+          {Number(sale.montoPermutaBs) > 0 ? (
+            <div className="space-y-1 text-xs pt-1 border-t border-slate-200">
+              <div className="flex justify-between text-slate-500">
+                <span>SUBTOTAL:</span>
+                <span>Bs {Number(sale.totalVentaBs).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-emerald-700">
+                <span>CRÉDITO PERMUTA:</span>
+                <span>- Bs {Number(sale.montoPermutaBs).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-baseline text-sm font-bold pt-1 text-slate-900 border-t border-dashed border-slate-300">
+                <span>TOTAL COBRADO:</span>
+                <span>
+                  Bs {(Number(sale.totalVentaBs) - Number(sale.montoPermutaBs)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-between items-baseline text-sm font-bold pt-1">
+              <span>TOTAL:</span>
+              <span className="text-slate-900">
+                Bs {Number(sale.totalVentaBs).toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">

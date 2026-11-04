@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
-import { EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
+import { CondicionDispositivo, EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
 import { VentaResponseMapper } from './mappers/venta-response.mapper';
 import { PaymentStrategyRegistry } from './strategies';
@@ -307,8 +307,150 @@ export class VentasService {
         });
       }
 
-      // 4. Crear la cabecera de la Venta
+      // 4. Procesar Permuta (Trade-In como crédito/forma de pago) si viene en el payload
+      let permutaDispositivoId: number | null = null;
+      let permutaNotaIngresoId: number | null = null;
+      let montoPermutaBs = 0;
+
+      if (dto.permuta) {
+        const p = dto.permuta;
+        const valorToma = roundMoney(p.valorTomaBs);
+
+        if (valorToma <= 0) {
+          throw new BadRequestException('El valor de toma de la permuta debe ser mayor a 0 Bs.');
+        }
+
+        if (valorToma > totalVentaBs) {
+          throw new BadRequestException(
+            `El valor de la permuta (Bs ${valorToma.toFixed(2)}) no puede exceder el total de la venta (Bs ${totalVentaBs.toFixed(2)}).`,
+          );
+        }
+
+        const imei1 = p.imei1.trim();
+        const imei2 = p.imei2?.trim() || null;
+        const serie = p.numeroSerie?.trim() || `SN-${imei1}`;
+
+        // Validar unicidad previa
+        const existingImei = await tx.dispositivo.findUnique({ where: { imei1 } });
+        if (existingImei) {
+          throw new ConflictException(`El IMEI 1 '${imei1}' del teléfono en permuta ya está registrado en el inventario.`);
+        }
+        if (imei2) {
+          const existingImei2 = await tx.dispositivo.findUnique({ where: { imei2 } });
+          if (existingImei2) {
+            throw new ConflictException(`El IMEI 2 '${imei2}' del teléfono en permuta ya está registrado en el inventario.`);
+          }
+        }
+        const existingSerie = await tx.dispositivo.findUnique({ where: { numeroSerie: serie } });
+        if (existingSerie) {
+          throw new ConflictException(`El número de serie '${serie}' del teléfono en permuta ya está registrado en el inventario.`);
+        }
+
+        // Resolver variante del iPhone en permuta
+        let varianteId = p.varianteId;
+        if (!varianteId && p.nuevaVariante) {
+          const { modeloId, color, capacidadGb, tipoSim } = p.nuevaVariante;
+          const modelo = await tx.modeloDispositivo.findUnique({ where: { id: modeloId } });
+          if (!modelo) throw new NotFoundException(`El modelo con ID ${modeloId} no existe.`);
+          let v = await tx.varianteDispositivo.findFirst({
+            where: { modeloId, color: color.trim(), capacidadGb, tipoSim: tipoSim?.trim() || 'SIM Físico' },
+          });
+          if (!v) {
+            v = await tx.varianteDispositivo.create({
+              data: { modeloId, color: color.trim(), capacidadGb, tipoSim: tipoSim?.trim() || 'SIM Físico' },
+            });
+          }
+          varianteId = v.id;
+        }
+
+        if (!varianteId) {
+          throw new BadRequestException('Debes especificar una variante para el teléfono recibido en permuta.');
+        }
+
+        const varianteDb = await tx.varianteDispositivo.findUnique({
+          where: { id: varianteId },
+          include: { modelo: true },
+        });
+        if (!varianteDb) {
+          throw new NotFoundException(`La variante con ID ${varianteId} no existe.`);
+        }
+        if (varianteDb.modelo.tipo !== 'IPHONE' && !varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE')) {
+          throw new BadRequestException('El módulo de permutas es exclusivo para dispositivos iPhone.');
+        }
+
+        // Proveedor minorista: registrar al cliente de la venta como proveedor de la permuta
+        let proveedor = await tx.proveedor.findFirst({
+          where: {
+            nombre: { equals: dto.cliente.nombreCompleto.trim(), mode: 'insensitive' },
+            telefono: { equals: dto.cliente.telefono.trim() },
+          },
+        });
+        if (!proveedor) {
+          proveedor = await tx.proveedor.create({
+            data: {
+              nombre: dto.cliente.nombreCompleto.trim(),
+              telefono: dto.cliente.telefono.trim(),
+              empresa: 'Cliente Permuta Mostrador',
+              contactoReferencia: 'Permuta en POS',
+            },
+          });
+        }
+
+        // Crear Nota de Ingreso tipo PERMUTA
+        const nota = await tx.notaIngreso.create({
+          data: {
+            proveedorId: proveedor.id,
+            sucursalId,
+            usuarioId,
+            tipoIngreso: 'PERMUTA',
+            numeroComprobante: `PERMUTA-POS-${Date.now().toString().slice(-6)}`,
+            observaciones: `Permuta recibida como forma de pago en venta de mostrador (Cliente: ${dto.cliente.nombreCompleto.trim()})`,
+            totalCostoBs: valorToma,
+            estado: 'REGISTRADA',
+          },
+        });
+
+        // Crear Dispositivo recibido en permuta
+        const precioSugeridoBs = roundMoney(valorToma * 1.15); // margen base del 15%
+        const nuevoDispositivo = await tx.dispositivo.create({
+          data: {
+            varianteId,
+            sucursalId,
+            notaIngresoId: nota.id,
+            numeroSerie: serie,
+            imei1,
+            imei2,
+            condicion: CondicionDispositivo.PERMUTA,
+            porcentajeBateria: p.porcentajeBateria,
+            costoBs: valorToma,
+            costoUsd: 0,
+            precioVentaSugeridoBs: precioSugeridoBs,
+            estadoInventario: EstadoInventario.DISPONIBLE,
+          },
+        });
+
+        permutaDispositivoId = nuevoDispositivo.id;
+        permutaNotaIngresoId = nota.id;
+        montoPermutaBs = valorToma;
+      }
+
+      // 5. Crear la cabecera de la Venta
       const ticketRef = `TK-${Date.now().toString().slice(-6)}`;
+      const saldoACobrar = roundMoney(totalVentaBs - montoPermutaBs);
+      let montoEfectivoBs: number | null = null;
+      let montoDigitalBs: number | null = null;
+
+      if (dto.metodoPagoCodigo === 'MIXTO') {
+        const ef = typeof dto.montoEfectivoMixtoBs === 'number' ? roundMoney(dto.montoEfectivoMixtoBs) : 0;
+        montoEfectivoBs = Math.min(ef, saldoACobrar);
+        montoDigitalBs = roundMoney(saldoACobrar - montoEfectivoBs);
+      } else if (dto.metodoPagoCodigo === 'EFECTIVO') {
+        montoEfectivoBs = saldoACobrar;
+        montoDigitalBs = 0;
+      } else {
+        montoEfectivoBs = 0;
+        montoDigitalBs = saldoACobrar;
+      }
 
       const venta = await tx.venta.create({
         data: {
@@ -317,12 +459,17 @@ export class VentasService {
           clienteId,
           metodoPagoId: metodoPago.id,
           totalVentaBs: roundMoney(totalVentaBs),
+          montoPermutaBs: roundMoney(montoPermutaBs),
+          montoEfectivoBs,
+          montoDigitalBs,
+          permutaDispositivoId,
+          permutaNotaIngresoId,
           comprobanteReferencia: dto.comprobanteReferencia?.trim() || ticketRef,
           comprobanteImagenUrl: dto.comprobanteImagenUrl?.trim() || null,
         },
       });
 
-      // 5. Insertar los detalles con snapshot
+      // 6. Insertar los detalles con snapshot
       for (const det of detallesParaCrear) {
         await tx.detalleVenta.create({
           data: {
@@ -403,7 +550,43 @@ export class VentasService {
         }
       }
 
-      // 3. Marcar venta como ANULADA con auditoría completa
+      // 3. Revertir permuta si la venta tenía un equipo tomado en retoma
+      if (venta.permutaDispositivoId) {
+        const dispPermutado = await tx.dispositivo.findUnique({
+          where: { id: venta.permutaDispositivoId },
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+          },
+        });
+        if (dispPermutado) {
+          if (
+            dispPermutado.estadoInventario === EstadoInventario.VENDIDO ||
+            dispPermutado.detalleVentas.length > 0
+          ) {
+            throw new BadRequestException(
+              'No se puede anular la venta porque el teléfono recibido en permuta ya ha sido vendido a otro cliente.',
+            );
+          }
+          await tx.dispositivo.update({
+            where: { id: dispPermutado.id },
+            data: { estadoInventario: EstadoInventario.DEFECTUOSO },
+          });
+        }
+        if (venta.permutaNotaIngresoId) {
+          await tx.notaIngreso.update({
+            where: { id: venta.permutaNotaIngresoId },
+            data: {
+              estado: 'ANULADA',
+              anuladaEn: new Date(),
+              motivoAnulacion: `Anulación de venta #${venta.id}: ${dto.motivo.trim()}`,
+            },
+          });
+        }
+      }
+
+      // 4. Marcar venta como ANULADA con auditoría completa
       return tx.venta.update({
         where: { id: venta.id },
         data: {

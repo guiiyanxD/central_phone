@@ -524,6 +524,113 @@ describe('VentasService', () => {
         })
       ).rejects.toThrow(ConflictException);
     });
+    it('debe rechazar la venta si el valorTomaBs de la permuta supera el total de la venta', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA });
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' });
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido });
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 1,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 1000,
+        variante: { modelo: { nombreModelo: 'iPhone 13' } },
+      });
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 2000 }],
+          permuta: {
+            varianteId: 1,
+            imei1: '123456789012345',
+            porcentajeBateria: 85,
+            valorTomaBs: 2500,
+          },
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe registrar exitosamente una venta con permuta trade-in y dar de alta el equipo en inventario', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA });
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' });
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido });
+      prisma.dispositivo.findUnique.mockImplementation(async (args: any) => {
+        if (args.where?.id === 10) {
+          return {
+            id: 10,
+            sucursalId: 1,
+            estadoInventario: EstadoInventario.DISPONIBLE,
+            costoBs: 3000,
+            variante: { modelo: { nombreModelo: 'iPhone 15' } },
+          } as any;
+        }
+        return null; // No existe IMEI duplicado
+      });
+
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 2,
+        color: 'Negro',
+        capacidad: '128GB',
+        modelo: { nombreModelo: 'iPhone 12' },
+      });
+      prisma.proveedor.findFirst.mockResolvedValue(null);
+      prisma.proveedor.create.mockResolvedValue({ id: 99, nombre: 'Cliente Permuta: Juan Carlos Perez' });
+      prisma.notaIngreso.create.mockResolvedValue({ id: 55, numeroComprobante: 'PERM-POS-123456' });
+      prisma.dispositivo.create.mockResolvedValue({
+        id: 77,
+        imei1: '123456789012345',
+        condicion: 'PERMUTA',
+        costoBs: 1500,
+        precioVentaSugeridoBs: 1725,
+      });
+      prisma.venta.create.mockResolvedValue({ id: 100 });
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 100,
+        totalVentaBs: 4000,
+        montoPermutaBs: 1500,
+        montoEfectivoBs: 2500,
+        montoDigitalBs: 0,
+        permutaDispositivoId: 77,
+      });
+
+      const resultado = await service.createVenta(usuarioId, sucursalId, {
+        metodoPagoCodigo: 'EFECTIVO',
+        cliente: clienteValido,
+        dispositivos: [{ dispositivoId: 10, precioVentaBs: 4000 }],
+        permuta: {
+          varianteId: 2,
+          imei1: '123456789012345',
+          porcentajeBateria: 85,
+          valorTomaBs: 1500,
+        },
+      });
+
+      expect(prisma.dispositivo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            condicion: 'PERMUTA',
+            costoBs: 1500,
+            precioVentaSugeridoBs: 1725,
+            estadoInventario: EstadoInventario.DISPONIBLE,
+          }),
+        })
+      );
+
+      expect(prisma.venta.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            totalVentaBs: 4000,
+            montoPermutaBs: 1500,
+            montoEfectivoBs: 2500,
+            montoDigitalBs: 0,
+            permutaDispositivoId: 77,
+          }),
+        })
+      );
+
+      expect(resultado.montoPermutaBs).toBe(1500);
+    });
   });
 
   describe('findAll', () => {
@@ -664,6 +771,59 @@ describe('VentasService', () => {
         })
       );
 
+      expect(res.estado).toBe(EstadoVenta.ANULADA);
+    });
+    it('debe rechazar la anulación si el teléfono recibido en permuta ya fue vendido a otro cliente', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 10,
+        estado: EstadoVenta.COMPLETADA,
+        permutaDispositivoId: 50,
+        detalles: [],
+      });
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 50,
+        estadoInventario: EstadoInventario.VENDIDO,
+        detalleVentas: [{ id: 99 }],
+      });
+
+      await expect(
+        service.anularVenta(10, 1, { motivo: 'Devolución de cliente' })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe marcar el teléfono de permuta como DEFECTUOSO y anular su nota de ingreso al anular la venta', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 10,
+        estado: EstadoVenta.COMPLETADA,
+        permutaDispositivoId: 50,
+        permutaNotaIngresoId: 30,
+        detalles: [],
+      });
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 50,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        detalleVentas: [],
+      });
+      prisma.dispositivo.update.mockResolvedValue({ id: 50 });
+      prisma.notaIngreso.update.mockResolvedValue({ id: 30 });
+      prisma.venta.update.mockResolvedValue({
+        id: 10,
+        estado: EstadoVenta.ANULADA,
+        motivoAnulacion: 'Devolución de cliente',
+      });
+
+      const res = await service.anularVenta(10, 1, { motivo: 'Devolución de cliente' });
+
+      expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+        where: { id: 50 },
+        data: { estadoInventario: EstadoInventario.DEFECTUOSO },
+      });
+      expect(prisma.notaIngreso.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 30 },
+          data: expect.objectContaining({ estado: 'ANULADA' }),
+        })
+      );
       expect(res.estado).toBe(EstadoVenta.ANULADA);
     });
   });

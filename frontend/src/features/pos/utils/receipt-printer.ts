@@ -83,6 +83,29 @@ export function printReceipt(completedSale: any) {
     `;
 
   const totalVenta = Number(completedSale.totalVentaBs).toFixed(2);
+  const montoPermuta = Number(completedSale.montoPermutaBs || 0);
+  const saldoCobrado = Number(completedSale.totalVentaBs) - montoPermuta;
+  const totalsHtml = montoPermuta > 0
+    ? `
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin:2px 0;">
+        <span>SUBTOTAL:</span>
+        <span>Bs ${Number(completedSale.totalVentaBs).toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#047857;margin:2px 0;font-weight:bold;">
+        <span>CRÉDITO PERMUTA (TRADE-IN):</span>
+        <span>- Bs ${montoPermuta.toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin:4px 0;border-top:1px dashed #bbb;padding-top:2px;">
+        <span>TOTAL COBRADO:</span>
+        <span>Bs ${saldoCobrado.toFixed(2)}</span>
+      </div>
+    `
+    : `
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin:4px 0;">
+        <span>TOTAL:</span>
+        <span>Bs ${totalVenta}</span>
+      </div>
+    `;
 
   doc.open();
   doc.write(`
@@ -162,10 +185,7 @@ export function printReceipt(completedSale: any) {
 
         <div class="divider"></div>
 
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin:4px 0;">
-          <span>TOTAL:</span>
-          <span>Bs ${totalVenta}</span>
-        </div>
+        ${totalsHtml}
 
         <div style="font-size: 10px; margin-top: 2px;">
           <span>Método de Pago: </span><span class="bold">${completedSale.metodoPago?.nombre || 'Efectivo'}</span>

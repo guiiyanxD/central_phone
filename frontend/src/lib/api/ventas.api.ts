@@ -7,6 +7,16 @@ export interface MetodoPagoItem {
   tipoEstrategia: string;
 }
 
+export interface PermutaTradeInDto {
+  varianteId: number;
+  imei1: string;
+  imei2?: string;
+  numeroSerie?: string;
+  porcentajeBateria: number;
+  detallesFisicos?: string;
+  valorTomaBs: number;
+}
+
 export interface CreateVentaData {
   metodoPagoCodigo: string;
   comprobanteReferencia?: string;
@@ -20,6 +30,8 @@ export interface CreateVentaData {
     cantidad: number;
     precioVentaBs: number;
   }>;
+  permuta?: PermutaTradeInDto;
+  montoEfectivoMixtoBs?: number;
 }
 
 export interface ReporteRentabilidadResponse {

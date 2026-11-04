@@ -87,4 +87,48 @@ describe('receipt-printer Utility', () => {
     expect(content).toContain('7500.00');
     expect(content).toContain('GARANTÍA OFICIAL CENTRALPHONE');
   });
+
+  it('debe reflejar el crédito de permuta (Trade-In) y total cobrado en el ticket térmico', () => {
+    const mockSaleWithTradeIn = {
+      id: 102,
+      comprobanteReferencia: 'TK-102-PERM',
+      fechaHora: '2026-10-22T15:00:00Z',
+      totalVentaBs: 6000,
+      montoPermutaBs: 2000,
+      usuario: { nombre: 'Vendedor Pos' },
+      caja: { sucursal: { nombre: 'Central' } },
+      cliente: { nombreCompleto: 'Ana Belen', telefono: '71122334' },
+      metodoPago: { nombre: 'Efectivo' },
+      detalles: [
+        {
+          tipoItem: 'DISPOSITIVO',
+          precioUnitarioBs: 6000,
+          subtotalBs: 6000,
+          cantidad: 1,
+          dispositivo: {
+            numeroSerie: 'SERIE123',
+            imei1: '123456789012345',
+            variante: {
+              color: 'Azul',
+              capacidadGb: 128,
+              modelo: { nombreModelo: 'iPhone 14' },
+            },
+          },
+        },
+      ],
+    };
+
+    printReceipt(mockSaleWithTradeIn);
+
+    const iframes = document.querySelectorAll('iframe');
+    const iframe = iframes[iframes.length - 1];
+    const content = iframe.contentDocument?.body.innerHTML || '';
+
+    expect(content).toContain('SUBTOTAL:');
+    expect(content).toContain('6000.00');
+    expect(content).toContain('CRÉDITO PERMUTA (TRADE-IN):');
+    expect(content).toContain('- Bs 2000.00');
+    expect(content).toContain('TOTAL COBRADO:');
+    expect(content).toContain('4000.00');
+  });
 });

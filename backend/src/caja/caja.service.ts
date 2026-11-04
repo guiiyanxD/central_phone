@@ -101,14 +101,30 @@ export class CajaService {
 
     let totalVentasEfectivo = 0;
     let totalVentasDigitales = 0;
+    let totalPermutasBs = 0;
 
     for (const v of caja.ventas) {
       if (v.estado === 'ANULADA') continue;
-      const monto = Number(v.totalVentaBs) || 0;
-      if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
-        totalVentasEfectivo = roundMoney(totalVentasEfectivo + monto);
+      const montoTotal = Number(v.totalVentaBs) || 0;
+      const montoPermuta = Number(v.montoPermutaBs) || 0;
+      const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
+      totalPermutasBs = roundMoney(totalPermutasBs + montoPermuta);
+
+      if (v.metodoPago.codigo === 'MIXTO') {
+        const efectivo = Number(v.montoEfectivoBs) || 0;
+        const digital = roundMoney(Math.max(0, saldoCobrado - efectivo));
+        totalVentasEfectivo = roundMoney(totalVentasEfectivo + efectivo);
+        totalVentasDigitales = roundMoney(totalVentasDigitales + digital);
+      } else if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
+        const efectivo = v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
+          ? Number(v.montoEfectivoBs)
+          : saldoCobrado;
+        totalVentasEfectivo = roundMoney(totalVentasEfectivo + efectivo);
       } else {
-        totalVentasDigitales = roundMoney(totalVentasDigitales + monto);
+        const digital = v.montoDigitalBs !== null && v.montoDigitalBs !== undefined
+          ? Number(v.montoDigitalBs)
+          : saldoCobrado;
+        totalVentasDigitales = roundMoney(totalVentasDigitales + digital);
       }
     }
 
@@ -145,6 +161,7 @@ export class CajaService {
         totalRecaudadoTotal,
         totalGastosEfectivo,
         totalGastosOtros,
+        totalPermutasBs,
         saldoEfectivoEnCaja,
         cantidadVentas: caja.ventas.filter((v) => v.estado !== 'ANULADA').length,
         cantidadGastos: caja.gastosOperativos.length + (caja.gastosDispositivo?.length || 0),
@@ -256,8 +273,24 @@ export class CajaService {
     const montoInicial = roundMoney(caja.montoInicialEfectivo);
     const ventasEfectivo = roundMoney(
       caja.ventas
-        .filter((v) => v.estado !== 'ANULADA' && this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo))
-        .reduce((sum, v) => sum + Number(v.totalVentaBs), 0)
+        .filter((v) => v.estado !== 'ANULADA')
+        .reduce((sum, v) => {
+          const montoTotal = Number(v.totalVentaBs) || 0;
+          const montoPermuta = Number(v.montoPermutaBs) || 0;
+          const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
+
+          if (v.metodoPago.codigo === 'MIXTO') {
+            return sum + (Number(v.montoEfectivoBs) || 0);
+          }
+          if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
+            const efectivo =
+              v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
+                ? Number(v.montoEfectivoBs)
+                : saldoCobrado;
+            return sum + efectivo;
+          }
+          return sum;
+        }, 0)
     );
 
     const gastosOperativosEfectivo = roundMoney(
@@ -606,6 +639,7 @@ export class CajaService {
     const montoInicial = roundMoney(caja.montoInicialEfectivo);
     let totalVentasEfectivo = 0;
     let totalVentasDigitales = 0;
+    let totalPermutasBs = 0;
     let totalCostoMercaderia = 0;
 
     const isAdmin = userRole === 'ADMIN';
@@ -620,10 +654,28 @@ export class CajaService {
       const gananciaNetaBs = roundMoney(totalVentaBs - costoVentaBs);
 
       if (v.estado !== 'ANULADA') {
-        if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
-          totalVentasEfectivo = roundMoney(totalVentasEfectivo + totalVentaBs);
+        const montoTotal = Number(v.totalVentaBs) || 0;
+        const montoPermuta = Number(v.montoPermutaBs) || 0;
+        const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
+        totalPermutasBs = roundMoney(totalPermutasBs + montoPermuta);
+
+        if (v.metodoPago.codigo === 'MIXTO') {
+          const efectivo = Number(v.montoEfectivoBs) || 0;
+          const digital = roundMoney(Math.max(0, saldoCobrado - efectivo));
+          totalVentasEfectivo = roundMoney(totalVentasEfectivo + efectivo);
+          totalVentasDigitales = roundMoney(totalVentasDigitales + digital);
+        } else if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
+          const efectivo =
+            v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
+              ? Number(v.montoEfectivoBs)
+              : saldoCobrado;
+          totalVentasEfectivo = roundMoney(totalVentasEfectivo + efectivo);
         } else {
-          totalVentasDigitales = roundMoney(totalVentasDigitales + totalVentaBs);
+          const digital =
+            v.montoDigitalBs !== null && v.montoDigitalBs !== undefined
+              ? Number(v.montoDigitalBs)
+              : saldoCobrado;
+          totalVentasDigitales = roundMoney(totalVentasDigitales + digital);
         }
         totalCostoMercaderia = roundMoney(totalCostoMercaderia + costoVentaBs);
       }
@@ -691,6 +743,7 @@ export class CajaService {
         totalGastosEfectivo,
         totalGastosOtros,
         totalGastosTotal,
+        totalPermutasBs,
         saldoTeoricoEfectivo,
         montoFinalEfectivo:
           caja.montoFinalEfectivo !== null

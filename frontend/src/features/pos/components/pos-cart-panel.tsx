@@ -9,6 +9,7 @@ import {
   Banknote,
   QrCode,
   Layers,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { CartItem } from '../types';
 import { getImeiTerminalParts } from '../utils/formatters';
+import { PermutaTradeInDto } from '@/lib/api/ventas.api';
 
 interface PosCartPanelProps {
   cart: CartItem[];
@@ -45,6 +47,15 @@ interface PosCartPanelProps {
   saleError: string | null;
   isSubmittingSale: boolean;
   onProcessCheckout: () => void;
+  permutaTradeIn?: PermutaTradeInDto | null;
+  permutaSummary?: {
+    modeloNombre: string;
+    varianteDetalle: string;
+    imei1: string;
+    valorTomaBs: number;
+  } | null;
+  onOpenModalPermuta?: () => void;
+  onRemovePermuta?: () => void;
 }
 
 export function PosCartPanel({
@@ -75,19 +86,27 @@ export function PosCartPanel({
   saleError,
   isSubmittingSale,
   onProcessCheckout,
+  permutaTradeIn,
+  permutaSummary,
+  onOpenModalPermuta,
+  onRemovePermuta,
 }: PosCartPanelProps) {
-  // Validación de cobro en efectivo: no permitir completar si entregó menos del total
+  const montoPermuta = permutaTradeIn?.valorTomaBs || 0;
+  const saldoACobrar = Math.max(0, totalBs - montoPermuta);
+
+  // Validación de cobro en efectivo: no permitir completar si entregó menos del saldo a cobrar
   const isCashInsufficient =
+    saldoACobrar > 0 &&
     metodoPagoCodigo === 'EFECTIVO' &&
     typeof montoRecibidoBs === 'number' &&
     montoRecibidoBs > 0 &&
-    montoRecibidoBs < totalBs;
+    montoRecibidoBs < saldoACobrar;
 
   // En pago mixto, calcular saldo restante a transferir por QR
   const saldoQrBs =
     metodoPagoCodigo === 'MIXTO' && typeof montoEfectivoMixtoBs === 'number'
-      ? Math.max(0, totalBs - montoEfectivoMixtoBs)
-      : totalBs;
+      ? Math.max(0, saldoACobrar - montoEfectivoMixtoBs)
+      : saldoACobrar;
 
   return (
     <Card className="border-slate-200 shadow-card flex flex-col h-full max-h-[calc(100vh-6.5rem)] md:max-h-[calc(100vh-6.5rem)] overflow-hidden bg-white">
@@ -300,6 +319,62 @@ export function PosCartPanel({
 
       {/* 3. PIE DE PÁGINA PEGADO AL FONDO (STICKY BOTTOM SUMMARY) (shrink-0) */}
       <div className="shrink-0 border-t border-slate-200 bg-slate-50/95 backdrop-blur-sm p-3.5 space-y-3 shadow-[0_-4px_16px_rgba(0,0,0,0.05)] z-10 max-h-[48vh] overflow-y-auto">
+        {/* Sección de Permuta (Trade-In) */}
+        {cart.length > 0 && (
+          <div className="space-y-1.5">
+            {!permutaTradeIn && onOpenModalPermuta ? (
+              <button
+                type="button"
+                onClick={onOpenModalPermuta}
+                className="w-full py-2 px-2.5 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Aplicar Permuta (Trade-In como crédito)</span>
+              </button>
+            ) : permutaTradeIn && permutaSummary ? (
+              <div className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50/80 space-y-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                    <span className="text-[11px] font-bold text-emerald-900">
+                      Permuta: {permutaSummary.modeloNombre}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold font-mono text-emerald-700">
+                    - Bs {permutaTradeIn.valorTomaBs.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-emerald-800">
+                  <span>
+                    {permutaSummary.varianteDetalle} • IMEI: ...{permutaTradeIn.imei1.slice(-5)}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {onOpenModalPermuta && (
+                      <button
+                        type="button"
+                        onClick={onOpenModalPermuta}
+                        className="font-medium underline hover:text-emerald-950 px-1"
+                      >
+                        Editar
+                      </button>
+                    )}
+                    {onRemovePermuta && (
+                      <button
+                        type="button"
+                        onClick={onRemovePermuta}
+                        className="font-medium text-rose-600 hover:text-rose-800 px-1"
+                        title="Quitar permuta del ticket"
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {/* Selector de Método de Cobro (Efectivo / QR / Mixto) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -370,7 +445,7 @@ export function PosCartPanel({
                   Efectivo Recibido en Gaveta
                 </span>
                 <span className="text-slate-500 font-mono">
-                  Total: Bs {totalBs.toFixed(2)}
+                  {montoPermuta > 0 ? `Saldo: Bs ${saldoACobrar.toFixed(2)}` : `Total: Bs ${saldoACobrar.toFixed(2)}`}
                 </span>
               </div>
 
@@ -378,10 +453,10 @@ export function PosCartPanel({
               <div className="flex flex-wrap gap-1">
                 <button
                   type="button"
-                  onClick={() => setMontoRecibidoBs(totalBs)}
+                  onClick={() => setMontoRecibidoBs(saldoACobrar)}
                   className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-semibold text-slate-800 transition-colors border border-slate-200 active:scale-95"
                 >
-                  Exacto (Bs {totalBs.toFixed(2)})
+                  Exacto (Bs {saldoACobrar.toFixed(2)})
                 </button>
                 {[20, 50, 100, 200].map((billete) => (
                   <button
@@ -400,7 +475,7 @@ export function PosCartPanel({
                 type="number"
                 step="0.50"
                 min="0"
-                max={totalBs * 10}
+                max={Math.max(100, saldoACobrar * 10)}
                 placeholder="Ingresa monto entregado por el cliente..."
                 value={montoRecibidoBs || ''}
                 onChange={(e) => setMontoRecibidoBs(parseFloat(e.target.value) || '')}
@@ -412,18 +487,18 @@ export function PosCartPanel({
                 <div
                   className={cn(
                     'p-2 rounded-lg border flex items-center justify-between font-mono text-xs transition-colors',
-                    montoRecibidoBs >= totalBs
+                    montoRecibidoBs >= saldoACobrar
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                       : 'bg-amber-50 border-amber-200 text-amber-900'
                   )}
                 >
                   <span className="font-semibold font-sans text-[11px]">
-                    {montoRecibidoBs >= totalBs ? 'Vuelto a Entregar:' : 'Monto Faltante:'}
+                    {montoRecibidoBs >= saldoACobrar ? 'Vuelto a Entregar:' : 'Monto Faltante:'}
                   </span>
                   <span className="text-sm font-bold">
-                    {montoRecibidoBs >= totalBs
-                      ? `Bs ${(montoRecibidoBs - totalBs).toFixed(2)}`
-                      : `Faltan Bs ${(totalBs - montoRecibidoBs).toFixed(2)}`}
+                    {montoRecibidoBs >= saldoACobrar
+                      ? `Bs ${(montoRecibidoBs - saldoACobrar).toFixed(2)}`
+                      : `Faltan Bs ${(saldoACobrar - montoRecibidoBs).toFixed(2)}`}
                   </span>
                 </div>
               )}
@@ -514,7 +589,7 @@ export function PosCartPanel({
                     type="number"
                     step="1"
                     min="0"
-                    max={totalBs}
+                    max={saldoACobrar}
                     placeholder="Bs en gaveta..."
                     value={montoEfectivoMixtoBs || ''}
                     onChange={(e) =>
@@ -557,12 +632,28 @@ export function PosCartPanel({
 
         {/* Barra de Total y Botón de Finalización Inamovible */}
         <div className="pt-1 space-y-2">
+          {montoPermuta > 0 && (
+            <div className="space-y-1 text-xs border-b border-slate-200 pb-2">
+              <div className="flex justify-between text-slate-500">
+                <span>Subtotal Items:</span>
+                <span className="font-mono">Bs {totalBs.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-emerald-700">
+                <span className="flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3" />
+                  Crédito Permuta:
+                </span>
+                <span className="font-mono">- Bs {montoPermuta.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between items-baseline">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Total a Cobrar:
+              {montoPermuta > 0 ? 'Saldo a Cobrar:' : 'Total a Cobrar:'}
             </span>
             <span className="text-2xl font-bold font-mono text-slate-900 tracking-tight">
-              Bs {totalBs.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              Bs {saldoACobrar.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -574,7 +665,9 @@ export function PosCartPanel({
             onClick={onProcessCheckout}
           >
             <Banknote className="mr-2 h-4 w-4" />
-            Finalizar Venta e Imprimir (F12)
+            {saldoACobrar === 0
+              ? 'Finalizar Venta (Cubierto 100% por Permuta) (F12)'
+              : 'Finalizar Venta e Imprimir (F12)'}
           </Button>
         </div>
       </div>
