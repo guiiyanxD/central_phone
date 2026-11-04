@@ -1,13 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { PackagePlus, History, Boxes, Truck, RefreshCw } from 'lucide-react';
+import { PackagePlus, History, Boxes, Truck, RefreshCw, Plus } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ interface RecepcionHeaderProps {
   setNumeroComprobante: (val: string) => void;
   observaciones: string;
   setObservaciones: (val: string) => void;
+  onOpenCrearProveedor?: () => void;
 }
 
 export function RecepcionHeader({
@@ -46,7 +48,22 @@ export function RecepcionHeader({
   setNumeroComprobante,
   observaciones,
   setObservaciones,
+  onOpenCrearProveedor,
 }: RecepcionHeaderProps) {
+  const proveedorOptions: SearchableSelectOption[] = useMemo(() => {
+    return proveedores.map((p) => {
+      const mainLabel = p.empresa || `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`;
+      const subLabel = p.empresa
+        ? `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`
+        : (p.contactoReferencia || '');
+      return {
+        value: p.id,
+        label: mainLabel,
+        sublabel: subLabel || undefined,
+        badge: p.telefono ? `Tel: ${p.telefono}` : undefined,
+      };
+    });
+  }, [proveedores]);
   return (
     <div className="space-y-6">
       {/* Encabezado Principal */}
@@ -188,24 +205,28 @@ export function RecepcionHeader({
           </CardHeader>
           <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <Label required>Proveedor Mayorista</Label>
-              <Select
+              <div className="flex items-center justify-between mb-1">
+                <Label required className="mb-0">Proveedor Mayorista</Label>
+                {onOpenCrearProveedor && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] px-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-semibold gap-1"
+                    onClick={onOpenCrearProveedor}
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Nuevo</span>
+                  </Button>
+                )}
+              </div>
+              <SearchableSelect
                 value={proveedorId}
-                onChange={(e) => setProveedorId(Number(e.target.value))}
-              >
-                {proveedores.map((p) => {
-                  const label = p.empresa
-                    ? `${p.empresa} (${p.nombre}${p.apellido ? ` ${p.apellido}` : ''})`
-                    : `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}${
-                        p.contactoReferencia ? ` - ${p.contactoReferencia}` : ''
-                      }`;
-                  return (
-                    <option key={p.id} value={p.id}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </Select>
+                onChange={(val) => setProveedorId(Number(val))}
+                placeholder="Buscar proveedor..."
+                searchPlaceholder="Escribe nombre o empresa..."
+                options={proveedorOptions}
+              />
             </div>
 
             <div>

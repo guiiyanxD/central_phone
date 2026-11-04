@@ -43,6 +43,10 @@ export class PermutaTradeInDto {
   @IsNotEmpty({ message: 'El porcentaje de salud de batería es obligatorio.' })
   porcentajeBateria: number;
 
+  @IsString()
+  @IsOptional()
+  detallesFisicos?: string;
+
   @IsNumber({}, { message: 'El valor de toma acordado en Bs debe ser numérico.' })
   @Min(0.01, { message: 'El valor de toma en permuta debe ser mayor a 0.' })
   valorTomaBs: number;

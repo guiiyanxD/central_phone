@@ -422,6 +422,7 @@ export class VentasService {
             imei2,
             condicion: CondicionDispositivo.PERMUTA,
             porcentajeBateria: p.porcentajeBateria,
+            detallesFisicos: p.detallesFisicos?.trim() || null,
             costoBs: valorToma,
             costoUsd: 0,
             precioVentaSugeridoBs: precioSugeridoBs,
@@ -497,6 +498,11 @@ export class VentasService {
             },
           },
           metodoPago: true,
+          permutaDispositivo: {
+            include: {
+              variante: { include: { modelo: true } },
+            },
+          },
           detalles: {
             include: {
               dispositivo: {

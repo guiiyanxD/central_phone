@@ -76,6 +76,10 @@ export class DispositivoPermutaDto {
   @IsNumber({}, { message: 'El costo de compra/toma en Bs debe ser numérico.' })
   @Min(1, { message: 'El costo de compra en Bs debe ser mayor a 0.' })
   costoBs: number;
+
+  @IsString()
+  @IsOptional()
+  detallesFisicos?: string;
 }
 
 export class CreatePermutaDto {

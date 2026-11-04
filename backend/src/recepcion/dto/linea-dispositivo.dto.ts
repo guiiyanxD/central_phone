@@ -73,4 +73,8 @@ export class LineaDispositivoDto {
   @IsNumber({}, { message: 'El porcentaje de batería debe ser numérico.' })
   @IsOptional()
   porcentajeBateria?: number;
+
+  @IsString()
+  @IsOptional()
+  detallesFisicos?: string;
 }

@@ -95,6 +95,15 @@ describe('receipt-printer Utility', () => {
       fechaHora: '2026-10-22T15:00:00Z',
       totalVentaBs: 6000,
       montoPermutaBs: 2000,
+      permutaDispositivo: {
+        imei1: '358999887766554',
+        porcentajeBateria: 87,
+        variante: {
+          color: 'Negro',
+          capacidadGb: 128,
+          modelo: { nombreModelo: 'iPhone 11' },
+        },
+      },
       usuario: { nombre: 'Vendedor Pos' },
       caja: { sucursal: { nombre: 'Central' } },
       cliente: { nombreCompleto: 'Ana Belen', telefono: '71122334' },
@@ -124,6 +133,10 @@ describe('receipt-printer Utility', () => {
     const iframe = iframes[iframes.length - 1];
     const content = iframe.contentDocument?.body.innerHTML || '';
 
+    expect(content).toContain('*** RETOMA / PERMUTA DE CLIENTE ***');
+    expect(content).toContain('iPhone 11 (Negro 128GB)');
+    expect(content).toContain('358999887766554');
+    expect(content).toContain('87%');
     expect(content).toContain('SUBTOTAL:');
     expect(content).toContain('6000.00');
     expect(content).toContain('CRÉDITO PERMUTA (TRADE-IN):');

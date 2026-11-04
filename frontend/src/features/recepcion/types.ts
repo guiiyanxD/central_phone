@@ -19,6 +19,8 @@ export interface TelefonoRow {
   imei2: string;
   numeroSerie: string;
   condicion: 'NUEVO' | 'USADO' | 'OPEN_BOX';
+  porcentajeBateria?: number;
+  detallesFisicos?: string;
   costoBs: number;
   costoUsd: number;
   precioVentaSugeridoBs: number;

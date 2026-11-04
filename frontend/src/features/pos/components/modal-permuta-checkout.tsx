@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 import { PermutaTradeInDto } from '@/lib/api/ventas.api';
 
 interface ModalPermutaCheckoutProps {
@@ -56,6 +57,26 @@ export function ModalPermutaCheckout({
   // Obtener variantes del modelo seleccionado
   const selectedModelo = iphoneModelos.find((m) => m.id === Number(selectedModeloId));
   const variantesDisponibles = selectedModelo?.variantes || [];
+
+  const modeloOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return iphoneModelos.map((m) => ({
+      value: m.id,
+      label: m.nombreModelo,
+      badge: `${m.variantes?.length || 0} var.`,
+    }));
+  }, [iphoneModelos]);
+
+  const varianteOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return variantesDisponibles.map((v: any) => {
+      const cap = v.capacidadGb > 0 ? `${v.capacidadGb}GB` : 'N/A';
+      return {
+        value: v.id,
+        label: `${v.color} - ${cap}`,
+        sublabel: v.tipoSim ? `SIM: ${v.tipoSim}` : undefined,
+        badge: cap,
+      };
+    });
+  }, [variantesDisponibles]);
 
   // Sincronizar o cargar datos iniciales si se abre en modo edición
   useEffect(() => {
@@ -208,41 +229,30 @@ export function ModalPermutaCheckout({
             <Label htmlFor="permuta-modelo" className="text-xs font-semibold text-slate-800">
               Modelo iPhone *
             </Label>
-            <Select
+            <SearchableSelect
               id="permuta-modelo"
               value={selectedModeloId}
-              onChange={(e) => setSelectedModeloId(Number(e.target.value))}
-              className="text-xs h-9 bg-white"
-            >
-              {iphoneModelos.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nombreModelo}
-                </option>
-              ))}
-            </Select>
+              onChange={(val) => setSelectedModeloId(Number(val))}
+              placeholder="Buscar modelo iPhone..."
+              searchPlaceholder="Escribe modelo (ej: 13, 14 Pro)..."
+              options={modeloOptions}
+            />
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="permuta-variante" className="text-xs font-semibold text-slate-800">
               Variante (Color / Almacenamiento) *
             </Label>
-            <Select
+            <SearchableSelect
               id="permuta-variante"
               value={selectedVarianteId || ''}
-              onChange={(e) => setSelectedVarianteId(Number(e.target.value))}
-              className="text-xs h-9 bg-white"
+              onChange={(val) => setSelectedVarianteId(Number(val))}
+              placeholder="Buscar variante..."
+              searchPlaceholder="Escribe color o GB..."
+              options={varianteOptions}
               disabled={variantesDisponibles.length === 0}
-            >
-              {variantesDisponibles.length === 0 ? (
-                <option value="">Sin variantes registradas</option>
-              ) : (
-                variantesDisponibles.map((v: any) => (
-                  <option key={v.id} value={v.id}>
-                    {v.color} - {v.capacidadGb > 0 ? `${v.capacidadGb}GB` : 'N/A'} {v.tipoSim ? `(${v.tipoSim})` : ''}
-                  </option>
-                ))
-              )}
-            </Select>
+              emptyMessage="Sin variantes registradas"
+            />
           </div>
         </div>
 

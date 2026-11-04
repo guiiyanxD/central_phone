@@ -139,6 +139,8 @@ export class RecepcionService {
         costoBs: number;
         costoUsd: number;
         precioVentaSugeridoBs: number;
+        porcentajeBateria?: number | null;
+        detallesFisicos?: string | null;
       }> = [];
 
       for (const d of dispositivos) {
@@ -213,6 +215,8 @@ export class RecepcionService {
           costoBs: d.costoBs,
           costoUsd: d.costoUsd,
           precioVentaSugeridoBs: precioSugerido,
+          porcentajeBateria: d.porcentajeBateria ? Number(d.porcentajeBateria) : null,
+          detallesFisicos: d.detallesFisicos?.trim() || null,
         });
       }
 
@@ -251,6 +255,8 @@ export class RecepcionService {
             costoBs: disp.costoBs,
             costoUsd: disp.costoUsd,
             precioVentaSugeridoBs: disp.precioVentaSugeridoBs,
+            porcentajeBateria: disp.porcentajeBateria,
+            detallesFisicos: disp.detallesFisicos,
             estadoInventario: EstadoInventario.DISPONIBLE,
           },
         });
@@ -993,6 +999,8 @@ export class RecepcionService {
                 imei1,
                 imei2,
                 condicion: d.condicion || CondicionDispositivo.NUEVO,
+                porcentajeBateria: d.porcentajeBateria ? Number(d.porcentajeBateria) : null,
+                detallesFisicos: d.detallesFisicos?.trim() || null,
                 costoBs: d.costoBs,
                 costoUsd: d.costoUsd,
                 precioVentaSugeridoBs: precioSugerido,
@@ -1312,6 +1320,7 @@ export class RecepcionService {
           imei2,
           condicion: CondicionDispositivo.PERMUTA,
           porcentajeBateria: dispositivo.porcentajeBateria,
+          detallesFisicos: dispositivo.detallesFisicos?.trim() || null,
           costoBs,
           costoUsd: 0,
           precioVentaSugeridoBs: precioSugeridoBs,

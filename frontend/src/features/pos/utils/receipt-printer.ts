@@ -85,6 +85,54 @@ export function printReceipt(completedSale: any) {
   const totalVenta = Number(completedSale.totalVentaBs).toFixed(2);
   const montoPermuta = Number(completedSale.montoPermutaBs || 0);
   const saldoCobrado = Number(completedSale.totalVentaBs) - montoPermuta;
+
+  const permutaDisp = completedSale.permutaDispositivo;
+  const permutaSum = completedSale.permutaSummary;
+  const permutaDto = completedSale.permuta;
+
+  const permutaModelo =
+    permutaDisp?.variante?.modelo?.nombreModelo ||
+    permutaSum?.modeloNombre ||
+    'iPhone';
+
+  const permutaColor = permutaDisp?.variante?.color || '';
+  const permutaCap =
+    permutaDisp?.variante?.capacidadGb > 0
+      ? `${permutaDisp.variante.capacidadGb}GB`
+      : '';
+  const permutaVarianteDetalle =
+    [permutaColor, permutaCap].filter(Boolean).join(' ') ||
+    permutaSum?.varianteDetalle ||
+    '';
+
+  const permutaImei =
+    permutaDisp?.imei1 ||
+    permutaSum?.imei1 ||
+    permutaDto?.imei1 ||
+    '';
+
+  const permutaBateria =
+    permutaDisp?.porcentajeBateria ||
+    permutaDto?.porcentajeBateria ||
+    null;
+
+  const permutaHtml =
+    montoPermuta > 0
+      ? `
+        <div class="divider"></div>
+        <div style="border: 1px dashed #000; padding: 4px 6px; margin: 4px 0; font-size: 9.5px; background: #fafafa;">
+          <div style="font-weight: bold; text-align: center; letter-spacing: 0.5px;">*** RETOMA / PERMUTA DE CLIENTE ***</div>
+          <div style="margin-top: 2px;">Equipo: <span class="bold">${permutaModelo}${permutaVarianteDetalle ? ` (${permutaVarianteDetalle})` : ''}</span></div>
+          <div>IMEI 1: <span class="bold">${permutaImei || 'S/N'}</span></div>
+          ${permutaBateria ? `<div>Salud Batería: <span class="bold">${permutaBateria}%</span></div>` : ''}
+          <div style="display:flex; justify-content:space-between; margin-top:2px; border-top: 1px dotted #ccc; padding-top: 2px;">
+            <span>Crédito Aplicado:</span>
+            <span class="bold">- Bs ${montoPermuta.toFixed(2)}</span>
+          </div>
+        </div>
+      `
+      : '';
+
   const totalsHtml = montoPermuta > 0
     ? `
       <div style="display:flex;justify-content:space-between;font-size:11px;margin:2px 0;">
@@ -186,6 +234,7 @@ export function printReceipt(completedSale: any) {
         <div class="divider"></div>
 
         ${totalsHtml}
+        ${permutaHtml}
 
         <div style="font-size: 10px; margin-top: 2px;">
           <span>Método de Pago: </span><span class="bold">${completedSale.metodoPago?.nombre || 'Efectivo'}</span>

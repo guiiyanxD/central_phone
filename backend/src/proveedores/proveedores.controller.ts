@@ -36,7 +36,7 @@ export class ProveedoresController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
   async create(@Body() createProveedorDto: CreateProveedorDto) {
     return this.proveedoresService.create(createProveedorDto);
   }

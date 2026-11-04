@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer } from 'lucide-react';
+import { Printer, RefreshCw } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 
@@ -28,6 +28,23 @@ export function ModalTicketVenta({
   }, [sale, onPrintReceipt]);
 
   if (!sale) return null;
+
+  const permutaDisp = sale.permutaDispositivo;
+  const permutaSum = sale.permutaSummary;
+  const permutaDto = sale.permuta;
+
+  const permutaModeloDisplay =
+    permutaDisp?.variante?.modelo?.nombreModelo
+      ? `${permutaDisp.variante.modelo.nombreModelo} ${permutaDisp.variante.color || ''} ${permutaDisp.variante.capacidadGb > 0 ? `${permutaDisp.variante.capacidadGb}GB` : ''}`
+      : permutaSum?.modeloNombre
+      ? `${permutaSum.modeloNombre} ${permutaSum.varianteDetalle || ''}`
+      : 'iPhone';
+
+  const permutaImeiDisplay =
+    permutaDisp?.imei1 || permutaSum?.imei1 || permutaDto?.imei1 || 'S/N';
+
+  const permutaBateriaDisplay =
+    permutaDisp?.porcentajeBateria || permutaDto?.porcentajeBateria || null;
 
   return (
     <Modal
@@ -124,6 +141,26 @@ export function ModalTicketVenta({
               <span className="text-slate-900">
                 Bs {Number(sale.totalVentaBs).toFixed(2)}
               </span>
+            </div>
+          )}
+
+          {Number(sale.montoPermutaBs) > 0 && (
+            <div className="p-2.5 rounded-lg border border-dashed border-emerald-400 bg-emerald-50/70 text-[11px] space-y-1">
+              <div className="flex items-center justify-between font-bold text-emerald-950">
+                <span className="flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 text-emerald-700" />
+                  Equipo Recibido en Permuta
+                </span>
+                <span className="font-mono text-emerald-800">
+                  - Bs {Number(sale.montoPermutaBs).toFixed(2)}
+                </span>
+              </div>
+              <p className="font-semibold text-slate-900">
+                {permutaModeloDisplay}
+              </p>
+              <p className="font-mono text-[10px] text-slate-600">
+                IMEI 1: {permutaImeiDisplay} {permutaBateriaDisplay ? `• ${permutaBateriaDisplay}% Batería` : ''}
+              </p>
             </div>
           )}
         </div>

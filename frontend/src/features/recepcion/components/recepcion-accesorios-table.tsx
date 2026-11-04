@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { AccesorioRow } from '../types';
 
@@ -41,6 +42,15 @@ export function RecepcionAccesoriosTable({
     }
     prevLengthRef.current = accesorios.length;
   }, [accesorios.length]);
+
+  const accesorioOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return accesoriosCatalogo.map((acc) => ({
+      value: acc.id,
+      label: acc.nombre,
+      group: acc.categoria?.nombre || 'General',
+      sublabel: acc.descripcion || undefined,
+    }));
+  }, [accesoriosCatalogo]);
 
   return (
     <Card className="border-slate-200 overflow-hidden">
@@ -107,25 +117,21 @@ export function RecepcionAccesoriosTable({
               <div className="sm:col-span-2 space-y-1">
                 <Label htmlFor={`acc-base-${a.id}`} required>Accesorio Base</Label>
                 <div className="flex gap-2">
-                  <Select
+                  <SearchableSelect
                     id={`acc-base-${a.id}`}
                     className="flex-1"
                     value={a.accesorioId || ''}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       onUpdateAccesorio(
                         a.id,
                         'accesorioId',
-                        e.target.value ? Number(e.target.value) : null
+                        val ? Number(val) : null
                       )
                     }
-                  >
-                    <option value="">-- Seleccionar Accesorio --</option>
-                    {accesoriosCatalogo.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.nombre} ({acc.categoria?.nombre || 'General'})
-                      </option>
-                    ))}
-                  </Select>
+                    placeholder="-- Buscar Accesorio --"
+                    searchPlaceholder="Escribe funda, cargador, cable..."
+                    options={accesorioOptions}
+                  />
 
                   <Button
                     type="button"

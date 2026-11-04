@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { TelefonoRow } from '../types';
 
@@ -61,6 +62,29 @@ export function RecepcionTelefonosTable({
     }
     prevLengthRef.current = telefonos.length;
   }, [telefonos.length]);
+
+  const varianteOptions: SearchableSelectOption[] = React.useMemo(() => {
+    const list: SearchableSelectOption[] = [];
+    modelos.forEach((m) => {
+      const modelTitle = `${m.nombreModelo || m.nombre} (${m.tipo || 'IPHONE'})`;
+      m.variantes?.forEach((v: any) => {
+        const cap =
+          v.capacidadGb > 0
+            ? v.capacidadGb >= 1024
+              ? `${v.capacidadGb / 1024}TB`
+              : `${v.capacidadGb}GB`
+            : '0 GB';
+        list.push({
+          value: v.id,
+          label: `${m.nombreModelo || m.nombre} - ${v.color} (${cap})`,
+          group: modelTitle,
+          sublabel: v.tipoSim ? `SIM: ${v.tipoSim}` : undefined,
+          badge: cap,
+        });
+      });
+    });
+    return list;
+  }, [modelos]);
 
   const handleRowKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Shift') {
@@ -158,35 +182,21 @@ export function RecepcionTelefonosTable({
                 <div className="md:col-span-2 space-y-1">
                   <Label htmlFor={`tel-variante-${t.id}`} required>Modelo y Variante</Label>
                   <div className="flex gap-2">
-                    <Select
+                    <SearchableSelect
                       id={`tel-variante-${t.id}`}
                       className="flex-1"
                       value={t.varianteId || ''}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         onUpdateTelefono(
                           t.id,
                           'varianteId',
-                          e.target.value ? Number(e.target.value) : null
+                          val ? Number(val) : null
                         )
                       }
-                    >
-                      <option value="">-- Seleccionar Variante --</option>
-                      {modelos.map((m) => (
-                        <optgroup key={m.id} label={`${m.nombreModelo || m.nombre} (${m.tipo || 'IPHONE'})`}>
-                          {m.variantes.map((v: any) => (
-                            <option key={v.id} value={v.id}>
-                              {m.nombreModelo || m.nombre} [{v.tipoSim}] - {v.color} (
-                              {v.capacidadGb > 0
-                                ? v.capacidadGb >= 1024
-                                  ? `${v.capacidadGb / 1024}TB`
-                                  : `${v.capacidadGb}GB`
-                                : '0 GB'}
-                              )
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </Select>
+                      placeholder="-- Buscar Modelo y Variante --"
+                      searchPlaceholder="Escribe modelo, color o GB..."
+                      options={varianteOptions}
+                    />
 
                     <Button
                       type="button"
@@ -358,6 +368,20 @@ export function RecepcionTelefonosTable({
                     value={t.precioVentaSugeridoBs || ''}
                     onChange={(e) =>
                       onUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
+                    }
+                  />
+                </div>
+
+                {/* Detalles Físicos / Observaciones */}
+                <div className="md:col-span-3">
+                  <Label htmlFor={`tel-detalles-${t.id}`}>Detalles Físicos / Observaciones (Opcional)</Label>
+                  <Input
+                    id={`tel-detalles-${t.id}`}
+                    placeholder="Ej: Pantalla original sin rayas, detalle leve en esquina, batería al 89%"
+                    value={t.detallesFisicos || ''}
+                    maxLength={200}
+                    onChange={(e) =>
+                      onUpdateTelefono(t.id, 'detallesFisicos', e.target.value)
                     }
                   />
                 </div>

@@ -20,6 +20,7 @@ import { RecepcionHistorialTable } from '@/features/recepcion/components/recepci
 import { ModalAuditoriaRecepcion } from '@/features/recepcion/components/modal-auditoria-recepcion';
 import { ModalConfirmarGuardado } from '@/features/recepcion/components/modal-confirmar-guardado';
 import { ModalAnularRecepcion } from '@/features/recepcion/components/modal-anular-recepcion';
+import { ModalCrearProveedorInline } from '@/features/recepcion/components/modal-crear-proveedor-inline';
 import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
@@ -79,6 +80,15 @@ export default function RecepcionMercaderiaPage() {
   const [sucursalId, setSucursalId] = useState<number>(user?.sucursal?.id || 1);
   const [numeroComprobante, setNumeroComprobante] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
+  const [modalCrearProveedorOpen, setModalCrearProveedorOpen] = useState(false);
+
+  const handleProveedorCreado = (nuevoProveedor: any) => {
+    setProveedores((prev) => [nuevoProveedor, ...prev]);
+    setProveedorId(nuevoProveedor.id);
+    setSuccessFeedback(
+      `Proveedor '${nuevoProveedor.empresa || nuevoProveedor.nombre}' registrado correctamente.`
+    );
+  };
 
   // Filas dinámicas
   const [telefonos, setTelefonos] = useState<TelefonoRow[]>([
@@ -273,6 +283,7 @@ export default function RecepcionMercaderiaPage() {
             imei1: d.imei1 || '',
             imei2: d.imei2 || '',
             condicion: d.condicion || 'NUEVO',
+            detallesFisicos: d.detallesFisicos || '',
             costoBs: Number(d.costoBs || 0),
             costoUsd: Number(d.costoUsd || 0),
             precioVentaSugeridoBs: Number(d.precioVentaSugeridoBs || 0),
@@ -809,6 +820,7 @@ export default function RecepcionMercaderiaPage() {
           imei1: t.imei1.trim() || undefined,
           imei2: t.imei2.trim() || undefined,
           condicion: t.condicion,
+          detallesFisicos: t.detallesFisicos?.trim() || undefined,
           costoBs: Number(t.costoBs) || 0,
           costoUsd: Number(t.costoUsd) || 0,
           precioVentaSugeridoBs: Number(t.precioVentaSugeridoBs) || 0,
@@ -916,6 +928,7 @@ export default function RecepcionMercaderiaPage() {
         setNumeroComprobante={setNumeroComprobante}
         observaciones={observaciones}
         setObservaciones={setObservaciones}
+        onOpenCrearProveedor={() => setModalCrearProveedorOpen(true)}
       />
 
       {/* TAB 1: FORMULARIO DE NUEVA RECEPCIÓN */}
@@ -1135,6 +1148,13 @@ export default function RecepcionMercaderiaPage() {
         onClose={() => setModalRecDetalleOpen(false)}
         recepcionDetalleData={recepcionDetalleData}
         isLoadingRecDetalle={isLoadingRecDetalle}
+      />
+
+      {/* MODAL PARA CREAR PROVEEDOR AL VUELO */}
+      <ModalCrearProveedorInline
+        isOpen={modalCrearProveedorOpen}
+        onClose={() => setModalCrearProveedorOpen(false)}
+        onProveedorCreado={handleProveedorCreado}
       />
     </div>
   );
