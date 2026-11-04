@@ -28,6 +28,11 @@ export function useBarcodeScanner({
     if (!enabled) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Validar que el evento y la tecla existan y sean un string válido
+      if (!event || typeof event.key !== 'string') {
+        return;
+      }
+
       // Ignorar teclas modificadoras
       if (
         event.key === 'Shift' ||
@@ -65,7 +70,7 @@ export function useBarcodeScanner({
       }
 
       // Solo acumular caracteres imprimibles de 1 carácter
-      if (event.key.length === 1) {
+      if (event.key && event.key.length === 1) {
         bufferRef.current += event.key;
       }
     };

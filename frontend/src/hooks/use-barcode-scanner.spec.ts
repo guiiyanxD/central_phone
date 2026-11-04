@@ -127,4 +127,22 @@ describe('useBarcodeScanner Hook', () => {
 
     expect(onScan).not.toHaveBeenCalled();
   });
+
+  it('debe manejar eventos keydown con key indefinido o nulo sin lanzar TypeError', () => {
+    const onScan = vi.fn();
+    renderHook(() =>
+      useBarcodeScanner({
+        onScan,
+        minLength: 6,
+      })
+    );
+
+    expect(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: undefined as any, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '' as any, bubbles: true }));
+      window.dispatchEvent(new Event('keydown', { bubbles: true }) as any);
+    }).not.toThrow();
+
+    expect(onScan).not.toHaveBeenCalled();
+  });
 });
