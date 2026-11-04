@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { Unlock, Smartphone, Headphones } from 'lucide-react';
+import { Unlock, Smartphone, Headphones, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ export default function PosPage() {
   // Filtros de búsqueda
   const [searchPhone, setSearchPhone] = useState('');
   const [searchAccessory, setSearchAccessory] = useState('');
-  const [catalogTab, setCatalogTab] = useState<'telefonos' | 'accesorios'>('telefonos');
+  const [catalogTab, setCatalogTab] = useState<'telefonos' | 'accesorios' | 'permutas'>('telefonos');
 
   // Carrito de compras y datos de comprador
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -197,7 +197,7 @@ export default function PosPage() {
             ? `${disp.variante?.capacidadGb / 1024}TB`
             : `${disp.variante?.capacidadGb}GB`
           : '0 GB'
-      } [${disp.condicion}]`,
+      } [${disp.condicion === 'PERMUTA' ? 'P' : disp.condicion}]`,
       imei: disp.imei1 || undefined,
       serie: disp.numeroSerie,
       cantidad: 1,
@@ -394,6 +394,14 @@ export default function PosPage() {
       );
     });
   }, [dispositivos, searchPhone]);
+
+  const regularPhones = useMemo(() => {
+    return filteredPhones.filter((p) => p.condicion !== 'PERMUTA');
+  }, [filteredPhones]);
+
+  const permutaPhones = useMemo(() => {
+    return filteredPhones.filter((p) => p.condicion === 'PERMUTA');
+  }, [filteredPhones]);
 
   const filteredAccessories = useMemo(() => {
     const q = searchAccessory.toLowerCase().trim();
@@ -643,16 +651,20 @@ export default function PosPage() {
         <div className="md:col-span-7 space-y-4">
           <Tabs
             value={catalogTab}
-            onValueChange={(val) => setCatalogTab(val as 'telefonos' | 'accesorios')}
+            onValueChange={(val) => setCatalogTab(val as 'telefonos' | 'accesorios' | 'permutas')}
           >
             <TabsList variant="line" className="w-full justify-start pb-2 mb-2">
               <TabsTrigger value="telefonos" variant="line">
                 <Smartphone className="h-3.5 w-3.5" />
-                <span>Teléfonos Disponibles ({filteredPhones.length})</span>
+                <span>Teléfonos ({regularPhones.length})</span>
               </TabsTrigger>
               <TabsTrigger value="accesorios" variant="line">
                 <Headphones className="h-3.5 w-3.5" />
                 <span>Lotes de Accesorios</span>
+              </TabsTrigger>
+              <TabsTrigger value="permutas" variant="line">
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Permutas ({permutaPhones.length})</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -661,7 +673,20 @@ export default function PosPage() {
             <PosCatalogPhones
               searchPhone={searchPhone}
               setSearchPhone={setSearchPhone}
-              filteredPhones={filteredPhones}
+              filteredPhones={regularPhones}
+              cart={cart}
+              scanFeedback={scanFeedback}
+              inputSearchRef={inputSearchRef}
+              onSearchKeyDown={handleSearchKeyDown}
+              onAddPhone={handleAddPhoneToCart}
+              getPhoneDisplayPrice={getPhoneDisplayPrice}
+              currentSucursalId={currentSucursalId}
+            />
+          ) : catalogTab === 'permutas' ? (
+            <PosCatalogPhones
+              searchPhone={searchPhone}
+              setSearchPhone={setSearchPhone}
+              filteredPhones={permutaPhones}
               cart={cart}
               scanFeedback={scanFeedback}
               inputSearchRef={inputSearchRef}

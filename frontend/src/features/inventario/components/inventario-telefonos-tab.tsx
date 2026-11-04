@@ -338,13 +338,20 @@ export function InventarioTelefonosTab({
                       <span
                         className={cn(
                           'text-[10px] font-semibold px-2 py-0.5 rounded border font-mono',
-                          d.condicion === 'NUEVO'
+                          d.condicion === 'PERMUTA'
+                            ? 'bg-purple-100 text-purple-900 border-purple-300 font-bold'
+                            : d.condicion === 'NUEVO'
                             ? 'bg-slate-900 text-white border-slate-900'
                             : 'bg-slate-100 text-slate-700 border-slate-200'
                         )}
                       >
                         {d.condicion}
                       </span>
+                      {d.porcentajeBateria && (
+                        <span className="block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded w-fit">
+                          {d.porcentajeBateria}% Bat
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <p className="font-semibold text-slate-800 flex items-center gap-1">
@@ -360,15 +367,27 @@ export function InventarioTelefonosTab({
                         <>
                           <p className="font-semibold text-slate-900">
                             Bs {Number(d.costoBs || 0).toFixed(2)}
+                            {Number(d.gastosInvertidosBs || 0) > 0 && (
+                              <span className="text-purple-700 text-[10px] ml-1 font-bold">
+                                (+Bs {Number(d.gastosInvertidosBs).toFixed(2)})
+                              </span>
+                            )}
                           </p>
                           <p className="text-[10px] text-slate-500 font-medium mt-0.5">
                             Sug: Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
                           </p>
                         </>
                       ) : (
-                        <p className="font-semibold text-slate-900">
-                          Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
-                        </p>
+                        <>
+                          <p className="font-semibold text-slate-900">
+                            Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
+                          </p>
+                          {Number(d.gastosInvertidosBs || 0) > 0 && (
+                            <p className="text-[10px] text-purple-700 font-medium mt-0.5">
+                              Gastos: Bs {Number(d.gastosInvertidosBs).toFixed(2)}
+                            </p>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-slate-600">

@@ -14,6 +14,8 @@ import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
 import { UpdateNotaIngresoDto } from './dto/update-nota-ingreso.dto';
 import { AnularNotaIngresoDto } from './dto/anular-nota-ingreso.dto';
 import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
+import { CreatePermutaDto } from './dto/create-permuta.dto';
+import { UpdatePermutaDto } from './dto/update-permuta.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -57,9 +59,39 @@ export class RecepcionController {
     return this.recepcionService.anularNotaIngreso(id, dto, usuarioId);
   }
 
-  @Get('notas-ingreso')
+  // ==========================================
+  // ENDPOINTS DE PERMUTAS (TRADE-IN)
+  // ==========================================
+
+  @Post('permutas')
+  async createPermuta(
+    @Body() dto: CreatePermutaDto,
+    @CurrentUser('id') usuarioId: number,
+  ) {
+    return this.recepcionService.createPermuta(dto, usuarioId);
+  }
+
+  @Put('permutas/:id')
+  async updatePermuta(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePermutaDto,
+    @CurrentUser('id') usuarioId: number,
+  ) {
+    return this.recepcionService.updatePermuta(id, dto, usuarioId);
+  }
+
+  @Post('permutas/:id/anular')
   @UseGuards(RolesGuard)
   @Roles(RolUsuario.ADMIN)
+  async anularPermuta(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AnularNotaIngresoDto,
+    @CurrentUser('id') usuarioId: number,
+  ) {
+    return this.recepcionService.anularPermuta(id, dto, usuarioId);
+  }
+
+  @Get('notas-ingreso')
   async findAll(
     @Query() query: QueryNotasIngresoDto,
     @CurrentUser('rol') userRole?: string,
@@ -68,8 +100,6 @@ export class RecepcionController {
   }
 
   @Get('notas-ingreso/:id')
-  @UseGuards(RolesGuard)
-  @Roles(RolUsuario.ADMIN)
   async findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser('rol') userRole?: string,

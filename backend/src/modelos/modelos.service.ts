@@ -13,6 +13,9 @@ import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
+import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
+import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
+import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
 import { roundMoney } from '../common/utils/money.util';
 
 @Injectable()
@@ -373,6 +376,16 @@ export class ModelosService {
               proveedor: { select: { id: true, nombre: true } },
             },
           },
+          gastos: {
+            where: { estado: 'ACTIVO' },
+            select: {
+              id: true,
+              concepto: true,
+              costoBs: true,
+              aplicoEnCaja: true,
+              fechaRegistro: true,
+            },
+          },
         },
         orderBy: { id: 'desc' },
         skip,
@@ -383,11 +396,24 @@ export class ModelosService {
 
     // Confidencialidad de costos mayoristas (Regla Inmutable RBAC Financiero CENTRALPHONE-CONF-001)
     const safeData = dispositivos.map((d) => {
+      const gastosActivos = d.gastos || [];
+      const gastosInvertidosBs = roundMoney(
+        gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0),
+      );
+      const inversionTotalBs = roundMoney(Number(d.costoBs) + gastosInvertidosBs);
+
       if (userRole && userRole !== 'ADMIN') {
         const { costoBs, costoUsd, ...safe } = d;
-        return safe;
+        return {
+          ...safe,
+          gastosInvertidosBs,
+        };
       }
-      return d;
+      return {
+        ...d,
+        gastosInvertidosBs,
+        inversionTotalBs,
+      };
     });
 
     const totalPages = Math.ceil(total / limit) || 1;
@@ -452,6 +478,13 @@ export class ModelosService {
           },
           orderBy: { id: 'desc' },
         },
+        gastos: {
+          include: {
+            usuario: { select: { id: true, nombre: true } },
+            anuladoPor: { select: { id: true, nombre: true } },
+          },
+          orderBy: { fechaRegistro: 'desc' },
+        },
       },
     });
 
@@ -462,6 +495,11 @@ export class ModelosService {
     const detalleVenta = dispositivo.detalleVentas[0] || null;
     const venta = detalleVenta?.venta || null;
     const esAdmin = userRole === 'ADMIN';
+
+    const gastosActivos = (dispositivo.gastos || []).filter((g) => g.estado === 'ACTIVO');
+    const totalGastosActivosBs = roundMoney(
+      gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0),
+    );
 
     let diasDesdeVenta: number | null = null;
     let garantiaVigente: boolean | null = null;
@@ -480,10 +518,16 @@ export class ModelosService {
         imei2: dispositivo.imei2,
         numeroSerie: dispositivo.numeroSerie,
         condicion: dispositivo.condicion,
+        porcentajeBateria: dispositivo.porcentajeBateria,
         estadoInventario: dispositivo.estadoInventario,
         precioVentaSugeridoBs: Number(dispositivo.precioVentaSugeridoBs),
         costoBs: esAdmin ? Number(dispositivo.costoBs) : undefined,
         costoUsd: esAdmin ? Number(dispositivo.costoUsd) : undefined,
+        totalGastosActivosBs,
+        inversionTotalBs: esAdmin
+          ? roundMoney(Number(dispositivo.costoBs) + totalGastosActivosBs)
+          : undefined,
+        gastos: dispositivo.gastos || [],
         modelo: dispositivo.variante.modelo.nombreModelo,
         marca: dispositivo.variante.modelo.marca,
         color: dispositivo.variante.color,
@@ -821,5 +865,203 @@ export class ModelosService {
       message: 'Variante eliminada exitosamente.',
       varianteId: id,
     };
+  }
+
+  // --- GESTIÓN DE GASTOS DE DISPOSITIVOS (PERMUTAS / MANTENIMIENTO) ---
+
+  async addGastoDispositivo(
+    dispositivoId: number,
+    dto: CreateGastoDispositivoDto,
+    usuarioId: number,
+    usuarioSucursalId?: number,
+  ) {
+    const dispositivo = await this.prisma.dispositivo.findUnique({
+      where: { id: dispositivoId },
+    });
+
+    if (!dispositivo) {
+      throw new NotFoundException(`El dispositivo con ID ${dispositivoId} no existe.`);
+    }
+
+    const aplicoEnCaja = dto.aplicoEnCaja !== false;
+    let cajaId: number | null = null;
+
+    if (aplicoEnCaja) {
+      const sucursalObjetivo = usuarioSucursalId || dispositivo.sucursalId;
+      const cajaAbierta = await this.prisma.cajaDiaria.findFirst({
+        where: {
+          sucursalId: sucursalObjetivo,
+          estado: 'ABIERTA',
+        },
+      });
+      if (cajaAbierta) {
+        cajaId = cajaAbierta.id;
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const gasto = await tx.gastoDispositivo.create({
+        data: {
+          dispositivoId,
+          usuarioId,
+          cajaId,
+          concepto: dto.concepto.trim(),
+          costoBs: dto.costoBs,
+          observacion: dto.observacion?.trim() || null,
+          aplicoEnCaja,
+          estado: 'ACTIVO',
+        },
+        include: {
+          usuario: { select: { id: true, nombre: true } },
+        },
+      });
+
+      // Recalcular precio sugerido
+      const gastosActivos = await tx.gastoDispositivo.findMany({
+        where: {
+          dispositivoId,
+          estado: 'ACTIVO',
+        },
+      });
+
+      const sumaGastos = gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0);
+      const nuevoPrecioSugerido = roundMoney(Number(dispositivo.costoBs) * 1.15 + sumaGastos);
+
+      await tx.dispositivo.update({
+        where: { id: dispositivoId },
+        data: {
+          precioVentaSugeridoBs: nuevoPrecioSugerido,
+        },
+      });
+
+      return {
+        gasto,
+        nuevoPrecioVentaSugeridoBs: nuevoPrecioSugerido,
+        totalGastosActivosBs: roundMoney(sumaGastos),
+        inversionTotalBs: roundMoney(Number(dispositivo.costoBs) + sumaGastos),
+      };
+    });
+  }
+
+  async updateGastoDispositivo(
+    gastoId: number,
+    dto: UpdateGastoDispositivoDto,
+    usuarioId: number,
+  ) {
+    const gasto = await this.prisma.gastoDispositivo.findUnique({
+      where: { id: gastoId },
+      include: { dispositivo: true },
+    });
+
+    if (!gasto) {
+      throw new NotFoundException(`El gasto con ID ${gastoId} no existe.`);
+    }
+
+    if (gasto.estado === 'ANULADO') {
+      throw new BadRequestException('No se puede modificar un gasto que ha sido anulado.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.gastoDispositivo.update({
+        where: { id: gastoId },
+        data: {
+          ...(dto.concepto ? { concepto: dto.concepto.trim() } : {}),
+          ...(dto.costoBs !== undefined ? { costoBs: dto.costoBs } : {}),
+          ...(dto.observacion !== undefined ? { observacion: dto.observacion?.trim() || null } : {}),
+        },
+        include: {
+          usuario: { select: { id: true, nombre: true } },
+        },
+      });
+
+      const gastosActivos = await tx.gastoDispositivo.findMany({
+        where: {
+          dispositivoId: gasto.dispositivoId,
+          estado: 'ACTIVO',
+        },
+      });
+
+      const sumaGastos = gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0);
+      const nuevoPrecioSugerido = roundMoney(
+        Number(gasto.dispositivo.costoBs) * 1.15 + sumaGastos,
+      );
+
+      await tx.dispositivo.update({
+        where: { id: gasto.dispositivoId },
+        data: {
+          precioVentaSugeridoBs: nuevoPrecioSugerido,
+        },
+      });
+
+      return {
+        gasto: updated,
+        nuevoPrecioVentaSugeridoBs: nuevoPrecioSugerido,
+        totalGastosActivosBs: roundMoney(sumaGastos),
+        inversionTotalBs: roundMoney(Number(gasto.dispositivo.costoBs) + sumaGastos),
+      };
+    });
+  }
+
+  async anularGastoDispositivo(
+    gastoId: number,
+    dto: AnularGastoDispositivoDto,
+    adminUsuarioId: number,
+  ) {
+    const gasto = await this.prisma.gastoDispositivo.findUnique({
+      where: { id: gastoId },
+      include: { dispositivo: true },
+    });
+
+    if (!gasto) {
+      throw new NotFoundException(`El gasto con ID ${gastoId} no existe.`);
+    }
+
+    if (gasto.estado === 'ANULADO') {
+      throw new ConflictException('Este gasto ya se encuentra anulado.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const anulado = await tx.gastoDispositivo.update({
+        where: { id: gastoId },
+        data: {
+          estado: 'ANULADO',
+          anuladoEn: new Date(),
+          anuladoPorId: adminUsuarioId,
+          motivoAnulacion: dto.motivo.trim(),
+        },
+        include: {
+          usuario: { select: { id: true, nombre: true } },
+          anuladoPor: { select: { id: true, nombre: true } },
+        },
+      });
+
+      // Al anular el gasto, se excluye de los activos
+      const gastosActivos = await tx.gastoDispositivo.findMany({
+        where: {
+          dispositivoId: gasto.dispositivoId,
+          estado: 'ACTIVO',
+        },
+      });
+
+      const sumaGastos = gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0);
+      const nuevoPrecioSugerido = roundMoney(
+        Number(gasto.dispositivo.costoBs) * 1.15 + sumaGastos,
+      );
+
+      await tx.dispositivo.update({
+        where: { id: gasto.dispositivoId },
+        data: {
+          precioVentaSugeridoBs: nuevoPrecioSugerido,
+        },
+      });
+
+      return {
+        gasto: anulado,
+        mensaje: `Gasto de Bs ${Number(gasto.costoBs).toFixed(2)} anulado correctamente. Se revirtió el costo en el precio sugerido del equipo.`,
+        nuevoPrecioVentaSugeridoBs: nuevoPrecioSugerido,
+        totalGastosActivosBs: roundMoney(sumaGastos),
+        inversionTotalBs: roundMoney(Number(gasto.dispositivo.costoBs) + sumaGastos),
+      };
+    });
   }
 }

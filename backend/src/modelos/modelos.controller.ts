@@ -19,6 +19,9 @@ import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
+import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
+import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
+import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -141,5 +144,40 @@ export class ModelosController {
   @Roles(RolUsuario.ADMIN)
   async deleteVariante(@Param('id', ParseIntPipe) id: number) {
     return this.modelosService.deleteVariante(id);
+  }
+
+  // --- GASTOS DE DISPOSITIVOS (PERMUTAS / MANTENIMIENTO) ---
+  @Post('dispositivos/:id/gastos')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
+  async addGastoDispositivo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateGastoDispositivoDto,
+    @CurrentUser('id') usuarioId: number,
+    @CurrentUser('sucursalId') usuarioSucursalId: number,
+  ) {
+    return this.modelosService.addGastoDispositivo(id, dto, usuarioId, usuarioSucursalId);
+  }
+
+  @Put('dispositivos/gastos/:gastoId')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
+  async updateGastoDispositivo(
+    @Param('gastoId', ParseIntPipe) gastoId: number,
+    @Body() dto: UpdateGastoDispositivoDto,
+    @CurrentUser('id') usuarioId: number,
+  ) {
+    return this.modelosService.updateGastoDispositivo(gastoId, dto, usuarioId);
+  }
+
+  @Post('dispositivos/gastos/:gastoId/anular')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async anularGastoDispositivo(
+    @Param('gastoId', ParseIntPipe) gastoId: number,
+    @Body() dto: AnularGastoDispositivoDto,
+    @CurrentUser('id') adminUsuarioId: number,
+  ) {
+    return this.modelosService.anularGastoDispositivo(gastoId, dto, adminUsuarioId);
   }
 }

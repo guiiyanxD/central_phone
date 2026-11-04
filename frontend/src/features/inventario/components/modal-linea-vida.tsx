@@ -13,10 +13,22 @@ import {
   DollarSign,
   Calendar,
   AlertTriangle,
+  Battery,
+  Wrench,
+  Plus,
+  Pencil,
+  Trash2,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 
 interface ModalLineaVidaProps {
@@ -26,43 +38,159 @@ interface ModalLineaVidaProps {
 }
 
 export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.rol === 'ADMIN';
+
   const [data, setData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || !imei) {
-      setData(null);
-      setError(null);
-      return;
-    }
+  // Estados para gestión de gastos (Creación, Edición y Anulación)
+  const [modalGastoOpen, setModalGastoOpen] = useState(false);
+  const [gastoModo, setGastoModo] = useState<'crear' | 'editar'>('crear');
+  const [editingGastoId, setEditingGastoId] = useState<number | null>(null);
+  const [conceptoGasto, setConceptoGasto] = useState('');
+  const [costoBsGasto, setCostoBsGasto] = useState<number | ''>('');
+  const [observacionGasto, setObservacionGasto] = useState('');
+  const [aplicoEnCajaGasto, setAplicoEnCajaGasto] = useState(true);
+  const [isSubmittingGasto, setIsSubmittingGasto] = useState(false);
+  const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
-    let isMounted = true;
+  // Modal para anulación de gasto (Exclusivo ADMIN)
+  const [modalAnularGastoOpen, setModalAnularGastoOpen] = useState(false);
+  const [gastoParaAnular, setGastoParaAnular] = useState<any | null>(null);
+  const [motivoAnulacionGasto, setMotivoAnulacionGasto] = useState('');
+  const [isAnulandoGasto, setIsAnulandoGasto] = useState(false);
+  const [gastoSuccessMsg, setGastoSuccessMsg] = useState<string | null>(null);
+
+  const fetchLineaVida = () => {
+    if (!imei) return;
     setIsLoading(true);
     setError(null);
 
     api.modelos
       .getLineaVida(imei)
       .then((res) => {
-        if (isMounted) setData(res);
+        setData(res);
       })
       .catch((err) => {
-        if (isMounted) {
-          setError(
-            err instanceof ApiError
-              ? err.message
-              : 'No se pudo obtener la línea de vida del dispositivo.'
-          );
-        }
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : 'No se pudo obtener la línea de vida del dispositivo.'
+        );
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        setIsLoading(false);
       });
+  };
 
-    return () => {
-      isMounted = false;
-    };
+  useEffect(() => {
+    if (!isOpen || !imei) {
+      setData(null);
+      setError(null);
+      setGastoSuccessMsg(null);
+      return;
+    }
+    fetchLineaVida();
   }, [isOpen, imei]);
+
+  // Manejo de formulario de Gasto (Crear / Editar)
+  const handleOpenCrearGasto = () => {
+    setGastoModo('crear');
+    setEditingGastoId(null);
+    setConceptoGasto('');
+    setCostoBsGasto('');
+    setObservacionGasto('');
+    setAplicoEnCajaGasto(true);
+    setGastoFormError(null);
+    setModalGastoOpen(true);
+  };
+
+  const handleOpenEditarGasto = (gasto: any) => {
+    setGastoModo('editar');
+    setEditingGastoId(gasto.id);
+    setConceptoGasto(gasto.concepto);
+    setCostoBsGasto(Number(gasto.costoBs));
+    setObservacionGasto(gasto.observacion || '');
+    setAplicoEnCajaGasto(gasto.aplicoEnCaja);
+    setGastoFormError(null);
+    setModalGastoOpen(true);
+  };
+
+  const handleSaveGasto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGastoFormError(null);
+
+    if (!conceptoGasto.trim()) {
+      setGastoFormError('El concepto del gasto es obligatorio.');
+      return;
+    }
+    if (typeof costoBsGasto !== 'number' || costoBsGasto <= 0) {
+      setGastoFormError('El costo del gasto debe ser un monto numérico mayor a 0.');
+      return;
+    }
+
+    setIsSubmittingGasto(true);
+    try {
+      if (gastoModo === 'crear') {
+        await api.modelos.addGastoDispositivo(data.dispositivo.id, {
+          concepto: conceptoGasto.trim(),
+          costoBs: costoBsGasto,
+          observacion: observacionGasto.trim() || undefined,
+          aplicoEnCaja: aplicoEnCajaGasto,
+        });
+        setGastoSuccessMsg(`Gasto "${conceptoGasto.trim()}" (Bs ${costoBsGasto.toFixed(2)}) agregado exitosamente.`);
+      } else if (editingGastoId) {
+        await api.modelos.updateGastoDispositivo(editingGastoId, {
+          concepto: conceptoGasto.trim(),
+          costoBs: costoBsGasto,
+          observacion: observacionGasto.trim() || undefined,
+        });
+        setGastoSuccessMsg(`Gasto actualizado correctamente. Precio sugerido recalculado.`);
+      }
+
+      setModalGastoOpen(false);
+      fetchLineaVida();
+    } catch (err: any) {
+      setGastoFormError(err.message || 'Error al guardar el gasto.');
+    } finally {
+      setIsSubmittingGasto(false);
+    }
+  };
+
+  // Manejo de Anulación de Gasto (Exclusivo ADMIN)
+  const handleOpenAnularGasto = (gasto: any) => {
+    setGastoParaAnular(gasto);
+    setMotivoAnulacionGasto('');
+    setModalAnularGastoOpen(true);
+  };
+
+  const handleConfirmAnulacionGasto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gastoParaAnular) return;
+    if (!motivoAnulacionGasto.trim()) {
+      alert('El motivo de anulación es obligatorio para auditoría.');
+      return;
+    }
+
+    setIsAnulandoGasto(true);
+    try {
+      await api.modelos.anularGastoDispositivo(gastoParaAnular.id, {
+        motivo: motivoAnulacionGasto.trim(),
+      });
+      setGastoSuccessMsg(
+        `Gasto de Bs ${Number(gastoParaAnular.costoBs).toFixed(2)} anulado. Se revirtió el costo en el precio sugerido.`
+      );
+      setModalAnularGastoOpen(false);
+      setGastoParaAnular(null);
+      fetchLineaVida();
+    } catch (err: any) {
+      alert(err.message || 'Error al anular el gasto.');
+    } finally {
+      setIsAnulandoGasto(false);
+    }
+  };
 
   return (
     <Modal
@@ -74,7 +202,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
           <span>Línea de Vida y Trazabilidad de Hardware</span>
         </div>
       }
-      className="max-w-2xl max-h-[90vh] overflow-y-auto"
+      className="max-w-3xl max-h-[90vh] overflow-y-auto"
     >
       {isLoading ? (
         <div className="space-y-4 py-4">
@@ -92,17 +220,46 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
         </div>
       ) : data ? (
         <div className="space-y-6 text-xs text-slate-700 py-2">
+          {gastoSuccessMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center justify-between text-xs animate-in fade-in">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                {gastoSuccessMsg}
+              </span>
+              <button
+                type="button"
+                onClick={() => setGastoSuccessMsg(null)}
+                className="text-emerald-700 hover:text-emerald-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* Header Resumen del Dispositivo */}
           <div className="bg-slate-900 text-white rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Smartphone className="h-5 w-5 text-slate-300" />
                 <h3 className="text-sm font-bold tracking-tight">
                   {data.dispositivo.modelo}
                 </h3>
-                <span className="text-[10px] bg-slate-800 border border-slate-700 px-2 py-0.5 rounded text-slate-300">
+                <span
+                  className={cn(
+                    'text-[10px] px-2 py-0.5 rounded border font-bold',
+                    data.dispositivo.condicion === 'PERMUTA'
+                      ? 'bg-purple-900/60 border-purple-500/50 text-purple-200'
+                      : 'bg-slate-800 border-slate-700 text-slate-300'
+                  )}
+                >
                   {data.dispositivo.condicion}
                 </span>
+                {data.dispositivo.porcentajeBateria && (
+                  <span className="text-[10px] bg-blue-900/60 border border-blue-500/50 text-blue-200 px-2 py-0.5 rounded flex items-center gap-1">
+                    <Battery className="h-3 w-3" />
+                    {data.dispositivo.porcentajeBateria}% Salud
+                  </span>
+                )}
               </div>
               <p className="text-slate-400 text-xs mt-1">
                 {data.dispositivo.color} •{' '}
@@ -127,11 +284,6 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                 <span>
                   <strong>Serie (S/N):</strong> {data.dispositivo.numeroSerie}
                 </span>
-                {!data.dispositivo.imei1 && (
-                  <span className="text-slate-400 italic">
-                    (Identificado por Serial)
-                  </span>
-                )}
               </div>
             </div>
 
@@ -148,15 +300,22 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
               >
                 {data.dispositivo.estadoInventario}
               </span>
-              <p className="text-xs text-slate-300 mt-2 font-mono">
-                P. Sug: Bs {data.dispositivo.precioVentaSugeridoBs.toFixed(2)}
-              </p>
+              <div className="mt-2 text-right">
+                <p className="text-xs text-emerald-400 font-bold font-mono">
+                  P. Sug: Bs {data.dispositivo.precioVentaSugeridoBs.toFixed(2)}
+                </p>
+                {isAdmin && data.dispositivo.inversionTotalBs !== undefined && (
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    Inversión: Bs {data.dispositivo.inversionTotalBs.toFixed(2)}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Timeline Cronológico */}
           <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
-            {/* ETAPA 1: RECEPCIÓN MAYORISTA */}
+            {/* ETAPA 1: RECEPCIÓN / PERMUTA */}
             <div className="relative">
               <div className="absolute -left-6 top-0.5 h-5 w-5 rounded-full bg-slate-900 text-white flex items-center justify-center ring-4 ring-white">
                 <Truck className="h-3 w-3" />
@@ -164,7 +323,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                    1. Recepción Mayorista (Nota #{data.origen.notaIngresoId})
+                    1. Ingreso al Sistema ({data.dispositivo.condicion === 'PERMUTA' ? 'Permuta' : 'Recepción Mayorista'} #{data.origen.notaIngresoId})
                   </span>
                   <span className="text-[11px] text-slate-500 flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -177,7 +336,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                   <div>
-                    <span className="text-slate-500">Proveedor:</span>{' '}
+                    <span className="text-slate-500">Proveedor / Cliente:</span>{' '}
                     <strong className="text-slate-800">{data.origen.proveedor}</strong>
                     {data.origen.proveedorTelefono && (
                       <span className="text-slate-400 ml-1">({data.origen.proveedorTelefono})</span>
@@ -209,15 +368,141 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                       <DollarSign className="h-3.5 w-3.5 text-slate-400" /> Costo Adquisición (Admin):
                     </span>
                     <strong className="font-mono text-slate-900">
-                      Bs {Number(data.origen.costoUnitarioBs).toFixed(2)} (USD{' '}
-                      {Number(data.origen.costoUnitarioUsd || 0).toFixed(2)})
+                      Bs {Number(data.origen.costoUnitarioBs).toFixed(2)}
+                      {data.origen.costoUnitarioUsd ? ` (USD ${Number(data.origen.costoUnitarioUsd).toFixed(2)})` : ''}
                     </strong>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* ETAPA 2: ALMACÉN Y STOCK ACTUAL */}
+            {/* ETAPA INTERMEDIA: GASTOS DE REPARACIÓN E INVERSIÓN */}
+            <div className="relative">
+              <div className="absolute -left-6 top-0.5 h-5 w-5 rounded-full bg-purple-700 text-white flex items-center justify-center ring-4 ring-white">
+                <Wrench className="h-3 w-3" />
+              </div>
+              <div className="bg-purple-50/40 border border-purple-200 rounded-lg p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      Gastos de Reparación e Inversión
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-800 border-purple-300">
+                      Total Activo: Bs {Number(data.dispositivo.totalGastosActivosBs || 0).toFixed(2)}
+                    </Badge>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenCrearGasto}
+                    className="h-7 text-xs border-purple-300 bg-white hover:bg-purple-100 text-purple-900 font-semibold"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Registrar Gasto
+                  </Button>
+                </div>
+
+                {(!data.dispositivo.gastos || data.dispositivo.gastos.length === 0) ? (
+                  <div className="py-4 text-center text-slate-400 text-xs italic bg-white/60 rounded border border-purple-100">
+                    No se han registrado gastos de reparación para este equipo.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {data.dispositivo.gastos.map((g: any) => {
+                      const isAnulado = g.estado === 'ANULADO';
+                      return (
+                        <div
+                          key={g.id}
+                          className={cn(
+                            'p-2.5 rounded-lg border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors',
+                            isAnulado
+                              ? 'bg-rose-50/50 border-rose-200 opacity-75'
+                              : 'bg-white border-purple-200/80 shadow-xs'
+                          )}
+                        >
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={cn('font-bold', isAnulado ? 'line-through text-slate-500' : 'text-slate-900')}>
+                                {g.concepto}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'text-[9px] py-0 px-1 font-semibold',
+                                  isAnulado
+                                    ? 'bg-rose-100 text-rose-700 border-rose-300'
+                                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                )}
+                              >
+                                {isAnulado ? 'ANULADO' : 'ACTIVO'}
+                              </Badge>
+                              {g.aplicoEnCaja && (
+                                <span className="text-[9px] bg-slate-100 text-slate-600 px-1 py-0.2 rounded border border-slate-200">
+                                  Caja Diaria
+                                </span>
+                              )}
+                            </div>
+                            {g.observacion && (
+                              <p className="text-[11px] text-slate-500">{g.observacion}</p>
+                            )}
+                            <p className="text-[10px] text-slate-400">
+                              Registrado por: {g.usuario?.nombre || 'Usuario'} •{' '}
+                              {new Date(g.fechaRegistro).toLocaleDateString('es-BO')}
+                            </p>
+                            {isAnulado && (
+                              <p className="text-[10px] text-rose-700 font-medium">
+                                Anulado por: {g.anuladoPor?.nombre || 'Admin'} • Motivo: {g.motivoAnulacion}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                            <span
+                              className={cn(
+                                'font-mono font-bold text-sm',
+                                isAnulado ? 'line-through text-slate-400' : 'text-purple-900'
+                              )}
+                            >
+                              Bs {Number(g.costoBs).toFixed(2)}
+                            </span>
+
+                            {!isAnulado && (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditarGasto(g)}
+                                  className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900"
+                                  title="Editar Gasto"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {isAdmin && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenAnularGasto(g)}
+                                    className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700"
+                                    title="Anular Gasto (Exclusivo Admin)"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ETAPA 2: UBICACIÓN EN INVENTARIO */}
             <div className="relative">
               <div className="absolute -left-6 top-0.5 h-5 w-5 rounded-full bg-slate-700 text-white flex items-center justify-center ring-4 ring-white">
                 <Building2 className="h-3 w-3" />
@@ -425,6 +710,184 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
               </div>
             </div>
           </div>
+
+          {/* SUB-MODAL: REGISTRAR O EDITAR GASTO */}
+          {modalGastoOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Wrench className="h-4 w-4 text-purple-700" />
+                    {gastoModo === 'crear' ? 'Registrar Gasto en Teléfono' : 'Modificar Gasto Registrado'}
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setModalGastoOpen(false)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {gastoFormError && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-lg">
+                    {gastoFormError}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveGasto} className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 mb-1 block">
+                      Concepto del Gasto <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      placeholder="Ej: Cambio de pantalla OLED, Batería, etc."
+                      value={conceptoGasto}
+                      onChange={(e) => setConceptoGasto(e.target.value)}
+                      className="text-xs h-9"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 mb-1 block">
+                      Costo en Bolivianos (Bs) <span className="text-rose-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-500">Bs</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="0.00"
+                        value={costoBsGasto}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                          setCostoBsGasto(val);
+                        }}
+                        className="text-xs h-9 pl-9 font-mono font-bold"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 mb-1 block">
+                      Observación / Proveedor Repuesto
+                    </Label>
+                    <Input
+                      placeholder="Ej: Repuesto adquirido con factura"
+                      value={observacionGasto}
+                      onChange={(e) => setObservacionGasto(e.target.value)}
+                      className="text-xs h-9"
+                    />
+                  </div>
+
+                  {gastoModo === 'crear' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="cajaGastoModal"
+                        checked={aplicoEnCajaGasto}
+                        onChange={(e) => setAplicoEnCajaGasto(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <label htmlFor="cajaGastoModal" className="text-xs font-medium text-slate-700 cursor-pointer">
+                        Restar egreso de la Caja Diaria actual
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModalGastoOpen(false)}
+                      disabled={isSubmittingGasto}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={isSubmittingGasto}
+                      className="bg-purple-700 hover:bg-purple-800 text-white font-semibold"
+                    >
+                      {isSubmittingGasto ? 'Guardando...' : gastoModo === 'crear' ? 'Registrar Gasto' : 'Guardar Cambios'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* SUB-MODAL: ANULAR GASTO (EXCLUSIVO ADMIN) */}
+          {modalAnularGastoOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h4 className="text-sm font-bold text-rose-950 flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 text-rose-600" />
+                    Anular Gasto (Exclusivo Administrador)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setModalAnularGastoOpen(false)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
+                  <p className="font-semibold">
+                    ¿Estás seguro de anular el gasto &ldquo;{gastoParaAnular?.concepto}&rdquo; de Bs {Number(gastoParaAnular?.costoBs).toFixed(2)}?
+                  </p>
+                  <p className="text-[11px] text-rose-700">
+                    Esta acción restará el costo del precio sugerido del equipo. No se borra físicamente de la base de datos (trazabilidad inmutable).
+                  </p>
+                </div>
+
+                <form onSubmit={handleConfirmAnulacionGasto} className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 mb-1 block">
+                      Motivo de Anulación <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      placeholder="Ej: Error en el registro del repuesto..."
+                      value={motivoAnulacionGasto}
+                      onChange={(e) => setMotivoAnulacionGasto(e.target.value)}
+                      className="text-xs h-9"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModalAnularGastoOpen(false)}
+                      disabled={isAnulandoGasto}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={isAnulandoGasto}
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                    >
+                      {isAnulandoGasto ? 'Anulando...' : 'Confirmar Anulación'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
     </Modal>

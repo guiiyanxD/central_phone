@@ -10,6 +10,9 @@ import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
 import { UpdateNotaIngresoDto } from './dto/update-nota-ingreso.dto';
 import { AnularNotaIngresoDto } from './dto/anular-nota-ingreso.dto';
 import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
+import { CreatePermutaDto } from './dto/create-permuta.dto';
+import { UpdatePermutaDto } from './dto/update-permuta.dto';
+import { roundMoney } from '../common/utils/money.util';
 import { CondicionDispositivo, EstadoInventario, EstadoVenta, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -364,6 +367,10 @@ export class RecepcionService {
 
     if (query.proveedorId) {
       where.proveedorId = query.proveedorId;
+    }
+
+    if (query.tipoIngreso) {
+      where.tipoIngreso = query.tipoIngreso;
     }
 
     // Rango de fechas
@@ -1134,5 +1141,419 @@ export class RecepcionService {
     });
 
     return this.findOne(id, 'ADMIN');
+  }
+
+  // ==========================================
+  // MÓDULO DE PERMUTAS (TRADE-IN)
+  // ==========================================
+
+  async createPermuta(dto: CreatePermutaDto, usuarioId: number) {
+    const {
+      proveedorMinorista,
+      sucursalId,
+      dispositivo,
+      gastosIniciales = [],
+      observaciones,
+    } = dto;
+
+    const sucursal = await this.prisma.sucursal.findUnique({
+      where: { id: sucursalId },
+    });
+    if (!sucursal) {
+      throw new NotFoundException(`La sucursal con ID ${sucursalId} no existe.`);
+    }
+
+    const serie = dispositivo.numeroSerie.trim();
+    const imei1 = dispositivo.imei1.trim();
+    const imei2 = dispositivo.imei2?.trim() || null;
+
+    // 1. Validar unicidad previa de serie e IMEI
+    const serieExistente = await this.prisma.dispositivo.findUnique({
+      where: { numeroSerie: serie },
+    });
+    if (serieExistente) {
+      throw new ConflictException(`El número de serie '${serie}' ya está registrado en el inventario.`);
+    }
+
+    const imei1Existente = await this.prisma.dispositivo.findUnique({
+      where: { imei1 },
+    });
+    if (imei1Existente) {
+      throw new ConflictException(`El IMEI 1 '${imei1}' ya está registrado en el inventario.`);
+    }
+
+    if (imei2) {
+      const imei2Existente = await this.prisma.dispositivo.findUnique({
+        where: { imei2 },
+      });
+      if (imei2Existente) {
+        throw new ConflictException(`El IMEI 2 '${imei2}' ya está registrado en el inventario.`);
+      }
+    }
+
+    // 2. Transacción Atómica ACID para crear permuta, iPhone y gastos
+    return this.prisma.$transaction(async (tx) => {
+      // Buscar o crear proveedor minorista
+      let proveedor = await tx.proveedor.findFirst({
+        where: {
+          nombre: { equals: proveedorMinorista.nombre.trim(), mode: 'insensitive' },
+          telefono: { equals: proveedorMinorista.telefono.trim() },
+        },
+      });
+
+      if (!proveedor) {
+        proveedor = await tx.proveedor.create({
+          data: {
+            nombre: proveedorMinorista.nombre.trim(),
+            apellido: proveedorMinorista.apellido?.trim() || null,
+            telefono: proveedorMinorista.telefono.trim(),
+            empresa: 'Cliente Permuta',
+            contactoReferencia: 'Proveedor Minorista (Permuta)',
+          },
+        });
+      }
+
+      // Resolver variante del iPhone
+      let varianteId = dispositivo.varianteId;
+      if (!varianteId && dispositivo.nuevaVariante) {
+        const { modeloId, color, capacidadGb, tipoSim } = dispositivo.nuevaVariante;
+        const modelo = await tx.modeloDispositivo.findUnique({ where: { id: modeloId } });
+        if (!modelo) {
+          throw new NotFoundException(`El modelo con ID ${modeloId} no existe.`);
+        }
+        let variante = await tx.varianteDispositivo.findFirst({
+          where: {
+            modeloId,
+            color: color.trim(),
+            capacidadGb,
+            tipoSim: tipoSim?.trim() || 'SIM Físico',
+          },
+        });
+        if (!variante) {
+          variante = await tx.varianteDispositivo.create({
+            data: {
+              modeloId,
+              color: color.trim(),
+              capacidadGb,
+              tipoSim: tipoSim?.trim() || 'SIM Físico',
+            },
+          });
+        }
+        varianteId = variante.id;
+      }
+
+      if (!varianteId) {
+        throw new BadRequestException('Debes seleccionar una variante existente o crear una nueva variante al vuelo.');
+      }
+
+      const varianteDb = await tx.varianteDispositivo.findUnique({
+        where: { id: varianteId },
+        include: { modelo: true },
+      });
+      if (!varianteDb) {
+        throw new NotFoundException(`La variante con ID ${varianteId} no existe.`);
+      }
+
+      if (
+        varianteDb.modelo.tipo !== 'IPHONE' &&
+        !varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE')
+      ) {
+        throw new BadRequestException('El módulo de permutas es exclusivo para dispositivos iPhone.');
+      }
+
+      if (
+        dispositivo.porcentajeBateria !== undefined &&
+        (dispositivo.porcentajeBateria < 1 || dispositivo.porcentajeBateria > 100)
+      ) {
+        throw new BadRequestException('El porcentaje de salud de batería debe estar entre 1% y 100%.');
+      }
+
+      // 3. Cálculos Financieros: Margen base 15% sobre costo compra + suma de gastos iniciales
+      const costoBs = roundMoney(dispositivo.costoBs);
+      const sumaGastos = roundMoney(
+        gastosIniciales.reduce((sum, g) => sum + (Number(g.costoBs) || 0), 0),
+      );
+      const precioSugeridoBs = roundMoney((costoBs * 1.15) + sumaGastos);
+
+      // 4. Crear Nota de Ingreso de tipo PERMUTA
+      const nota = await tx.notaIngreso.create({
+        data: {
+          proveedorId: proveedor.id,
+          sucursalId,
+          usuarioId,
+          tipoIngreso: 'PERMUTA',
+          numeroComprobante: `PERMUTA-${Date.now().toString().slice(-6)}`,
+          observaciones: observaciones?.trim() || null,
+          totalCostoBs: costoBs,
+          estado: 'REGISTRADA',
+        },
+      });
+
+      // 5. Crear Dispositivo físico
+      const nuevoDispositivo = await tx.dispositivo.create({
+        data: {
+          varianteId,
+          sucursalId,
+          notaIngresoId: nota.id,
+          numeroSerie: serie,
+          imei1,
+          imei2,
+          condicion: CondicionDispositivo.PERMUTA,
+          porcentajeBateria: dispositivo.porcentajeBateria,
+          costoBs,
+          costoUsd: 0,
+          precioVentaSugeridoBs: precioSugeridoBs,
+          estadoInventario: EstadoInventario.DISPONIBLE,
+        },
+      });
+
+      // 6. Registrar gastos iniciales si existen
+      if (gastosIniciales.length > 0) {
+        const requiereCaja = gastosIniciales.some((g) => g.aplicoEnCaja !== false);
+        let cajaActivaId: number | null = null;
+
+        if (requiereCaja) {
+          const cajaActiva = await tx.cajaDiaria.findFirst({
+            where: { sucursalId, estado: 'ABIERTA' },
+          });
+          if (cajaActiva) {
+            cajaActivaId = cajaActiva.id;
+          }
+        }
+
+        for (const g of gastosIniciales) {
+          const costoGasto = roundMoney(g.costoBs);
+          const aplicoCaja = g.aplicoEnCaja !== false && cajaActivaId !== null;
+
+          await tx.gastoDispositivo.create({
+            data: {
+              dispositivoId: nuevoDispositivo.id,
+              usuarioId,
+              cajaId: aplicoCaja ? cajaActivaId : null,
+              concepto: g.concepto.trim(),
+              costoBs: costoGasto,
+              observacion: g.observacion?.trim() || null,
+              aplicoEnCaja: aplicoCaja,
+              estado: 'ACTIVO',
+            },
+          });
+        }
+      }
+
+      this.logger.log(
+        `Permuta registrada: Nota #${nota.id}, iPhone IMEI: ${imei1}, Costo: Bs ${costoBs}, Precio Sugerido: Bs ${precioSugeridoBs}`,
+      );
+
+      return {
+        success: true,
+        message: 'Permuta registrada exitosamente.',
+        notaId: nota.id,
+        dispositivoId: nuevoDispositivo.id,
+        precioSugeridoBs,
+        inversionTotalBs: roundMoney(costoBs + sumaGastos),
+      };
+    });
+  }
+
+  async updatePermuta(id: number, dto: UpdatePermutaDto, usuarioId: number) {
+    const nota = await this.prisma.notaIngreso.findUnique({
+      where: { id },
+      include: {
+        dispositivos: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+            gastos: {
+              where: { estado: 'ACTIVO' },
+            },
+          },
+        },
+        proveedor: true,
+      },
+    });
+
+    if (!nota) {
+      throw new NotFoundException(`La permuta con ID ${id} no existe.`);
+    }
+
+    if (nota.estado === 'ANULADA') {
+      throw new BadRequestException('No se puede modificar una permuta que ha sido anulada.');
+    }
+
+    const disp = nota.dispositivos[0];
+    if (disp) {
+      if (disp.estadoInventario === EstadoInventario.VENDIDO || disp.detalleVentas.length > 0) {
+        throw new BadRequestException(
+          'No se pueden modificar los datos del equipo porque ya ha sido vendido.',
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Actualizar proveedor minorista
+      if (dto.proveedorMinorista) {
+        await tx.proveedor.update({
+          where: { id: nota.proveedorId },
+          data: {
+            nombre: dto.proveedorMinorista.nombre.trim(),
+            ...(dto.proveedorMinorista.apellido !== undefined
+              ? { apellido: dto.proveedorMinorista.apellido?.trim() || null }
+              : {}),
+            telefono: dto.proveedorMinorista.telefono.trim(),
+          },
+        });
+      }
+
+      // 2. Actualizar dispositivo
+      if (disp && dto.dispositivo) {
+        const updateData: any = {};
+        if (dto.dispositivo.varianteId) updateData.varianteId = dto.dispositivo.varianteId;
+        if (dto.dispositivo.numeroSerie) {
+          const serie = dto.dispositivo.numeroSerie.trim();
+          if (serie !== disp.numeroSerie) {
+            const exists = await tx.dispositivo.findUnique({ where: { numeroSerie: serie } });
+            if (exists) throw new ConflictException(`El número de serie '${serie}' ya está en uso.`);
+            updateData.numeroSerie = serie;
+          }
+        }
+        if (dto.dispositivo.imei1) {
+          const imei = dto.dispositivo.imei1.trim();
+          if (imei !== disp.imei1) {
+            const exists = await tx.dispositivo.findUnique({ where: { imei1: imei } });
+            if (exists) throw new ConflictException(`El IMEI 1 '${imei}' ya está en uso.`);
+            updateData.imei1 = imei;
+          }
+        }
+        if (dto.dispositivo.imei2 !== undefined) {
+          const imei2 = dto.dispositivo.imei2?.trim() || null;
+          if (imei2 && imei2 !== disp.imei2) {
+            const exists = await tx.dispositivo.findUnique({ where: { imei2 } });
+            if (exists) throw new ConflictException(`El IMEI 2 '${imei2}' ya está en uso.`);
+            updateData.imei2 = imei2;
+          } else if (!imei2) {
+            updateData.imei2 = null;
+          }
+        }
+        if (dto.dispositivo.porcentajeBateria !== undefined) {
+          updateData.porcentajeBateria = dto.dispositivo.porcentajeBateria;
+        }
+        if (dto.dispositivo.costoBs !== undefined) {
+          const nuevoCosto = roundMoney(dto.dispositivo.costoBs);
+          updateData.costoBs = nuevoCosto;
+
+          // Recalcular precio sugerido con gastos activos existentes
+          const sumGastos = roundMoney(
+            disp.gastos.reduce((s, g) => s + Number(g.costoBs), 0),
+          );
+          updateData.precioVentaSugeridoBs = roundMoney((nuevoCosto * 1.15) + sumGastos);
+
+          // Actualizar costo de la nota
+          await tx.notaIngreso.update({
+            where: { id },
+            data: { totalCostoBs: nuevoCosto },
+          });
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await tx.dispositivo.update({
+            where: { id: disp.id },
+            data: updateData,
+          });
+        }
+      }
+
+      if (dto.observaciones !== undefined) {
+        await tx.notaIngreso.update({
+          where: { id },
+          data: { observaciones: dto.observaciones?.trim() || null },
+        });
+      }
+
+      this.logger.log(`Permuta #${id} actualizada por usuario ${usuarioId}.`);
+
+      return {
+        success: true,
+        message: `Permuta #${id} actualizada exitosamente.`,
+      };
+    });
+  }
+
+  async anularPermuta(id: number, dto: AnularNotaIngresoDto, usuarioId: number) {
+    const nota = await this.prisma.notaIngreso.findUnique({
+      where: { id },
+      include: {
+        dispositivos: {
+          include: {
+            detalleVentas: {
+              where: { venta: { estado: EstadoVenta.COMPLETADA } },
+            },
+            gastos: true,
+          },
+        },
+      },
+    });
+
+    if (!nota) {
+      throw new NotFoundException(`La permuta con ID ${id} no existe.`);
+    }
+
+    if (nota.estado === 'ANULADA') {
+      throw new BadRequestException('Esta permuta ya se encuentra anulada.');
+    }
+
+    const vendido = nota.dispositivos.some(
+      (d) => d.estadoInventario === EstadoInventario.VENDIDO || d.detalleVentas.length > 0,
+    );
+    if (vendido) {
+      throw new BadRequestException(
+        `No se puede anular la permuta #${id} porque el teléfono ya ha sido vendido.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Inhabilitar dispositivos asociados (no eliminamos físicamente de BD según directriz inmutable)
+      await tx.dispositivo.updateMany({
+        where: { notaIngresoId: id },
+        data: { estadoInventario: EstadoInventario.DEFECTUOSO },
+      });
+
+      // 2. Anular gastos activos asociados
+      await tx.gastoDispositivo.updateMany({
+        where: {
+          dispositivo: { notaIngresoId: id },
+          estado: 'ACTIVO',
+        },
+        data: {
+          estado: 'ANULADO',
+          anuladoEn: new Date(),
+          anuladoPorId: usuarioId,
+          motivoAnulacion: `Anulación de permuta #${id}: ${dto.motivo.trim()}`,
+        },
+      });
+
+      // 3. Anular la nota de ingreso
+      const notaActualizada = await tx.notaIngreso.update({
+        where: { id },
+        data: {
+          estado: 'ANULADA',
+          anuladaEn: new Date(),
+          motivoAnulacion: dto.motivo.trim(),
+        },
+        include: {
+          proveedor: true,
+          sucursal: true,
+          usuario: { select: { id: true, nombre: true } },
+        },
+      });
+
+      this.logger.log(`Permuta #${id} anulada por usuario ${usuarioId}. Motivo: ${dto.motivo.trim()}`);
+
+      return {
+        success: true,
+        message: `Permuta #${id} anulada exitosamente.`,
+        nota: notaActualizada,
+      };
+    });
   }
 }

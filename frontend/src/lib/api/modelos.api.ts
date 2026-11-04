@@ -33,6 +33,24 @@ export interface UpdateModeloData {
   descripcion?: string;
 }
 
+export interface GastoDispositivoItem {
+  id: number;
+  dispositivoId: number;
+  usuarioId: number;
+  cajaId?: number | null;
+  concepto: string;
+  costoBs: number | string;
+  observacion?: string | null;
+  aplicoEnCaja: boolean;
+  estado: 'ACTIVO' | 'ANULADO';
+  anuladoEn?: string | null;
+  anuladoPorId?: number | null;
+  motivoAnulacion?: string | null;
+  fechaRegistro: string;
+  usuario?: { id: number; nombre: string };
+  anuladoPor?: { id: number; nombre: string };
+}
+
 export interface DispositivoItem {
   id: number;
   varianteId: number;
@@ -41,10 +59,20 @@ export interface DispositivoItem {
   numeroSerie: string;
   imei1: string | null;
   imei2: string | null;
-  condicion: 'NUEVO' | 'USADO' | 'OPEN_BOX';
+  condicion: 'NUEVO' | 'USADO' | 'OPEN_BOX' | 'PERMUTA';
+  porcentajeBateria?: number | null;
   costoBs?: string | number;
   costoUsd?: string | number;
   precioVentaSugeridoBs?: string | number;
+  gastosInvertidosBs?: number;
+  inversionTotalBs?: number;
+  gastos?: Array<{
+    id: number;
+    concepto: string;
+    costoBs: number | string;
+    aplicoEnCaja: boolean;
+    fechaRegistro: string;
+  }>;
   estadoInventario: 'DISPONIBLE' | 'VENDIDO' | 'RESERVADO' | 'EN_GARANTIA' | 'DEFECTUOSO';
   variante: {
     id: number;
@@ -81,10 +109,14 @@ export interface LineaVidaResponse {
     imei2: string | null;
     numeroSerie: string;
     condicion: string;
+    porcentajeBateria?: number | null;
     estadoInventario: string;
     precioVentaSugeridoBs: number;
     costoBs?: number;
     costoUsd?: number;
+    totalGastosActivosBs?: number;
+    inversionTotalBs?: number;
+    gastos?: GastoDispositivoItem[];
     modelo: string;
     marca: string;
     color: string;
@@ -230,4 +262,37 @@ export const modelosApi = {
     request<LineaVidaResponse>(
       `/modelos/dispositivos/${encodeURIComponent(imei)}/linea-vida`
     ),
+  addGastoDispositivo: (
+    dispositivoId: number,
+    data: {
+      concepto: string;
+      costoBs: number;
+      observacion?: string;
+      aplicoEnCaja?: boolean;
+    },
+  ) =>
+    request<any>(`/modelos/dispositivos/${dispositivoId}/gastos`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateGastoDispositivo: (
+    gastoId: number,
+    data: {
+      concepto?: string;
+      costoBs?: number;
+      observacion?: string;
+    },
+  ) =>
+    request<any>(`/modelos/dispositivos/gastos/${gastoId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  anularGastoDispositivo: (
+    gastoId: number,
+    data: { motivo: string },
+  ) =>
+    request<any>(`/modelos/dispositivos/gastos/${gastoId}/anular`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

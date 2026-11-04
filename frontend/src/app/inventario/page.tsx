@@ -17,7 +17,7 @@ import { ModalLineaVida } from '@/features/inventario/components/modal-linea-vid
 export default function InventarioPage() {
   const { user } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
-  const [activeTab, setActiveTab] = useState<'telefonos' | 'accesorios'>('telefonos');
+  const [activeTab, setActiveTab] = useState<'telefonos' | 'accesorios' | 'permutas'>('telefonos');
 
   // Listas maestras compartidas para filtros
   const [proveedoresList, setProveedoresList] = useState<any[]>([]);
@@ -34,6 +34,7 @@ export default function InventarioPage() {
     hasNextPage: false,
     hasPrevPage: false,
   });
+  const [permutasCount, setPermutasCount] = useState<number>(0);
   const [isLoadingDispositivos, setIsLoadingDispositivos] = useState(true);
   const [selectedImeiForLifeline, setSelectedImeiForLifeline] = useState<string | null>(null);
 
@@ -89,10 +90,14 @@ export default function InventarioPage() {
       api.proveedores.getAll().catch(() => []),
       api.sucursales.getAll().catch(() => []),
       api.accesorios.getCategorias().catch(() => []),
-    ]).then(([provs, sucs, cats]) => {
+      api.modelos.getDispositivos({ condicion: 'PERMUTA', limit: 1 }).catch(() => null),
+    ]).then(([provs, sucs, cats, permRes]: any) => {
       setProveedoresList(provs);
       setSucursalesList(sucs);
       setCategoriasList(cats);
+      if (permRes?.meta?.total !== undefined) {
+        setPermutasCount(permRes.meta.total);
+      }
     });
   }, []);
 
@@ -100,13 +105,20 @@ export default function InventarioPage() {
   const fetchDispositivos = async (pageToFetch = 1, currentLimit = dispositivosMeta.limit) => {
     setIsLoadingDispositivos(true);
     try {
+      const targetCondicion =
+        activeTab === 'permutas'
+          ? 'PERMUTA'
+          : condicionFilter !== 'TODAS'
+          ? condicionFilter
+          : undefined;
+
       const res: any = await api.modelos.getDispositivos({
         page: pageToFetch,
         limit: currentLimit,
         busqueda: searchDebounce.trim() || undefined,
         tipo: tipoFilter !== 'TODOS' ? tipoFilter : undefined,
         estado: estadoFilter !== 'TODOS' ? estadoFilter : undefined,
-        condicion: condicionFilter !== 'TODAS' ? condicionFilter : undefined,
+        condicion: targetCondicion,
         sucursalId: sucursalFilter !== 'TODAS' ? Number(sucursalFilter) : undefined,
         proveedorId: proveedorFilter !== 'TODOS' ? Number(proveedorFilter) : undefined,
         fechaDesde: fechaDesdeFilter || undefined,
@@ -136,6 +148,9 @@ export default function InventarioPage() {
           hasNextPage: false,
           hasPrevPage: false,
         });
+        if (activeTab === 'permutas' && res?.meta?.total !== undefined) {
+          setPermutasCount(res.meta.total);
+        }
       }
     } catch (err) {
       console.error('Error al obtener inventario de dispositivos:', err);
@@ -197,9 +212,9 @@ export default function InventarioPage() {
     setLotesStock('TODOS');
   };
 
-  // Efecto para consultar teléfonos cuando cambia su pestaña o filtros
+  // Efecto para consultar teléfonos o permutas cuando cambia su pestaña o filtros
   useEffect(() => {
-    if (activeTab === 'telefonos') {
+    if (activeTab === 'telefonos' || activeTab === 'permutas') {
       fetchDispositivos(1);
     }
   }, [
@@ -234,9 +249,10 @@ export default function InventarioPage() {
         setActiveTab={setActiveTab}
         telefonosTotal={dispositivosMeta.total}
         lotesTotal={lotesMeta.total}
+        permutasTotal={permutasCount}
       />
 
-      {activeTab === 'telefonos' && (
+      {(activeTab === 'telefonos' || activeTab === 'permutas') && (
         <InventarioTelefonosTab
           dispositivos={dispositivos}
           dispositivosMeta={dispositivosMeta}

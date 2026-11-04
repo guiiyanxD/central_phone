@@ -12,6 +12,7 @@ import { RecepcionHeader } from '@/features/recepcion/components/recepcion-heade
 import { RecepcionTelefonosTable } from '@/features/recepcion/components/recepcion-telefonos-table';
 import { RecepcionAccesoriosTable } from '@/features/recepcion/components/recepcion-accesorios-table';
 import { RecepcionResumenPanel } from '@/features/recepcion/components/recepcion-resumen-panel';
+import { RecepcionPermutaForm } from '@/features/recepcion/components/recepcion-permuta-form';
 import { ModalCrearVarianteInline } from '@/features/recepcion/components/modal-crear-variante-inline';
 import { ModalCrearAccesorioInline } from '@/features/recepcion/components/modal-crear-accesorio-inline';
 import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-confirmacion-ingreso';
@@ -25,6 +26,7 @@ export default function RecepcionMercaderiaPage() {
   const { user } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
   const [activeTab, setActiveTab] = useState<'nuevo' | 'historial'>('nuevo');
+  const [modoRecepcion, setModoRecepcion] = useState<'MAYORISTA' | 'PERMUTA'>('MAYORISTA');
 
   // Estados de datos maestros
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -902,6 +904,8 @@ export default function RecepcionMercaderiaPage() {
         isAdmin={isAdmin}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        modoRecepcion={modoRecepcion}
+        setModoRecepcion={setModoRecepcion}
         proveedores={proveedores}
         sucursales={sucursales}
         proveedorId={proveedorId}
@@ -964,48 +968,68 @@ export default function RecepcionMercaderiaPage() {
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmitNota}
-            onKeyDown={(e) => {
-              // Prevenir que presionar Enter dentro de inputs de texto/selects envíe el formulario por error
-              if (e.key === 'Enter') {
-                const target = e.target as HTMLElement;
-                const isInputOrSelect =
-                  target.tagName === 'INPUT' || target.tagName === 'SELECT';
-                if (isInputOrSelect && (target as HTMLInputElement).type !== 'submit') {
-                  e.preventDefault();
-                }
-              }
-            }}
-            className="space-y-8"
-          >
-            <RecepcionTelefonosTable
-              telefonos={telefonos}
+          {modoRecepcion === 'PERMUTA' ? (
+            <RecepcionPermutaForm
               modelos={modelos}
-              onAddTelefono={handleAddTelefono}
-              onAddSiguienteEquipo={handleAddSiguienteEquipo}
-              onRemoveTelefono={handleRemoveTelefono}
-              onUpdateTelefono={handleUpdateTelefono}
-              onOpenInlineVarianteModal={handleOpenInlineVarianteModal}
+              sucursales={sucursales}
+              currentSucursalId={sucursalId}
+              isAdmin={isAdmin}
+              onSuccess={(res) => {
+                setSuccessFeedback(
+                  `Permuta registrada con éxito (Dispositivo ID #${res.dispositivoId || res.id}). Inversión Total: Bs ${Number(
+                    res.inversionTotalBs || 0
+                  ).toFixed(2)}, Precio Sugerido: Bs ${Number(res.precioSugeridoBs || 0).toFixed(2)}.`
+                );
+                if (isAdmin) fetchRecepciones(1);
+              }}
+              onOpenInlineVarianteModal={(onCreated) => {
+                handleOpenInlineVarianteModal('permuta-inline');
+              }}
             />
+          ) : (
+            <form
+              onSubmit={handleSubmitNota}
+              onKeyDown={(e) => {
+                // Prevenir que presionar Enter dentro de inputs de texto/selects envíe el formulario por error
+                if (e.key === 'Enter') {
+                  const target = e.target as HTMLElement;
+                  const isInputOrSelect =
+                    target.tagName === 'INPUT' || target.tagName === 'SELECT';
+                  if (isInputOrSelect && (target as HTMLInputElement).type !== 'submit') {
+                    e.preventDefault();
+                  }
+                }
+              }}
+              className="space-y-8"
+            >
+              <RecepcionTelefonosTable
+                telefonos={telefonos}
+                modelos={modelos}
+                onAddTelefono={handleAddTelefono}
+                onAddSiguienteEquipo={handleAddSiguienteEquipo}
+                onRemoveTelefono={handleRemoveTelefono}
+                onUpdateTelefono={handleUpdateTelefono}
+                onOpenInlineVarianteModal={handleOpenInlineVarianteModal}
+              />
 
-            <RecepcionAccesoriosTable
-              accesorios={accesorios}
-              accesoriosCatalogo={accesoriosCatalogo}
-              onAddAccesorio={handleAddAccesorio}
-              onRemoveAccesorio={handleRemoveAccesorio}
-              onUpdateAccesorio={handleUpdateAccesorio}
-              onOpenInlineAccesorioModal={handleOpenInlineAccesorioModal}
-            />
+              <RecepcionAccesoriosTable
+                accesorios={accesorios}
+                accesoriosCatalogo={accesoriosCatalogo}
+                onAddAccesorio={handleAddAccesorio}
+                onRemoveAccesorio={handleRemoveAccesorio}
+                onUpdateAccesorio={handleUpdateAccesorio}
+                onOpenInlineAccesorioModal={handleOpenInlineAccesorioModal}
+              />
 
-            <RecepcionResumenPanel
-              totalUnidadesTelefonos={totalUnidadesTelefonos}
-              totalUnidadesAccesorios={totalUnidadesAccesorios}
-              totalCostoNotaBs={totalCostoNotaBs}
-              isSubmitting={isSubmitting}
-              isEditing={!!editingNota}
-            />
-          </form>
+              <RecepcionResumenPanel
+                totalUnidadesTelefonos={totalUnidadesTelefonos}
+                totalUnidadesAccesorios={totalUnidadesAccesorios}
+                totalCostoNotaBs={totalCostoNotaBs}
+                isSubmitting={isSubmitting}
+                isEditing={!!editingNota}
+              />
+            </form>
+          )}
 
           <ModalCrearVarianteInline
             isOpen={modalVarianteOpen}

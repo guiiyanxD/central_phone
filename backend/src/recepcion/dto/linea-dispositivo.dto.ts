@@ -69,4 +69,8 @@ export class LineaDispositivoDto {
   @IsNumber({}, { message: 'El precio de venta sugerido (Bs) debe ser numérico.' })
   @IsOptional()
   precioVentaSugeridoBs?: number;
+
+  @IsNumber({}, { message: 'El porcentaje de batería debe ser numérico.' })
+  @IsOptional()
+  porcentajeBateria?: number;
 }

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { PackagePlus, History, Boxes } from 'lucide-react';
+import { PackagePlus, History, Boxes, Truck, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,11 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 interface RecepcionHeaderProps {
   isAdmin?: boolean;
   activeTab: 'nuevo' | 'historial';
   setActiveTab: (tab: 'nuevo' | 'historial') => void;
+  modoRecepcion: 'MAYORISTA' | 'PERMUTA';
+  setModoRecepcion: (modo: 'MAYORISTA' | 'PERMUTA') => void;
   proveedores: any[];
   sucursales: any[];
   proveedorId: number;
@@ -31,6 +34,8 @@ export function RecepcionHeader({
   isAdmin = false,
   activeTab,
   setActiveTab,
+  modoRecepcion,
+  setModoRecepcion,
   proveedores,
   sucursales,
   proveedorId,
@@ -54,7 +59,7 @@ export function RecepcionHeader({
             <Badge variant="outline">Transacción ACID</Badge>
           </div>
           <p className="text-sm text-slate-600 mt-1">
-            Ingreso conjunto de teléfonos (serializados por IMEI), lotes diferenciados de accesorios y auditoría de notas.
+            Ingreso conjunto de teléfonos (serializados por IMEI), lotes diferenciados de accesorios y permutas de clientes particulares.
           </p>
         </div>
 
@@ -85,12 +90,97 @@ export function RecepcionHeader({
         </TabsList>
       </Tabs>
 
-      {/* SECCIÓN 1: CABECERA DE LA NOTA DE INGRESO (Solo visible en formulario 'nuevo') */}
+      {/* SELECTOR DE MODALIDAD: DOS BOTONES GRANDES (MAYORISTA vs MINORISTA / PERMUTAS) */}
       {activeTab === 'nuevo' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setModoRecepcion('MAYORISTA')}
+            className={cn(
+              'p-5 rounded-2xl border-2 text-left transition-all flex items-start gap-4 shadow-xs relative overflow-hidden',
+              modoRecepcion === 'MAYORISTA'
+                ? 'border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900/10'
+                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60 text-slate-800'
+            )}
+          >
+            <div
+              className={cn(
+                'p-3 rounded-xl shrink-0',
+                modoRecepcion === 'MAYORISTA'
+                  ? 'bg-white/10 text-white'
+                  : 'bg-slate-100 text-slate-800 border border-slate-200'
+              )}
+            >
+              <Truck className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold tracking-tight">Recepción Mayorista</span>
+                {modoRecepcion === 'MAYORISTA' && (
+                  <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    Activo
+                  </span>
+                )}
+              </div>
+              <p
+                className={cn(
+                  'text-xs leading-relaxed',
+                  modoRecepcion === 'MAYORISTA' ? 'text-slate-300' : 'text-slate-500'
+                )}
+              >
+                Ingreso de mercadería desde proveedores mayoristas con costos en USD y lotes de accesorios.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModoRecepcion('PERMUTA')}
+            className={cn(
+              'p-5 rounded-2xl border-2 text-left transition-all flex items-start gap-4 shadow-xs relative overflow-hidden',
+              modoRecepcion === 'PERMUTA'
+                ? 'border-purple-900 bg-purple-950 text-white shadow-md ring-2 ring-purple-900/20'
+                : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/30 text-slate-800'
+            )}
+          >
+            <div
+              className={cn(
+                'p-3 rounded-xl shrink-0',
+                modoRecepcion === 'PERMUTA'
+                  ? 'bg-purple-800 text-white'
+                  : 'bg-purple-50 text-purple-700 border border-purple-200'
+              )}
+            >
+              <RefreshCw className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold tracking-tight">Minorista (Permutas)</span>
+                {modoRecepcion === 'PERMUTA' && (
+                  <span className="text-[10px] font-semibold bg-purple-400/20 text-purple-300 border border-purple-400/30 px-2 py-0.5 rounded-full">
+                    Activo
+                  </span>
+                )}
+              </div>
+              <p
+                className={cn(
+                  'text-xs leading-relaxed',
+                  modoRecepcion === 'PERMUTA' ? 'text-purple-200' : 'text-slate-500'
+                )}
+              >
+                Toma de iPhones de clientes particulares, margen 15% garantizado y registro opcional de gastos.
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* SECCIÓN 1: CABECERA DE LA NOTA DE INGRESO (Solo visible en formulario 'nuevo' y modo 'MAYORISTA') */}
+      {activeTab === 'nuevo' && modoRecepcion === 'MAYORISTA' && (
         <Card className="animate-in fade-in duration-200">
           <CardHeader className="p-5 pb-3 border-b border-slate-100">
             <CardTitle className="text-base font-semibold text-slate-900">
-              1. Datos de Origen y Comprobante
+              1. Datos de Origen y Comprobante Mayorista
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
               Proveedor mayorista y sucursal donde ingresará la mercadería física.

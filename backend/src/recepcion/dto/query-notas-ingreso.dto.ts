@@ -35,4 +35,8 @@ export class QueryNotasIngresoDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  tipoIngreso?: string;
 }

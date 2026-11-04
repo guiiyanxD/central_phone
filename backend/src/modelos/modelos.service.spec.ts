@@ -731,4 +731,104 @@ describe('ModelosService', () => {
       });
     });
   });
+
+  describe('Gastos de Dispositivo (Permutas / Mantenimiento)', () => {
+    const dispositivoMock = {
+      id: 50,
+      costoBs: 2000,
+      precioVentaSugeridoBs: 2300,
+      sucursalId: 1,
+    };
+
+    beforeEach(() => {
+      prisma.dispositivo.findUnique.mockResolvedValue(dispositivoMock as any);
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 10, estado: 'ABIERTA' } as any);
+      prisma.gastoDispositivo.create.mockResolvedValue({
+        id: 1,
+        dispositivoId: 50,
+        concepto: 'Cambio de pantalla',
+        costoBs: 150,
+        aplicoEnCaja: true,
+      } as any);
+      prisma.gastoDispositivo.findMany.mockResolvedValue([
+        { id: 1, costoBs: 150, estado: 'ACTIVO' },
+      ] as any);
+      prisma.dispositivo.update.mockResolvedValue({
+        ...dispositivoMock,
+        precioVentaSugeridoBs: 2450, // (2000 * 1.15) + 150 = 2300 + 150 = 2450
+      } as any);
+    });
+
+    it('debe registrar gasto e incrementar el precio sugerido de venta proporcionalmente', async () => {
+      const res = await service.addGastoDispositivo(
+        50,
+        {
+          concepto: 'Cambio de pantalla',
+          costoBs: 150,
+          aplicoEnCaja: true,
+        },
+        1,
+        1,
+      );
+
+      expect(prisma.gastoDispositivo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          dispositivoId: 50,
+          costoBs: 150,
+          cajaId: 10,
+          aplicoEnCaja: true,
+        }),
+        include: { usuario: { select: { id: true, nombre: true } } },
+      });
+      expect(res.nuevoPrecioVentaSugeridoBs).toBe(2450);
+      expect(res.totalGastosActivosBs).toBe(150);
+      expect(res.inversionTotalBs).toBe(2150);
+    });
+
+    it('debe permitir anular gasto y revertir el costo en el precio sugerido', async () => {
+      prisma.gastoDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        dispositivoId: 50,
+        costoBs: 150,
+        estado: 'ACTIVO',
+        dispositivo: dispositivoMock,
+      } as any);
+
+      // Al anular, los gastos activos restantes son 0
+      prisma.gastoDispositivo.findMany.mockResolvedValue([]);
+      prisma.gastoDispositivo.update.mockResolvedValue({
+        id: 1,
+        estado: 'ANULADO',
+      } as any);
+
+      const res = await service.anularGastoDispositivo(
+        1,
+        { motivo: 'Error de tipeo' },
+        1, // adminUsuarioId
+      );
+
+      expect(res.nuevoPrecioVentaSugeridoBs).toBe(2300); // Vuelve a (2000 * 1.15) + 0 = 2300
+      expect(res.totalGastosActivosBs).toBe(0);
+      expect(res.inversionTotalBs).toBe(2000);
+      expect(prisma.gastoDispositivo.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          estado: 'ANULADO',
+          motivoAnulacion: 'Error de tipeo',
+        }),
+        include: expect.any(Object),
+      });
+    });
+
+    it('debe rechazar anulación de un gasto que ya está anulado', async () => {
+      prisma.gastoDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        estado: 'ANULADO',
+      } as any);
+
+      await expect(
+        service.anularGastoDispositivo(1, { motivo: 'Intento duplicado' }, 1),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
 });

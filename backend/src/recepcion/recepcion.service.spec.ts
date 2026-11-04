@@ -653,4 +653,162 @@ describe('RecepcionService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('Módulo de Permutas (Trade-in)', () => {
+    const usuarioId = 1;
+    const basePermutaDto = {
+      proveedorMinorista: {
+        nombre: 'Carlos',
+        apellido: 'Mamani',
+        telefono: '78912345',
+      },
+      sucursalId: 1,
+      dispositivo: {
+        varianteId: 10,
+        numeroSerie: 'F2LX45009',
+        imei1: '353245091234567',
+        porcentajeBateria: 88,
+        costoBs: 3000,
+      },
+      gastosIniciales: [
+        {
+          concepto: 'Reparación de Cristal Trasero',
+          costoBs: 200,
+          aplicoEnCaja: true,
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      prisma.sucursal.findUnique.mockResolvedValue({ id: 1, nombre: 'Sucursal Central' } as any);
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        modelo: { nombreModelo: 'iPhone 13', tipo: 'IPHONE' },
+      } as any);
+      prisma.dispositivo.findUnique.mockResolvedValue(null);
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 99, estado: 'ABIERTA' } as any);
+      prisma.proveedor.findFirst.mockResolvedValue(null);
+      prisma.proveedor.create.mockResolvedValue({
+        id: 5,
+        nombre: 'Carlos Mamani',
+        telefono: '78912345',
+      } as any);
+      prisma.notaIngreso.create.mockResolvedValue({
+        id: 100,
+        tipoIngreso: 'PERMUTA',
+        numeroComprobante: 'PERM-2026-001',
+      } as any);
+      prisma.dispositivo.create.mockResolvedValue({
+        id: 200,
+        condicion: 'PERMUTA',
+        precioVentaSugeridoBs: 3650, // (3000 * 1.15) + 200 = 3450 + 200 = 3650
+      } as any);
+      prisma.gastoDispositivo.create.mockResolvedValue({
+        id: 300,
+        dispositivoId: 200,
+        costoBs: 200,
+      } as any);
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 100,
+        tipoIngreso: 'PERMUTA',
+        dispositivos: [{ id: 200, condicion: 'PERMUTA', precioVentaSugeridoBs: 3650 }],
+      } as any);
+    });
+
+    it('debe registrar exitosamente una permuta calculando precio con 15% sobre compra más gastos', async () => {
+      const result = await service.createPermuta(basePermutaDto, usuarioId, 1);
+
+      expect(prisma.proveedor.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          nombre: 'Carlos',
+          telefono: '78912345',
+        }),
+      });
+      expect(prisma.dispositivo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          condicion: 'PERMUTA',
+          costoBs: 3000,
+          precioVentaSugeridoBs: 3650,
+          porcentajeBateria: 88,
+        }),
+      });
+      expect(prisma.gastoDispositivo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          dispositivoId: 200,
+          concepto: 'Reparación de Cristal Trasero',
+          costoBs: 200,
+          cajaId: 99,
+          aplicoEnCaja: true,
+        }),
+      });
+      expect(result).toBeDefined();
+    });
+
+    it('debe rechazar permuta si el equipo no es de tipo IPHONE', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        modelo: { nombreModelo: 'Samsung S24', tipo: 'SMARTPHONE' },
+      } as any);
+
+      await expect(
+        service.createPermuta(basePermutaDto, usuarioId, 1),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar permuta si la batería no está en rango 1-100', async () => {
+      await expect(
+        service.createPermuta(
+          {
+            ...basePermutaDto,
+            dispositivo: { ...basePermutaDto.dispositivo, porcentajeBateria: 105 },
+          },
+          usuarioId,
+          1,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe permitir anular permuta exclusivamente si el equipo no ha sido vendido', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 100,
+        tipoIngreso: 'PERMUTA',
+        estado: 'REGISTRADA',
+        dispositivos: [
+          {
+            id: 200,
+            estadoInventario: 'DISPONIBLE',
+            detalleVentas: [],
+          },
+        ],
+      } as any);
+
+      prisma.notaIngreso.update.mockResolvedValue({ id: 100, estado: 'ANULADA' } as any);
+
+      const res = await service.anularPermuta(100, { motivo: 'Cliente desistió' }, usuarioId);
+      expect(res.success).toBe(true);
+      expect(prisma.dispositivo.updateMany).toHaveBeenCalledWith({
+        where: { notaIngresoId: 100 },
+        data: { estadoInventario: 'DEFECTUOSO' },
+      });
+    });
+
+    it('debe bloquear anulación de permuta si el equipo ya fue vendido', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 100,
+        tipoIngreso: 'PERMUTA',
+        estado: 'REGISTRADA',
+        dispositivos: [
+          {
+            id: 200,
+            estadoInventario: 'VENDIDO',
+            detalleVentas: [{ id: 1 }],
+          },
+        ],
+      } as any);
+
+      await expect(
+        service.anularPermuta(100, { motivo: 'Intento ilegal' }, usuarioId),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

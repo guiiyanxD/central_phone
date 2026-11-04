@@ -2,15 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Smartphone, Headphones, Layers, Plus } from 'lucide-react';
+import { Smartphone, Headphones, Layers, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface InventarioHeaderProps {
-  activeTab: 'telefonos' | 'accesorios';
-  setActiveTab: (tab: 'telefonos' | 'accesorios') => void;
+  activeTab: 'telefonos' | 'accesorios' | 'permutas';
+  setActiveTab: (tab: 'telefonos' | 'accesorios' | 'permutas') => void;
   telefonosTotal: number;
   lotesTotal: number;
+  permutasTotal?: number;
 }
 
 export function InventarioHeader({
@@ -18,6 +19,7 @@ export function InventarioHeader({
   setActiveTab,
   telefonosTotal,
   lotesTotal,
+  permutasTotal = 0,
 }: InventarioHeaderProps) {
   return (
     <div className="space-y-6">
@@ -27,7 +29,7 @@ export function InventarioHeader({
             Control de Inventario Físico
           </h1>
           <p className="text-sm text-slate-600 mt-1">
-            Gestión de existencias en tienda: equipos serializados por IMEI y lotes físicos de accesorios.
+            Gestión de existencias en tienda: equipos serializados por IMEI, lotes físicos de accesorios y teléfonos de permuta.
           </p>
         </div>
 
@@ -81,6 +83,25 @@ export function InventarioHeader({
           <span className="text-xs bg-slate-100 px-1.5 py-0.5 rounded-full text-slate-600">
             {lotesTotal}
           </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('permutas')}
+          className={cn(
+            'pb-3 border-b-2 flex items-center gap-2 transition-colors',
+            activeTab === 'permutas'
+              ? 'border-purple-900 text-purple-900 font-bold'
+              : 'border-transparent text-slate-500 hover:text-purple-800'
+          )}
+        >
+          <RefreshCw className="h-4 w-4 text-purple-600" />
+          <span>Permutas</span>
+          {permutasTotal > 0 && (
+            <span className="text-xs bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded-full">
+              {permutasTotal}
+            </span>
+          )}
         </button>
       </div>
     </div>

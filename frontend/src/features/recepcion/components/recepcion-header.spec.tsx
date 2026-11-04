@@ -8,6 +8,8 @@ describe('RecepcionHeader - Tabs & Access Control', () => {
     isAdmin: false,
     activeTab: 'nuevo' as const,
     setActiveTab: vi.fn(),
+    modoRecepcion: 'MAYORISTA' as const,
+    setModoRecepcion: vi.fn(),
     proveedores: [{ id: 1, nombre: 'Proveedor Test' }],
     sucursales: [{ id: 1, nombre: 'Sucursal Central', ciudad: 'La Paz' }],
     proveedorId: 1,
@@ -45,10 +47,10 @@ describe('RecepcionHeader - Tabs & Access Control', () => {
   });
 
   it('debe mostrar el formulario de datos de origen solo cuando activeTab es "nuevo"', () => {
-    const { rerender } = render(<RecepcionHeader {...defaultProps} activeTab="nuevo" />);
-    expect(screen.getByText('1. Datos de Origen y Comprobante')).toBeDefined();
+    const { rerender } = render(<RecepcionHeader {...defaultProps} activeTab="nuevo" modoRecepcion="MAYORISTA" />);
+    expect(screen.getByText('1. Datos de Origen y Comprobante Mayorista')).toBeDefined();
 
     rerender(<RecepcionHeader {...defaultProps} activeTab="historial" />);
-    expect(screen.queryByText('1. Datos de Origen y Comprobante')).toBeNull();
+    expect(screen.queryByText('1. Datos de Origen y Comprobante Mayorista')).toBeNull();
   });
 });

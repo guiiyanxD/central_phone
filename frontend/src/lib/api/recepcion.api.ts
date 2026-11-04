@@ -17,10 +17,11 @@ export interface CreateNotaIngresoData {
     numeroSerie: string;
     imei1?: string | null;
     imei2?: string | null;
-    condicion?: 'NUEVO' | 'USADO' | 'OPEN_BOX';
+    condicion?: 'NUEVO' | 'USADO' | 'OPEN_BOX' | 'PERMUTA';
     costoBs: number;
     costoUsd: number;
     precioVentaSugeridoBs?: number;
+    porcentajeBateria?: number;
   }>;
   accesorios?: Array<{
     id?: number;
@@ -37,11 +38,59 @@ export interface CreateNotaIngresoData {
   }>;
 }
 
+export interface CreatePermutaData {
+  proveedorMinorista: {
+    nombre: string;
+    apellido?: string;
+    telefono: string;
+  };
+  sucursalId: number;
+  dispositivo: {
+    varianteId?: number;
+    nuevaVariante?: {
+      modeloId: number;
+      color: string;
+      capacidadGb: number;
+      tipoSim?: string;
+    };
+    numeroSerie: string;
+    imei1: string;
+    imei2?: string;
+    porcentajeBateria: number;
+    costoBs: number;
+  };
+  gastosIniciales?: Array<{
+    concepto: string;
+    costoBs: number;
+    observacion?: string;
+    aplicoEnCaja?: boolean;
+  }>;
+  observaciones?: string;
+}
+
+export interface UpdatePermutaData {
+  proveedorMinorista?: {
+    nombre?: string;
+    apellido?: string;
+    telefono?: string;
+  };
+  dispositivo?: {
+    numeroSerie?: string;
+    imei1?: string;
+    imei2?: string;
+    porcentajeBateria?: number;
+    costoBs?: number;
+    precioVentaSugeridoBs?: number;
+  };
+  observaciones?: string;
+}
+
 export interface NotaIngresoListItem {
   id: number;
   proveedorId: number;
   sucursalId: number;
   usuarioId: number;
+  tipoIngreso?: 'MAYORISTA' | 'PERMUTA' | string;
   numeroComprobante: string | null;
   fechaIngreso: string;
   totalCostoBs?: number | string;
@@ -49,7 +98,7 @@ export interface NotaIngresoListItem {
   estado?: 'REGISTRADA' | 'ANULADA';
   anuladaEn?: string | null;
   motivoAnulacion?: string | null;
-  proveedor: { id: number; nombre: string };
+  proveedor: { id: number; nombre: string; telefono?: string | null };
   sucursal: { id: number; nombre: string };
   usuario: { id: number; nombre: string };
   _count: {
@@ -173,6 +222,7 @@ export const recepcionApi = {
     limit?: number;
     sucursalId?: number;
     proveedorId?: number;
+    tipoIngreso?: string;
     fechaDesde?: string;
     fechaHasta?: string;
     search?: string;
@@ -182,6 +232,7 @@ export const recepcionApi = {
     if (params?.limit) q.set('limit', String(params.limit));
     if (params?.sucursalId) q.set('sucursalId', String(params.sucursalId));
     if (params?.proveedorId) q.set('proveedorId', String(params.proveedorId));
+    if (params?.tipoIngreso) q.set('tipoIngreso', params.tipoIngreso);
     if (params?.fechaDesde) q.set('fechaDesde', params.fechaDesde);
     if (params?.fechaHasta) q.set('fechaHasta', params.fechaHasta);
     if (params?.search) q.set('search', params.search);
@@ -199,6 +250,24 @@ export const recepcionApi = {
   anularNotaIngreso: (id: number, data: { motivo: string }) =>
     request<{ success: boolean; message: string; nota: NotaIngresoDetail }>(
       `/recepcion/notas-ingreso/${id}/anular`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    ),
+  createPermuta: (data: CreatePermutaData) =>
+    request<any>('/recepcion/permutas', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePermuta: (id: number, data: UpdatePermutaData) =>
+    request<any>(`/recepcion/permutas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  anularPermuta: (id: number, data: { motivo: string }) =>
+    request<{ success: boolean; message: string; nota: NotaIngresoDetail }>(
+      `/recepcion/permutas/${id}/anular`,
       {
         method: 'POST',
         body: JSON.stringify(data),

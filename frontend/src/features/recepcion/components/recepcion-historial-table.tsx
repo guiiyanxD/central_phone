@@ -247,8 +247,17 @@ export function RecepcionHistorialTable({
                   return (
                     <tr key={rec.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4 font-mono font-semibold text-slate-900 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span>#ING-{rec.id}</span>
+                          {rec.tipoIngreso === 'PERMUTA' ? (
+                            <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-200 text-purple-700 font-semibold">
+                              Permuta
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-blue-50 border-blue-200 text-blue-700 font-medium">
+                              Mayorista
+                            </Badge>
+                          )}
                           {rec.estado === 'ANULADA' ? (
                             <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-200 text-rose-700 font-semibold">
                               ANULADA

@@ -76,8 +76,10 @@ model Usuario {
   cajasCierre          CajaDiaria[]           @relation("UsuarioCierre")
   ventas               Venta[]
   ventasAnuladas       Venta[]                @relation("VentasAnuladas")
-  gastosOperativos     GastoOperativo[]
-  notasIngreso         NotaIngreso[]
+  gastosOperativos           GastoOperativo[]
+  gastosDispositivo          GastoDispositivo[]
+  gastosDispositivoAnulados  GastoDispositivo[]     @relation("GastosDispositivoAnulados")
+  notasIngreso               NotaIngreso[]
   configuracionesAdmin ConfiguracionNegocio[]
 
   @@map("usuarios")
@@ -127,7 +129,8 @@ model NotaIngreso {
   numeroComprobante String?  @map("numero_comprobante") @db.VarChar(100)
   fechaIngreso      DateTime @default(now()) @map("fecha_ingreso")
   totalCostoBs      Decimal  @default(0.00) @map("total_costo_bs") @db.Decimal(10, 2)
-  observaciones     String?  @db.Text
+  observaciones     String?   @db.Text
+  tipoIngreso       String    @default("MAYORISTA") @map("tipo_ingreso") @db.VarChar(20)
   estado            String    @default("REGISTRADA") @db.VarChar(20)
   anuladaEn         DateTime? @map("anulada_en")
   motivoAnulacion   String?   @map("motivo_anulacion") @db.Text
@@ -188,6 +191,7 @@ enum CondicionDispositivo {
   NUEVO
   USADO
   OPEN_BOX
+  PERMUTA
 }
 
 enum EstadoInventario {
@@ -210,12 +214,14 @@ model Dispositivo {
   costoBs               Decimal              @map("costo_bs") @db.Decimal(10, 2)
   costoUsd              Decimal              @map("costo_usd") @db.Decimal(10, 2)
   precioVentaSugeridoBs Decimal              @default(0.00) @map("precio_venta_sugerido_bs") @db.Decimal(10, 2)
+  porcentajeBateria     Int?                 @map("porcentaje_bateria")
   estadoInventario      EstadoInventario     @default(DISPONIBLE) @map("estado_inventario")
 
   variante      VarianteDispositivo @relation(fields: [varianteId], references: [id])
   sucursal      Sucursal            @relation(fields: [sucursalId], references: [id])
   notaIngreso   NotaIngreso         @relation(fields: [notaIngresoId], references: [id])
   detalleVentas DetalleVenta[]
+  gastos        GastoDispositivo[]
 
   @@map("dispositivos")
 }
@@ -293,11 +299,12 @@ model CajaDiaria {
   estado               EstadoCaja @default(ABIERTA)
   observaciones        String?    @db.Text
 
-  sucursal         Sucursal         @relation(fields: [sucursalId], references: [id])
-  usuarioApertura  Usuario          @relation("UsuarioApertura", fields: [usuarioAperturaId], references: [id])
-  usuarioCierre    Usuario?         @relation("UsuarioCierre", fields: [usuarioCierreId], references: [id])
-  ventas           Venta[]
-  gastosOperativos GastoOperativo[]
+  sucursal          Sucursal           @relation(fields: [sucursalId], references: [id])
+  usuarioApertura   Usuario            @relation("UsuarioApertura", fields: [usuarioAperturaId], references: [id])
+  usuarioCierre     Usuario?           @relation("UsuarioCierre", fields: [usuarioCierreId], references: [id])
+  ventas            Venta[]
+  gastosOperativos  GastoOperativo[]
+  gastosDispositivo GastoDispositivo[]
 
   @@map("cajas_diarias")
 }
@@ -327,6 +334,29 @@ model GastoOperativo {
   metodoPago MetodoPago     @relation(fields: [metodoPagoId], references: [id])
 
   @@map("gastos_operativos")
+}
+
+model GastoDispositivo {
+  id              Int       @id @default(autoincrement())
+  dispositivoId   Int       @map("dispositivo_id")
+  usuarioId       Int       @map("usuario_id")
+  cajaId          Int?      @map("caja_id")
+  concepto        String    @db.VarChar(150)
+  costoBs         Decimal   @map("costo_bs") @db.Decimal(10, 2)
+  observacion     String?   @db.Text
+  aplicoEnCaja    Boolean   @default(false) @map("aplico_en_caja")
+  estado          String    @default("ACTIVO") @db.VarChar(20) // ACTIVO | ANULADO
+  anuladoEn       DateTime? @map("anulado_en")
+  anuladoPorId    Int?      @map("anulado_por_id")
+  motivoAnulacion String?   @map("motivo_anulacion") @db.Text
+  fechaRegistro   DateTime  @default(now()) @map("fecha_registro")
+
+  dispositivo Dispositivo @relation(fields: [dispositivoId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id])
+  anuladoPor  Usuario?    @relation("GastosDispositivoAnulados", fields: [anuladoPorId], references: [id])
+  caja        CajaDiaria? @relation(fields: [cajaId], references: [id])
+
+  @@map("gastos_dispositivos")
 }
 
 // ------------------------------------------

@@ -68,6 +68,27 @@ export class CajaService {
           },
           orderBy: { fechaHora: 'desc' },
         },
+        gastosDispositivo: {
+          where: { estado: 'ACTIVO' },
+          include: {
+            dispositivo: {
+              select: {
+                id: true,
+                imei1: true,
+                numeroSerie: true,
+                variante: {
+                  select: {
+                    color: true,
+                    capacidadGb: true,
+                    modelo: { select: { nombreModelo: true } },
+                  },
+                },
+              },
+            },
+            usuario: { select: { id: true, nombre: true } },
+          },
+          orderBy: { fechaRegistro: 'desc' },
+        },
       },
     });
 
@@ -103,6 +124,15 @@ export class CajaService {
       }
     }
 
+    for (const gd of (caja.gastosDispositivo || [])) {
+      const monto = Number(gd.costoBs) || 0;
+      if (gd.aplicoEnCaja) {
+        totalGastosEfectivo = roundMoney(totalGastosEfectivo + monto);
+      } else {
+        totalGastosOtros = roundMoney(totalGastosOtros + monto);
+      }
+    }
+
     const saldoEfectivoEnCaja = roundMoney(montoInicial + totalVentasEfectivo - totalGastosEfectivo);
     const totalRecaudadoTotal = roundMoney(totalVentasEfectivo + totalVentasDigitales);
 
@@ -117,7 +147,7 @@ export class CajaService {
         totalGastosOtros,
         saldoEfectivoEnCaja,
         cantidadVentas: caja.ventas.filter((v) => v.estado !== 'ANULADA').length,
-        cantidadGastos: caja.gastosOperativos.length,
+        cantidadGastos: caja.gastosOperativos.length + (caja.gastosDispositivo?.length || 0),
       },
     };
   }
@@ -203,6 +233,9 @@ export class CajaService {
         gastosOperativos: {
           include: { metodoPago: true },
         },
+        gastosDispositivo: {
+          where: { estado: 'ACTIVO', aplicoEnCaja: true },
+        },
       },
     });
 
@@ -227,11 +260,18 @@ export class CajaService {
         .reduce((sum, v) => sum + Number(v.totalVentaBs), 0)
     );
 
-    const gastosEfectivo = roundMoney(
+    const gastosOperativosEfectivo = roundMoney(
       caja.gastosOperativos
         .filter((g) => this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
         .reduce((sum, g) => sum + Number(g.montoBs), 0)
     );
+
+    const gastosDispositivoEfectivo = roundMoney(
+      (caja.gastosDispositivo || [])
+        .reduce((sum, g) => sum + Number(g.costoBs), 0)
+    );
+
+    const gastosEfectivo = roundMoney(gastosOperativosEfectivo + gastosDispositivoEfectivo);
 
     const balanceTeorico = roundMoney(montoInicial + ventasEfectivo - gastosEfectivo);
     const montoFisicoContado = roundMoney(dto.montoFinalEfectivo);
@@ -505,6 +545,27 @@ export class CajaService {
           },
           orderBy: { fechaHora: 'asc' },
         },
+        gastosDispositivo: {
+          include: {
+            dispositivo: {
+              select: {
+                id: true,
+                imei1: true,
+                numeroSerie: true,
+                variante: {
+                  select: {
+                    color: true,
+                    capacidadGb: true,
+                    modelo: { select: { nombreModelo: true } },
+                  },
+                },
+              },
+            },
+            usuario: { select: { id: true, nombre: true, email: true } },
+            anuladoPor: { select: { id: true, nombre: true, email: true } },
+          },
+          orderBy: { fechaRegistro: 'asc' },
+        },
         ventas: {
           include: {
             metodoPago: true,
@@ -594,6 +655,16 @@ export class CajaService {
       }
     }
 
+    for (const gd of (caja.gastosDispositivo || [])) {
+      if (gd.estado !== 'ACTIVO') continue;
+      const monto = Number(gd.costoBs) || 0;
+      if (gd.aplicoEnCaja) {
+        totalGastosEfectivo = roundMoney(totalGastosEfectivo + monto);
+      } else {
+        totalGastosOtros = roundMoney(totalGastosOtros + monto);
+      }
+    }
+
     const totalGastosTotal = roundMoney(totalGastosEfectivo + totalGastosOtros);
     const totalVentasTotal = roundMoney(totalVentasEfectivo + totalVentasDigitales);
     const saldoTeoricoEfectivo = roundMoney(
@@ -634,7 +705,9 @@ export class CajaService {
           .length,
         cantidadVentasAnuladas: caja.ventas.filter((v) => v.estado === 'ANULADA')
           .length,
-        cantidadGastos: caja.gastosOperativos.length,
+        cantidadGastos:
+          caja.gastosOperativos.length +
+          (caja.gastosDispositivo?.filter((g) => g.estado === 'ACTIVO').length || 0),
         ...(isAdmin
           ? {
               totalCostoMercaderia,

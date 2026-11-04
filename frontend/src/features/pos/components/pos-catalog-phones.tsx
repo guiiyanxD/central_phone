@@ -91,15 +91,23 @@ export function PosCatalogPhones({
                           {d.sucursal?.nombre || `Sucursal #${d.sucursalId}`}
                         </span>
                       )}
+                      {d.porcentajeBateria && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-blue-50 text-blue-800 border-blue-200">
+                          {d.porcentajeBateria}% Bat
+                        </span>
+                      )}
                       <span
                         className={cn(
-                          'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
-                          d.condicion === 'NUEVO'
+                          'text-[10px] font-bold px-1.5 py-0.5 rounded border',
+                          d.condicion === 'PERMUTA'
+                            ? 'bg-purple-100 text-purple-900 border-purple-300 font-extrabold'
+                            : d.condicion === 'NUEVO'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : 'bg-slate-100 text-slate-800 border-slate-200'
                         )}
+                        title={d.condicion === 'PERMUTA' ? 'Equipo de Permuta' : d.condicion}
                       >
-                        {d.condicion}
+                        {d.condicion === 'PERMUTA' ? 'P' : d.condicion}
                       </span>
                     </div>
                   </div>
