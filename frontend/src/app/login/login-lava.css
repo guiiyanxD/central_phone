@@ -1,0 +1,118 @@
+/* ===== HERO: LAVA LAMP BURGUNDY (IPHONE 18 EDITION) ===== */
+.lava-hero {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(180deg, #420819 0%, #8c1d40 50%, #c93b57 100%);
+  isolation: isolate;
+}
+
+.lava-container {
+  position: absolute;
+  inset: 0;
+  filter: url(#goo);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.lava-blob {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+  background: radial-gradient(circle at 35% 30%, #fbd5dc 0%, #d84564 45%, #8c1d40 100%);
+  opacity: 0.92;
+}
+
+.lava-b1 {
+  width: 34%;
+  aspect-ratio: 1;
+  left: 12%;
+  bottom: -8%;
+  animation: lavaRise1 16s ease-in-out infinite;
+}
+
+.lava-b2 {
+  width: 26%;
+  aspect-ratio: 1;
+  left: 52%;
+  bottom: -6%;
+  animation: lavaRise2 21s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+.lava-b3 {
+  width: 20%;
+  aspect-ratio: 1;
+  left: 30%;
+  bottom: -5%;
+  animation: lavaRise3 13s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+.lava-b4 {
+  width: 15%;
+  aspect-ratio: 1;
+  left: 68%;
+  bottom: -4%;
+  animation: lavaRise1 18s ease-in-out infinite;
+  animation-delay: -11s;
+}
+
+.lava-b5 {
+  width: 11%;
+  aspect-ratio: 1;
+  left: 44%;
+  bottom: -3%;
+  animation: lavaRise2 11s ease-in-out infinite;
+  animation-delay: -8s;
+}
+
+.lava-pool {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -14%;
+  height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 30%, #fcd3de, #c93b57 60%, #8c1d40);
+}
+
+.lava-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(circle at 20% 15%, rgba(140, 29, 64, 0.65), transparent 55%),
+              radial-gradient(circle at 85% 40%, rgba(201, 59, 87, 0.45), transparent 50%),
+              radial-gradient(circle at 50% 85%, rgba(230, 197, 148, 0.12), transparent 55%);
+}
+
+@keyframes lavaRise1 {
+  0% { transform: translate(0, 0) scale(1, 1); }
+  25% { transform: translate(20%, -90%) scale(0.92, 1.12); }
+  50% { transform: translate(-10%, -190%) scale(1.1, 0.95); }
+  75% { transform: translate(25%, -100%) scale(0.95, 1.1); }
+  100% { transform: translate(0, 0) scale(1, 1); }
+}
+
+@keyframes lavaRise2 {
+  0% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-30%, -120%) scale(0.9, 1.15); }
+  55% { transform: translate(10%, -240%) scale(1.12, 0.92); }
+  80% { transform: translate(-20%, -110%) scale(1, 1.08); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes lavaRise3 {
+  0% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(35%, -170%) scale(0.88, 1.18); }
+  70% { transform: translate(-25%, -260%) scale(1.1, 0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+/* Soporte estricto para usuarios con sensibilidad al movimiento vestibular */
+@media (prefers-reduced-motion: reduce) {
+  .lava-blob {
+    animation: none !important;
+  }
+}
