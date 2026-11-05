@@ -96,10 +96,17 @@ describe('LoginPage Component (iPhone 18 Burgundy & Lava Lamp)', () => {
     expect(screen.getByText('Edición Especial 2026')).toBeInTheDocument();
   });
 
-  it('debe renderizar el panel de lava visible tanto en móvil como en desktop bajo el formulario', () => {
+  it('debe renderizar el telón de fondo de lava en móvil y el hero lateral en desktop', () => {
     const { container } = render(<LoginPage />);
-    const lavaHero = container.querySelector('.lava-hero');
-    expect(lavaHero).toBeInTheDocument();
-    expect(lavaHero?.classList.contains('hidden')).toBe(false);
+    const mobileBackdrop = container.querySelector('.lava-backdrop-mobile');
+    expect(mobileBackdrop).toBeInTheDocument();
+
+    const desktopHero = container.querySelector('.lava-hero');
+    expect(desktopHero).toBeInTheDocument();
+    expect(desktopHero?.classList.contains('hidden')).toBe(true);
+    expect(desktopHero?.classList.contains('lg:flex')).toBe(true);
+
+    const outerContainer = container.firstChild as HTMLElement;
+    expect(outerContainer.classList.contains('overflow-hidden')).toBe(true);
   });
 });

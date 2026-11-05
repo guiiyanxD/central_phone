@@ -1,3 +1,15 @@
+/* ===== TELÓN DE FONDO INMERSIVO MÓVIL (PANTALLA COMPLETA 100VH) ===== */
+.lava-backdrop-mobile {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #420819 0%, #8c1d40 50%, #c93b57 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
 /* ===== HERO: LAVA LAMP BURGUNDY (IPHONE 18 EDITION) ===== */
 .lava-hero {
   position: relative;
