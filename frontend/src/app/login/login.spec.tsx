@@ -4,6 +4,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import LoginPage from './page';
 
 const mockLogin = vi.fn();
+const mockPush = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+    replace: vi.fn(),
+    refresh: vi.fn(),
+  }),
+  usePathname: () => '/login',
+}));
 
 vi.mock('@/context/auth-context', () => ({
   useAuth: () => ({

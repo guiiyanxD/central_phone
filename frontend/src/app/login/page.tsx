@@ -2,7 +2,16 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Lock, Mail, ShieldAlert, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Mail,
+  Lock,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  ShieldAlert,
+  Sparkles,
+} from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,34 +19,34 @@ import { Label } from '@/components/ui/label';
 import './login-lava.css';
 
 export default function LoginPage() {
+  const router = useRouter();
   const { login } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg('Por favor, ingresa tu correo y contraseña.');
-      return;
-    }
-
+    setErrorMsg('');
     setIsLoading(true);
-    setErrorMsg(null);
 
     try {
-      await login(email.trim(), password.trim());
+      await login(email, password);
+      router.push('/');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Credenciales inválidas. Verifica tu correo y contraseña.');
+      setErrorMsg(
+        err.message || 'Credenciales inválidas. Verifica tu correo y contraseña.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 lg:p-8 bg-slate-100/90 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 lg:p-6 bg-[#F8FAFC] overflow-y-auto lg:overflow-hidden select-none">
       {/* Filtro SVG Goo para la Fusión Orgánica de los Blobs de Lava */}
       <svg width="0" height="0" className="absolute invisible pointer-events-none" aria-hidden="true">
         <filter id="goo">
@@ -50,16 +59,16 @@ export default function LoginPage() {
         </filter>
       </svg>
 
-      {/* Tarjeta Principal Split-Screen */}
-      <div className="w-full max-w-md lg:max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col lg:grid lg:grid-cols-2">
+      {/* Tarjeta Principal Split-Screen Unificada en Off-White No Absoluto */}
+      <div className="w-full max-w-md lg:max-w-5xl bg-[#F8FAFC] rounded-3xl shadow-xl shadow-slate-200/70 border border-slate-200/90 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 max-h-[min(620px,94vh)]">
         {/* =========================================================================
             PANEL IZQUIERDO: Formulario de Autenticación con Identidad Centrada
             ========================================================================= */}
-        <div className="p-6 sm:p-10 lg:p-12 flex flex-col justify-between bg-white flex-1">
-          <div className="space-y-6 my-auto">
+        <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-[#F8FAFC] flex-1 overflow-y-auto">
+          <div className="space-y-5 my-auto">
             {/* 1. Identidad de Marca Oficial: Logo y Nombre Centrados por Encima */}
             <div className="flex flex-col items-center justify-center text-center">
-              <div className="relative h-14 w-14 rounded-2xl bg-slate-50 border border-slate-200 p-2 shadow-subtle flex items-center justify-center mb-3 transition-transform hover:scale-105">
+              <div className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-[#F8FAFC] border border-slate-200 p-2 shadow-sm flex items-center justify-center mb-2.5 transition-transform hover:scale-105">
                 <Image
                   src="/logo.png"
                   alt="CentralPhone Logo"
@@ -77,8 +86,8 @@ export default function LoginPage() {
             </div>
 
             {/* 2. Título de Sección */}
-            <div className="space-y-1 text-center sm:text-left pt-1">
-              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+            <div className="space-y-1 text-center sm:text-left">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
                 Acceso al Sistema
               </h2>
               <p className="text-xs text-slate-500">
@@ -98,7 +107,7 @@ export default function LoginPage() {
             )}
 
             {/* 4. Formulario de Login */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <Label htmlFor="email" required>
                   Correo Electrónico
@@ -114,7 +123,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoFocus
-                    className="pl-9 text-xs h-10 border-slate-300 focus-visible:ring-[#8c1d40] focus-visible:border-[#8c1d40]"
+                    className="pl-9 text-xs h-10 bg-[#F8FAFC] border-slate-300 focus-visible:bg-[#F8FAFC] focus-visible:ring-[#8c1d40] focus-visible:border-[#8c1d40]"
                   />
                 </div>
               </div>
@@ -133,7 +142,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-9 pr-10 text-xs h-10 border-slate-300 focus-visible:ring-[#8c1d40] focus-visible:border-[#8c1d40]"
+                    className="pl-9 pr-10 text-xs h-10 bg-[#F8FAFC] border-slate-300 focus-visible:bg-[#F8FAFC] focus-visible:ring-[#8c1d40] focus-visible:border-[#8c1d40]"
                   />
                   <button
                     type="button"
@@ -152,7 +161,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full text-xs font-semibold h-11 mt-2 bg-[#8c1d40] hover:bg-[#731533] active:bg-[#5b0f27] text-white shadow-md transition-colors"
+                className="w-full text-xs font-semibold h-10 sm:h-11 mt-1 bg-[#8c1d40] hover:bg-[#731533] active:bg-[#5b0f27] text-white shadow-md transition-colors"
                 isLoading={isLoading}
                 loadingText="Verificando credenciales..."
               >
@@ -163,7 +172,7 @@ export default function LoginPage() {
           </div>
 
           {/* 5. Pie de Seguridad */}
-          <div className="pt-4 border-t border-slate-100 mt-6">
+          <div className="pt-3 border-t border-slate-200/70 mt-4">
             <p className="text-center text-[10px] text-slate-400 font-medium">
               CentralPhone POS • Sesión protegida mediante JWT & RBAC
             </p>
@@ -174,7 +183,7 @@ export default function LoginPage() {
             PANEL DERECHO: Hero Visual con Efecto Lava Lamp "iPhone 18 Burgundy"
             Visible en pantallas medianas y grandes (lg)
             ========================================================================= */}
-        <div className="hidden lg:block relative lava-hero min-h-[580px]">
+        <div className="hidden lg:block relative lava-hero h-full min-h-[480px]">
           {/* Animación de Fluido Orgánico Lava */}
           <div className="lava-container" aria-hidden="true">
             <div className="lava-pool" />
@@ -189,7 +198,7 @@ export default function LoginPage() {
           <div className="lava-glow" />
 
           {/* Mensaje Editorial en Champagne Gold (#e6c594) */}
-          <div className="relative z-10 p-10 lg:p-14 flex flex-col justify-between h-full text-[#e6c594]">
+          <div className="relative z-10 p-10 lg:p-12 flex flex-col justify-between h-full text-[#e6c594]">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-[#e6c594]/10 border border-[#e6c594]/30 backdrop-blur-md shadow-xs">
                 <Sparkles className="h-3.5 w-3.5 text-[#e6c594]" />

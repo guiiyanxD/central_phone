@@ -5,6 +5,8 @@
   color: #fff;
   background: linear-gradient(180deg, #420819 0%, #8c1d40 50%, #c93b57 100%);
   isolation: isolate;
+  height: 100%;
+  min-height: 480px;
 }
 
 .lava-container {
