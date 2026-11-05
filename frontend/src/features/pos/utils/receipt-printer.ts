@@ -66,14 +66,13 @@ export function printReceipt(completedSale: any) {
         <span style="color:#555;">Teléfono:</span>
         <span style="font-weight:bold;">${completedSale.cliente.telefono}</span>
       </div>
-      ${
-        completedSale.cliente.ciNit
-          ? `<div style="display:flex;justify-content:space-between;margin:2px 0;">
+      ${completedSale.cliente.ciNit
+      ? `<div style="display:flex;justify-content:space-between;margin:2px 0;">
               <span style="color:#555;">C.I. / NIT:</span>
               <span>${completedSale.cliente.ciNit}</span>
             </div>`
-          : ''
-      }
+      : ''
+    }
     `
     : `
       <div style="display:flex;justify-content:space-between;margin:2px 0;">
@@ -244,7 +243,8 @@ export function printReceipt(completedSale: any) {
 
         <div class="footer">
           *** GARANTÍA OFICIAL CENTRALPHONE ***<br>
-          6 Meses de Garantía en Dispositivos Apple.<br>
+          3 Meses de Garantía en Dispositivos Apple.<br>
+          15 días en accesorios.<br>
           Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.<br>
           ¡Gracias por su preferencia!
         </div>
