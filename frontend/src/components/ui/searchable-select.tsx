@@ -184,6 +184,7 @@ export function SearchableSelect({
         aria-expanded={isOpen}
         className={cn(
           'w-full flex items-center justify-between text-left h-9 px-3 py-1.5 rounded-lg border bg-white text-xs transition-colors',
+          isClearable && selectedOption && !disabled ? 'pr-14' : 'pr-3',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1',
           error
             ? 'border-rose-400 bg-rose-50/20'
@@ -192,7 +193,7 @@ export function SearchableSelect({
           isOpen && 'ring-2 ring-slate-900 border-transparent'
         )}
       >
-        <span className="truncate flex-1 pr-2">
+        <span className="truncate flex-1 pr-1">
           {selectedOption ? (
             <span className="font-semibold text-slate-900">
               {selectedOption.label}
@@ -207,26 +208,28 @@ export function SearchableSelect({
           )}
         </span>
 
-        <span className="flex items-center gap-1 shrink-0 text-slate-400">
-          {isClearable && selectedOption && !disabled && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={handleClear}
-              className="p-0.5 hover:text-slate-700 hover:bg-slate-100 rounded cursor-pointer transition-colors"
-              title="Limpiar selección"
-            >
-              <X className="h-3 w-3" />
-            </span>
-          )}
+        <span className="flex items-center shrink-0 text-slate-400">
           <ChevronDown
             className={cn(
-              'h-3.5 w-3.5 transition-transform duration-200',
+              'h-3.5 w-3.5 transition-transform duration-200 pointer-events-none',
               isOpen && 'rotate-180 text-slate-900'
             )}
           />
         </span>
       </button>
+
+      {/* Botón de limpiar desacoplado como hermano independiente (ID-A11Y-001) */}
+      {isClearable && selectedOption && !disabled && (
+        <button
+          type="button"
+          onClick={handleClear}
+          aria-label="Limpiar selección"
+          className="absolute right-7 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900"
+          title="Limpiar selección"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
 
       {/* Popover Desplegable */}
       {isOpen && (

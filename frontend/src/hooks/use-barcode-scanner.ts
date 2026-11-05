@@ -7,6 +7,7 @@ export interface UseBarcodeScannerOptions {
   maxIntervalMs?: number;
   playSound?: boolean;
   enabled?: boolean;
+  debounceMs?: number;
 }
 
 export function useBarcodeScanner({
@@ -15,10 +16,13 @@ export function useBarcodeScanner({
   maxIntervalMs = 50,
   playSound = true,
   enabled = true,
+  debounceMs = 1200,
 }: UseBarcodeScannerOptions) {
   const bufferRef = useRef<string>('');
   const lastKeyTimeRef = useRef<number>(0);
   const onScanRef = useRef(onScan);
+  const firstCharCleanedRef = useRef<boolean>(false);
+  const lastScannedBarcodeRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -52,10 +56,23 @@ export function useBarcodeScanner({
       if (event.key === 'Enter') {
         const barcode = bufferRef.current.trim();
         bufferRef.current = '';
+        firstCharCleanedRef.current = false;
 
         if (barcode.length >= minLength) {
           event.preventDefault();
           event.stopPropagation();
+
+          // Blindaje anti-rebote de gatillo de pistola (ID-POS-008)
+          if (
+            debounceMs > 0 &&
+            lastScannedBarcodeRef.current.code === barcode &&
+            currentTime - lastScannedBarcodeRef.current.time < debounceMs
+          ) {
+            return;
+          }
+
+          lastScannedBarcodeRef.current = { code: barcode, time: currentTime };
+
           if (playSound) {
             playScanBeep();
           }
@@ -67,6 +84,32 @@ export function useBarcodeScanner({
       // Si el tiempo entre caracteres fue mayor al umbral de escáner óptico, resetear buffer
       if (interval > maxIntervalMs) {
         bufferRef.current = '';
+        firstCharCleanedRef.current = false;
+      } else if (bufferRef.current.length > 0) {
+        // Intervalo ultrarrápido (ráfaga de escáner láser HID)
+        // 1. Prevenir que los caracteres se escriban en inputs enfocados (ID-POS-001)
+        event.preventDefault();
+
+        // 2. Si es el segundo carácter de la ráfaga, remover el primer carácter que alcanzó a escribirse
+        if (!firstCharCleanedRef.current && bufferRef.current.length === 1) {
+          const target = (
+            event.target instanceof HTMLElement ? event.target : document.activeElement
+          ) as HTMLElement | null;
+
+          if (
+            target &&
+            (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) &&
+            !['checkbox', 'radio', 'file', 'button', 'submit', 'reset'].includes((target as HTMLInputElement).type)
+          ) {
+            const inputTarget = target as HTMLInputElement | HTMLTextAreaElement;
+            const firstChar = bufferRef.current;
+            if (inputTarget.value && inputTarget.value.endsWith(firstChar)) {
+              inputTarget.value = inputTarget.value.slice(0, -firstChar.length);
+              inputTarget.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }
+          firstCharCleanedRef.current = true;
+        }
       }
 
       // Solo acumular caracteres imprimibles de 1 carácter
@@ -79,5 +122,5 @@ export function useBarcodeScanner({
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [enabled, minLength, maxIntervalMs, playSound]);
+  }, [enabled, minLength, maxIntervalMs, playSound, debounceMs]);
 }

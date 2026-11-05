@@ -94,13 +94,12 @@ export function PosCartPanel({
   const montoPermuta = permutaTradeIn?.valorTomaBs || 0;
   const saldoACobrar = Math.max(0, totalBs - montoPermuta);
 
-  // Validación de cobro en efectivo: no permitir completar si entregó menos del saldo a cobrar
+  // Validación estricta de cobro en efectivo (ID-POS-002):
+  // Si hay saldo a cobrar, es obligatorio ingresar el monto entregado y que cubra el total.
   const isCashInsufficient =
     saldoACobrar > 0 &&
     metodoPagoCodigo === 'EFECTIVO' &&
-    typeof montoRecibidoBs === 'number' &&
-    montoRecibidoBs > 0 &&
-    montoRecibidoBs < saldoACobrar;
+    (typeof montoRecibidoBs !== 'number' || montoRecibidoBs < saldoACobrar);
 
   // En pago mixto, calcular saldo restante a transferir por QR
   const saldoQrBs =
@@ -266,7 +265,11 @@ export function PosCartPanel({
           <div className="flex items-center justify-between">
             <p className="font-semibold text-slate-900 flex items-center gap-1.5">
               <User className="h-3.5 w-3.5 text-slate-700" />
-              Datos del Comprador <span className="text-rose-600 font-bold">*</span>
+              <span>Datos del Comprador</span>
+              <span className="text-rose-600 font-bold">*</span>
+              <kbd className="hidden sm:inline-block text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.5 rounded border border-slate-200" title="Atajo F3 para enfocar comprador">
+                F3
+              </kbd>
             </p>
             <div className="flex items-center gap-1.5">
               <button
@@ -275,10 +278,10 @@ export function PosCartPanel({
                   setClienteNombre('Comprador casual');
                   setClienteTelefono('71000000');
                 }}
-                className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors"
-                title="Auto-completar datos para venta rápida de mostrador"
+                className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors flex items-center gap-1"
+                title="Auto-completar datos para venta rápida de mostrador (Ctrl+Alt+C)"
               >
-                + Comprador casual
+                <span>+ Comprador casual</span>
               </button>
               <span className="text-[10px] text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
                 Garantía
@@ -482,20 +485,27 @@ export function PosCartPanel({
                 className="bg-white text-xs font-mono font-bold h-9"
               />
 
-              {/* Visualización del Vuelto / Faltante */}
+              {/* Visualización del Vuelto / Faltante (ID-POS-005) */}
               {typeof montoRecibidoBs === 'number' && montoRecibidoBs > 0 && (
                 <div
                   className={cn(
-                    'p-2 rounded-lg border flex items-center justify-between font-mono text-xs transition-colors',
+                    'p-2.5 rounded-xl border flex items-center justify-between font-mono transition-colors shadow-2xs',
                     montoRecibidoBs >= saldoACobrar
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                      : 'bg-amber-50 border-amber-300 text-amber-900'
                   )}
                 >
-                  <span className="font-semibold font-sans text-[11px]">
-                    {montoRecibidoBs >= saldoACobrar ? 'Vuelto a Entregar:' : 'Monto Faltante:'}
+                  <span className="font-semibold font-sans text-xs">
+                    {montoRecibidoBs >= saldoACobrar ? 'Cambio / Vuelto a Entregar:' : 'Monto Faltante:'}
                   </span>
-                  <span className="text-sm font-bold">
+                  <span
+                    className={cn(
+                      'font-mono tracking-tight',
+                      montoRecibidoBs >= saldoACobrar
+                        ? 'text-2xl font-black text-emerald-700'
+                        : 'text-sm font-bold text-amber-800'
+                    )}
+                  >
                     {montoRecibidoBs >= saldoACobrar
                       ? `Bs ${(montoRecibidoBs - saldoACobrar).toFixed(2)}`
                       : `Faltan Bs ${(saldoACobrar - montoRecibidoBs).toFixed(2)}`}
@@ -652,7 +662,7 @@ export function PosCartPanel({
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               {montoPermuta > 0 ? 'Saldo a Cobrar:' : 'Total a Cobrar:'}
             </span>
-            <span className="text-2xl font-bold font-mono text-slate-900 tracking-tight">
+            <span className="text-2xl md:text-3xl font-extrabold font-mono text-slate-900 tracking-tight">
               Bs {saldoACobrar.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
@@ -666,8 +676,8 @@ export function PosCartPanel({
           >
             <Banknote className="mr-2 h-4 w-4" />
             {saldoACobrar === 0
-              ? 'Finalizar Venta (Cubierto 100% por Permuta) (F12)'
-              : 'Finalizar Venta e Imprimir (F12)'}
+              ? 'Finalizar Venta (Cubierto 100% por Permuta) (Ctrl+↵)'
+              : 'Finalizar Venta e Imprimir (Ctrl+↵)'}
           </Button>
         </div>
       </div>

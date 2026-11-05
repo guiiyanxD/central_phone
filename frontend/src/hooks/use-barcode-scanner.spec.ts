@@ -145,4 +145,88 @@ describe('useBarcodeScanner Hook', () => {
 
     expect(onScan).not.toHaveBeenCalled();
   });
+
+  it('debe prevenir la contaminación en inputs de texto cuando se dispara el escáner (ID-POS-001)', () => {
+    const onScan = vi.fn();
+    renderHook(() =>
+      useBarcodeScanner({
+        onScan,
+        minLength: 6,
+        maxIntervalMs: 50,
+      })
+    );
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = 'Juan Perez ';
+    document.body.appendChild(input);
+    input.focus();
+
+    // Simular que el primer carácter ('3') alcanza a escribirse antes de detectar el intervalo del escáner
+    input.value += '3';
+
+    // Disparar ráfaga rápida a través del escáner (intervalo 10ms)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true, cancelable: true }));
+    vi.advanceTimersByTime(10);
+
+    // Segundo carácter '5': el hook detecta intervalo <= 50ms, previene el default y limpia el '3' que entró al input
+    const secondEvent = new KeyboardEvent('keydown', { key: '5', bubbles: true, cancelable: true });
+    window.dispatchEvent(secondEvent);
+    vi.advanceTimersByTime(10);
+
+    expect(secondEvent.defaultPrevented).toBe(true);
+    expect(input.value).toBe('Juan Perez ');
+
+    // Caracteres restantes de la ráfaga
+    for (const char of '6987112233445') {
+      const ev = new KeyboardEvent('keydown', { key: char, bubbles: true, cancelable: true });
+      window.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(true);
+      vi.advanceTimersByTime(10);
+    }
+
+    const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    window.dispatchEvent(enterEvent);
+
+    expect(enterEvent.defaultPrevented).toBe(true);
+    expect(onScan).toHaveBeenCalledWith('356987112233445');
+    // El input original conservó su contenido limpio sin contaminación
+    expect(input.value).toBe('Juan Perez ');
+
+    document.body.removeChild(input);
+  });
+
+  it('debe suprimir rebotes accidentales de gatillo para el mismo código dentro de 1200ms (ID-POS-008)', () => {
+    const onScan = vi.fn();
+    renderHook(() =>
+      useBarcodeScanner({
+        onScan,
+        minLength: 6,
+        maxIntervalMs: 50,
+        debounceMs: 1200,
+      })
+    );
+
+    // Primer escaneo exitoso
+    simulateFastTyping('356987112233445', 10);
+    expect(onScan).toHaveBeenCalledTimes(1);
+    expect(onScan).toHaveBeenCalledWith('356987112233445');
+
+    // Doble pulsación accidental 300ms después con el mismo código
+    vi.advanceTimersByTime(300);
+    simulateFastTyping('356987112233445', 10);
+    // Debe haber ignorado el duplicado dentro de la ventana de debounce
+    expect(onScan).toHaveBeenCalledTimes(1);
+
+    // Escaneo de un código DIFERENTE 200ms después (debe permitirse inmediatamente)
+    vi.advanceTimersByTime(200);
+    simulateFastTyping('998877665544332', 10);
+    expect(onScan).toHaveBeenCalledTimes(2);
+    expect(onScan).toHaveBeenCalledWith('998877665544332');
+
+    // Mismo código original pero después de vencer los 1200ms (debe permitirse de nuevo)
+    vi.advanceTimersByTime(1300);
+    simulateFastTyping('356987112233445', 10);
+    expect(onScan).toHaveBeenCalledTimes(3);
+  });
 });

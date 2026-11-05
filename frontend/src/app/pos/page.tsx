@@ -169,6 +169,13 @@ export default function PosPage() {
     loadData();
   }, [user, activeSucursal?.id]);
 
+  // Sincronizar estado del carrito en sessionStorage para blindar conmutación de sucursales en navbar (ID-UX-001)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('pos_cart_has_items', cart.length > 0 ? 'true' : 'false');
+    }
+  }, [cart.length]);
+
   // Si cambia la sucursal activa en POS y el carrito tiene productos, reiniciar carrito
   const prevSucursalIdRef = useRef<number | undefined>(activeSucursal?.id);
   useEffect(() => {
@@ -184,7 +191,11 @@ export default function PosPage() {
     prevSucursalIdRef.current = activeSucursal?.id;
   }, [activeSucursal?.id, cart.length]);
 
-  // Atajos globales de teclado en mostrador (F2, F4, F8, F9, Ctrl+Z)
+  // Referencias mutables para atajos de teclado sin closures desactualizadas
+  const handleProcessCheckoutRef = useRef<() => void>(() => {});
+  const handleUndoRemoveRef = useRef<() => void>(() => {});
+
+  // Atajos globales de teclado en mostrador (F2, F3, F4, F8, F9, Ctrl+Enter, Ctrl+Alt+C, Ctrl+Z) (ID-POS-003)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (modalQrOpen || completedSale) return;
@@ -193,6 +204,10 @@ export default function PosPage() {
         e.preventDefault();
         setCatalogTab('telefonos');
         setTimeout(() => inputSearchRef.current?.focus(), 50);
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        const clientInput = document.getElementById('clienteNombre');
+        clientInput?.focus();
       } else if (e.key === 'F4') {
         e.preventDefault();
         setCatalogTab((t) => (t === 'telefonos' ? 'accesorios' : 'telefonos'));
@@ -203,20 +218,22 @@ export default function PosPage() {
         e.preventDefault();
         setMetodoPagoCodigo('QR_SIMPLE');
         setModalQrOpen(true);
-      } else if (e.key === 'F12' || (e.ctrlKey && e.key === 'Enter')) {
+      } else if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
-        handleProcessCheckout();
+        setClienteNombre('Comprador casual');
+        setClienteTelefono('71000000');
+      } else if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
+        e.preventDefault();
+        handleProcessCheckoutRef.current();
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-        if (lastRemovedItem) {
-          e.preventDefault();
-          handleUndoRemove();
-        }
+        e.preventDefault();
+        handleUndoRemoveRef.current();
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [modalQrOpen, completedSale, lastRemovedItem]);
+  }, [modalQrOpen, completedSale]);
 
   // Manejadores de Carrito
   const commitAddPhone = (disp: any, isInterSucursal = false) => {
@@ -427,6 +444,7 @@ export default function PosPage() {
     setLastRemovedItem(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
   };
+  handleUndoRemoveRef.current = handleUndoRemove;
 
   const handleClearCart = () => {
     if (cart.length === 0) return;
@@ -601,14 +619,17 @@ export default function PosPage() {
       }
     }
 
+    // Validación estricta de cobro en efectivo (ID-POS-002)
     if (
       saldoACobrar > 0 &&
       metodoPagoCodigo === 'EFECTIVO' &&
-      typeof montoRecibidoBs === 'number' &&
-      montoRecibidoBs > 0 &&
-      montoRecibidoBs < saldoACobrar
+      (typeof montoRecibidoBs !== 'number' || montoRecibidoBs < saldoACobrar)
     ) {
-      setSaleError(`El efectivo entregado (Bs ${montoRecibidoBs}) es menor al saldo a cobrar (Bs ${saldoACobrar.toFixed(2)}).`);
+      setSaleError(
+        typeof montoRecibidoBs !== 'number'
+          ? `Debes registrar el efectivo entregado por el cliente para calcular el vuelto (Saldo: Bs ${saldoACobrar.toFixed(2)}).`
+          : `El efectivo entregado (Bs ${montoRecibidoBs}) es menor al saldo a cobrar (Bs ${saldoACobrar.toFixed(2)}).`
+      );
       return;
     }
 
@@ -681,6 +702,7 @@ export default function PosPage() {
       setIsSubmittingSale(false);
     }
   };
+  handleProcessCheckoutRef.current = handleProcessCheckout;
 
   if (isLoadingSession) {
     return (

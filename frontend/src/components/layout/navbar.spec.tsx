@@ -122,4 +122,40 @@ describe('Navbar - Tipo de Cambio WaveSoft Widget', () => {
       ciudad: 'Cochabamba',
     });
   });
+
+  it('debe solicitar confirmación antes de conmutar sucursal si el carrito de POS contiene productos (ID-UX-001)', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const nextNav = await import('next/navigation');
+    vi.spyOn(nextNav, 'usePathname').mockReturnValue('/pos');
+
+    window.sessionStorage.setItem('pos_cart_has_items', 'true');
+    const confirmSpy = vi.spyOn(window, 'confirm');
+
+    // 1. Caso cancelado por el usuario
+    confirmSpy.mockReturnValueOnce(false);
+    render(<Navbar />);
+
+    const userButton = screen.getByText('Administrador Central').closest('button');
+    fireEvent.click(userButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sucursal Norte \(Cochabamba\)/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Sucursal Norte \(Cochabamba\)/i));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockSetActiveSucursal).not.toHaveBeenCalled();
+
+    // 2. Caso confirmado por el usuario
+    confirmSpy.mockReturnValueOnce(true);
+    fireEvent.click(userButton!);
+    fireEvent.click(screen.getByText(/Sucursal Norte \(Cochabamba\)/i));
+    expect(mockSetActiveSucursal).toHaveBeenCalledWith({
+      id: 2,
+      nombre: 'Sucursal Norte',
+      ciudad: 'Cochabamba',
+    });
+
+    window.sessionStorage.removeItem('pos_cart_has_items');
+  });
 });

@@ -236,6 +236,19 @@ export function Navbar() {
                             type="button"
                             onClick={() => {
                               if (!isCurrent) {
+                                // Blindaje anti-pérdida de ticket en POS (ID-UX-001)
+                                if (typeof window !== 'undefined' && pathname.startsWith('/pos')) {
+                                  const hasCartItems = window.sessionStorage.getItem('pos_cart_has_items') === 'true';
+                                  if (hasCartItems) {
+                                    const confirmed = window.confirm(
+                                      `Tienes productos en el ticket actual de venta. ¿Estás seguro de conmutar a "${s.nombre}"? Se descartará el ticket en curso.`
+                                    );
+                                    if (!confirmed) {
+                                      setShowUserMenu(false);
+                                      return;
+                                    }
+                                  }
+                                }
                                 setActiveSucursal({
                                   id: s.id,
                                   nombre: s.nombre,

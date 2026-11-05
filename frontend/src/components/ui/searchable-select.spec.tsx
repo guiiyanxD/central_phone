@@ -99,4 +99,23 @@ describe('SearchableSelect (Combobox con filtro por coincidencia)', () => {
 
     expect(onChangeMock).toHaveBeenCalledWith(4);
   });
+
+  it('debe renderizar el botón de limpiar desacoplado y permitir limpiar la selección (ID-A11Y-001)', () => {
+    const onChangeMock = vi.fn();
+    render(
+      <SearchableSelect
+        options={options}
+        value={1}
+        onChange={onChangeMock}
+        isClearable={true}
+      />
+    );
+
+    const clearButton = screen.getByLabelText('Limpiar selección');
+    expect(clearButton).toBeDefined();
+    expect(clearButton.tagName).toBe('BUTTON');
+
+    fireEvent.click(clearButton);
+    expect(onChangeMock).toHaveBeenCalledWith(null);
+  });
 });
