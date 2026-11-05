@@ -47,3 +47,23 @@ export function getImeiTerminalParts(imei?: string | null): { prefix: string; te
   const terminal = digits.slice(11);
   return { prefix, terminal };
 }
+
+/**
+ * Convierte el enum técnico de condición de dispositivo al término comercial amigable para el usuario.
+ * USADO -> SEMINUEVO
+ */
+export function formatCondicionDispositivo(condicion?: string | null): string {
+  if (!condicion) return '';
+  switch (condicion.toUpperCase()) {
+    case 'USADO':
+      return 'SEMINUEVO';
+    case 'NUEVO':
+      return 'NUEVO';
+    case 'OPEN_BOX':
+      return 'OPEN BOX';
+    case 'PERMUTA':
+      return 'PERMUTA';
+    default:
+      return condicion;
+  }
+}

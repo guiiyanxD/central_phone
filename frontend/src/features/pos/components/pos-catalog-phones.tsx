@@ -2,7 +2,7 @@ import React from 'react';
 import { Search, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, formatCondicionDispositivo } from '@/lib/utils';
 import { CartItem } from '../types';
 import { getImeiTerminalParts } from '../utils/formatters';
 
@@ -105,9 +105,9 @@ export function PosCatalogPhones({
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : 'bg-slate-100 text-slate-800 border-slate-200'
                         )}
-                        title={d.condicion === 'PERMUTA' ? 'Equipo de Permuta' : d.condicion}
+                        title={d.condicion === 'PERMUTA' ? 'Equipo de Permuta' : formatCondicionDispositivo(d.condicion)}
                       >
-                        {d.condicion === 'PERMUTA' ? 'P' : d.condicion}
+                        {d.condicion === 'PERMUTA' ? 'P' : formatCondicionDispositivo(d.condicion)}
                       </span>
                     </div>
                   </div>

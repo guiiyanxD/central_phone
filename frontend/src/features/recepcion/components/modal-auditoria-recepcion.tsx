@@ -4,6 +4,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { formatCondicionDispositivo } from '@/lib/utils';
 
 interface ModalAuditoriaRecepcionProps {
   isOpen: boolean;
@@ -265,7 +266,7 @@ export function ModalAuditoriaRecepcion({
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                                  {d.condicion}
+                                  {formatCondicionDispositivo(d.condicion)}
                                 </Badge>
                               </td>
                               <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-900">

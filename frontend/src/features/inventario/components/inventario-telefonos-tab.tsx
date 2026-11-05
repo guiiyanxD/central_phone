@@ -18,7 +18,7 @@ import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, getImeiTerminalParts, formatImeiChunks } from '@/lib/utils';
+import { cn, getImeiTerminalParts, formatImeiChunks, formatCondicionDispositivo } from '@/lib/utils';
 import { DispositivoItem, DispositivosMeta } from '../types';
 
 interface InventarioTelefonosTabProps {
@@ -144,7 +144,7 @@ export function InventarioTelefonosTab({
             >
               <option value="TODAS">Todas las condiciones</option>
               <option value="NUEVO">Nuevo (Sellado)</option>
-              <option value="USADO">Usado / Reacondicionado</option>
+              <option value="USADO">Seminuevo</option>
               <option value="OPEN_BOX">Open Box</option>
             </Select>
           </div>
@@ -345,7 +345,7 @@ export function InventarioTelefonosTab({
                             : 'bg-slate-100 text-slate-700 border-slate-200'
                         )}
                       >
-                        {d.condicion}
+                        {formatCondicionDispositivo(d.condicion)}
                       </span>
                       {d.porcentajeBateria && (
                         <span className="block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded w-fit">

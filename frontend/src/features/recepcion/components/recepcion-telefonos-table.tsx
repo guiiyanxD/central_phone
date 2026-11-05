@@ -230,7 +230,7 @@ export function RecepcionTelefonosTable({
                   >
                     <option value="NUEVO">NUEVO (Sellado)</option>
                     <option value="OPEN_BOX">OPEN BOX</option>
-                    <option value="USADO">USADO (Garantizado)</option>
+                    <option value="USADO">SEMINUEVO</option>
                   </Select>
                 </div>
 

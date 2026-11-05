@@ -225,4 +225,27 @@ describe('RecepcionTelefonosTable - Barcode Scanner & Shift Ergonomics', () => {
     expect(imeiInputs[0]).toBeDisabled();
     expect(imeiInputs[1]).toBeDisabled();
   });
+
+  it('renderiza la opción SEMINUEVO en el selector de condición sin la palabra Garantizado', () => {
+    render(
+      <RecepcionTelefonosTable
+        telefonos={[defaultRow]}
+        modelos={mockModelos}
+        onAddTelefono={mockOnAddTelefono}
+        onAddSiguienteEquipo={mockOnAddSiguienteEquipo}
+        onRemoveTelefono={mockOnRemoveTelefono}
+        onUpdateTelefono={mockOnUpdateTelefono}
+        onOpenInlineVarianteModal={mockOnOpenInlineVarianteModal}
+      />
+    );
+
+    const selectCondicion = screen.getByLabelText(/Condición/i);
+    expect(selectCondicion).toBeInTheDocument();
+
+    const optionSeminuevo = screen.getByRole('option', { name: 'SEMINUEVO' });
+    expect(optionSeminuevo).toBeInTheDocument();
+    expect(optionSeminuevo).toHaveValue('USADO');
+
+    expect(screen.queryByText(/USADO \(Garantizado\)/i)).not.toBeInTheDocument();
+  });
 });

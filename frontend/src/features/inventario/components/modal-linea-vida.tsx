@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
-import { cn } from '@/lib/utils';
+import { cn, formatCondicionDispositivo } from '@/lib/utils';
 
 interface ModalLineaVidaProps {
   isOpen: boolean;
@@ -270,7 +270,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                       : 'bg-slate-800 border-slate-700 text-slate-300'
                   )}
                 >
-                  {data.dispositivo.condicion}
+                  {formatCondicionDispositivo(data.dispositivo.condicion)}
                 </span>
                 {data.dispositivo.porcentajeBateria && (
                   <span className="text-[10px] bg-blue-900/60 border border-blue-500/50 text-blue-200 px-2 py-0.5 rounded flex items-center gap-1">
