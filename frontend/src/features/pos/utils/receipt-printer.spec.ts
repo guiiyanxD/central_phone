@@ -86,6 +86,8 @@ describe('receipt-printer Utility', () => {
     expect(content).toContain('iPhone 15 Pro');
     expect(content).toContain('7500.00');
     expect(content).toContain('GARANTÍA OFICIAL CENTRALPHONE');
+    expect(content).toContain('3 Meses en Dispositivos Apple (Válida hasta:');
+    expect(content).toContain('15 días en accesorios');
   });
 
   it('debe reflejar el crédito de permuta (Trade-In) y total cobrado en el ticket térmico', () => {

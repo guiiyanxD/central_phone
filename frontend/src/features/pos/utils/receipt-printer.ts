@@ -16,7 +16,16 @@ export function printReceipt(completedSale: any) {
     return;
   }
 
-  const fechaHora = new Date(completedSale.fechaHora).toLocaleString('es-BO', {
+  const fechaVentaObj = completedSale.fechaHora ? new Date(completedSale.fechaHora) : new Date();
+  const fechaFinGarantia = new Date(fechaVentaObj);
+  fechaFinGarantia.setDate(fechaFinGarantia.getDate() + 90);
+  const fechaFinGarantiaStr = fechaFinGarantia.toLocaleDateString('es-BO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const fechaHora = fechaVentaObj.toLocaleString('es-BO', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -243,7 +252,7 @@ export function printReceipt(completedSale: any) {
 
         <div class="footer">
           *** GARANTÍA OFICIAL CENTRALPHONE ***<br>
-          3 Meses de Garantía en Dispositivos Apple.<br>
+          3 Meses en Dispositivos Apple (Válida hasta: ${fechaFinGarantiaStr}).<br>
           15 días en accesorios.<br>
           Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.<br>
           ¡Gracias por su preferencia!

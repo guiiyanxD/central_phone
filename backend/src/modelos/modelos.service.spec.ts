@@ -499,6 +499,106 @@ describe('ModelosService', () => {
       expect(res.venta?.cliente?.nombre).toBe('Carlos Gomez');
       expect(res.venta?.gananciaBs).toBe(1200);
       expect(res.garantia.garantiaVigente).toBe(true);
+      expect(res.garantia.periodoMeses).toBe(3);
+      expect(res.garantia.diasTotalesGarantia).toBe(90);
+      expect(res.garantia.diasRestantesGarantia).toBe(90);
+      expect(res.garantia.diasDesdeVenta).toBe(0);
+      expect(res.garantia.fechaVencimientoGarantia).toBeDefined();
+    });
+
+    it('debe calcular garantia vencida con diasRestantesGarantia en 0 para ventas de mas de 90 dias', async () => {
+      const fechaVentaPasada = new Date();
+      fechaVentaPasada.setDate(fechaVentaPasada.getDate() - 95);
+
+      prisma.dispositivo.findFirst.mockResolvedValue({
+        id: 1,
+        imei1: '359999999999999',
+        imei2: null,
+        numeroSerie: 'SN999999',
+        condicion: 'NUEVO',
+        estadoInventario: 'VENDIDO',
+        precioVentaSugeridoBs: 5000,
+        costoBs: 4000,
+        costoUsd: 580,
+        variante: {
+          modelo: { nombreModelo: 'iPhone 15', marca: 'Apple' },
+          color: 'Titanio',
+          capacidadGb: 128,
+          tipoSim: 'SIM Físico',
+        },
+        sucursal: { id: 1, nombre: 'Central', ciudad: 'Santa Cruz' },
+        notaIngreso: {
+          id: 10,
+          proveedor: { id: 2, nombre: 'Mayorista USA' },
+          usuario: { id: 1, nombre: 'Admin User' },
+          sucursal: { id: 1, nombre: 'Central' },
+          fechaIngreso: new Date(),
+          numeroComprobante: 'FAC-001',
+        },
+        gastos: [],
+        detalleVentas: [
+          {
+            id: 1,
+            precioUnitarioBs: 5200,
+            costoUnitarioBs: 4000,
+            venta: {
+              id: 50,
+              comprobanteReferencia: 'TK-123456',
+              fechaHora: fechaVentaPasada,
+              estado: 'COMPLETADA',
+              usuario: { id: 2, nombre: 'Vendedor' },
+              cliente: { id: 3, nombreCompleto: 'Maria', telefono: '70012345', ciNit: null },
+              metodoPago: { nombre: 'Efectivo' },
+              caja: { sucursal: { nombre: 'Central' } },
+            },
+          },
+        ],
+      } as any);
+
+      const res = await service.getLineaVidaImei('359999999999999', 'ADMIN');
+
+      expect(res.garantia.garantiaVigente).toBe(false);
+      expect(res.garantia.diasDesdeVenta).toBe(95);
+      expect(res.garantia.diasRestantesGarantia).toBe(0);
+      expect(res.garantia.diasVencida).toBe(5);
+    });
+
+    it('debe indicar garantia no iniciada para dispositivos en inventario no vendidos', async () => {
+      prisma.dispositivo.findFirst.mockResolvedValue({
+        id: 2,
+        imei1: '358888888888888',
+        imei2: null,
+        numeroSerie: 'SN888888',
+        condicion: 'NUEVO',
+        estadoInventario: 'DISPONIBLE',
+        precioVentaSugeridoBs: 5000,
+        costoBs: 4000,
+        costoUsd: 580,
+        variante: {
+          modelo: { nombreModelo: 'iPhone 15', marca: 'Apple' },
+          color: 'Azul',
+          capacidadGb: 128,
+          tipoSim: 'SIM Físico',
+        },
+        sucursal: { id: 1, nombre: 'Central', ciudad: 'Santa Cruz' },
+        notaIngreso: {
+          id: 10,
+          proveedor: { id: 2, nombre: 'Mayorista USA' },
+          usuario: { id: 1, nombre: 'Admin User' },
+          sucursal: { id: 1, nombre: 'Central' },
+          fechaIngreso: new Date(),
+          numeroComprobante: 'FAC-001',
+        },
+        gastos: [],
+        detalleVentas: [],
+      } as any);
+
+      const res = await service.getLineaVidaImei('358888888888888', 'ADMIN');
+
+      expect(res.garantia.garantiaVigente).toBeNull();
+      expect(res.garantia.diasDesdeVenta).toBeNull();
+      expect(res.garantia.diasRestantesGarantia).toBeNull();
+      expect(res.garantia.fechaVencimientoGarantia).toBeNull();
     });
 
     it('debe retornar la línea de vida buscando por número de serie (ej: MacBook o AirPods sin IMEI)', async () => {

@@ -513,14 +513,14 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                     2. Ubicación en Inventario
                   </span>
                   <span className="text-[11px] text-slate-500">
-                    {data.dispositivo.sucursalActual.ciudad}
+                    {data.dispositivo.sucursalActual?.ciudad || 'Santa Cruz'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <div>
                     <span className="text-slate-500">Sucursal Actual:</span>{' '}
                     <strong className="text-slate-800">
-                      {data.dispositivo.sucursalActual.nombre}
+                      {data.dispositivo.sucursalActual?.nombre || 'Sucursal Principal'}
                     </strong>
                   </div>
                   <div>
@@ -658,7 +658,11 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                 className={cn(
                   'absolute -left-6 top-0.5 h-5 w-5 rounded-full text-white flex items-center justify-center ring-4 ring-white',
                   data.garantia.garantiaVigente
-                    ? 'bg-emerald-600'
+                    ? (data.garantia.diasRestantesGarantia ?? 0) <= 15
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-600'
+                    : data.garantia.garantiaVigente === false
+                    ? 'bg-rose-500'
                     : 'bg-slate-400'
                 )}
               >
@@ -668,45 +672,135 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                   <ShieldAlert className="h-3 w-3" />
                 )}
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between flex-wrap gap-1.5">
                   <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                     4. Cobertura de Garantía
                   </span>
                   {data.garantia.garantiaVigente !== null ? (
-                    <span
-                      className={cn(
-                        'text-[10px] font-bold px-2 py-0.5 rounded border',
-                        data.garantia.garantiaVigente
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'bg-slate-100 text-slate-600 border-slate-300'
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={cn(
+                          'text-[10px] font-bold px-2 py-0.5 rounded border',
+                          data.garantia.garantiaVigente
+                            ? (data.garantia.diasRestantesGarantia ?? 0) <= 15
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : 'bg-rose-100 text-rose-800 border-rose-300'
+                        )}
+                      >
+                        {data.garantia.garantiaVigente
+                          ? (data.garantia.diasRestantesGarantia ?? 0) <= 15
+                            ? 'POR VENCER'
+                            : 'VIGENTE'
+                          : 'VENCIDA'}
+                      </span>
+                      {data.garantia.garantiaVigente ? (
+                        <span
+                          className={cn(
+                            'text-[10px] font-semibold px-2 py-0.5 rounded border',
+                            (data.garantia.diasRestantesGarantia ?? 0) <= 15
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          )}
+                        >
+                          Quedan {data.garantia.diasRestantesGarantia} días
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-rose-600 font-medium">
+                          Expiró hace {data.garantia.diasVencida ?? Math.max(0, (data.garantia.diasDesdeVenta ?? 0) - (data.garantia.diasTotalesGarantia || 90))} días
+                        </span>
                       )}
-                    >
-                      {data.garantia.garantiaVigente ? 'VIGENTE' : 'VENCIDA'}
-                    </span>
+                    </div>
                   ) : (
-                    <span className="text-[10px] text-slate-400 italic">
-                      Pendiente de Venta
+                    <span className="text-[10px] text-slate-500 italic bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      Pendiente de Venta (Garantía no iniciada)
                     </span>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1 border-t border-slate-200">
                   <div>
-                    <span className="text-slate-500">Período Estándar:</span>{' '}
+                    <span className="text-slate-500 block text-[10px]">Período Estándar:</span>
                     <strong className="text-slate-800">
-                      {data.garantia.periodoMeses} Meses (365 días)
+                      {data.garantia.periodoMeses} Meses ({data.garantia.diasTotalesGarantia || 90} días)
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500">Días Transcurridos:</span>{' '}
+                    <span className="text-slate-500 block text-[10px]">Fecha de Venta:</span>
+                    <strong className="text-slate-800">
+                      {data.venta?.fechaVenta
+                        ? new Date(data.venta.fechaVenta).toLocaleDateString('es-BO')
+                        : 'No vendido'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Días Transcurridos:</span>
                     <strong className="text-slate-800">
                       {data.garantia.diasDesdeVenta !== null
                         ? `${data.garantia.diasDesdeVenta} días`
                         : '0 días (En Tienda)'}
                     </strong>
                   </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Días Restantes:</span>
+                    <strong
+                      className={cn(
+                        'text-xs font-bold',
+                        data.garantia.garantiaVigente
+                          ? (data.garantia.diasRestantesGarantia ?? 0) <= 15
+                            ? 'text-amber-700'
+                            : 'text-emerald-700'
+                          : 'text-slate-400'
+                      )}
+                    >
+                      {data.garantia.diasRestantesGarantia !== null
+                        ? `${data.garantia.diasRestantesGarantia} días`
+                        : 'No aplica'}
+                    </strong>
+                  </div>
                 </div>
+
+                {/* Barra de progreso de cobertura de garantía */}
+                {data.garantia.garantiaVigente !== null && (
+                  <div className="space-y-1 pt-1.5 border-t border-slate-200/70">
+                    <div className="flex justify-between items-center text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1 font-mono">
+                        <Clock className="h-3 w-3 text-slate-400" />
+                        Garantía consumida:
+                      </span>
+                      <span className="font-mono font-semibold text-slate-700">
+                        {Math.min(100, Math.round(((data.garantia.diasDesdeVenta ?? 0) / (data.garantia.diasTotalesGarantia || 90)) * 100))}%
+                        {' '}({data.garantia.diasDesdeVenta ?? 0}/{data.garantia.diasTotalesGarantia || 90} días)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-300',
+                          data.garantia.garantiaVigente
+                            ? (data.garantia.diasRestantesGarantia ?? 0) <= 15
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                            : 'bg-rose-500'
+                        )}
+                        style={{
+                          width: `${Math.min(100, Math.round(((data.garantia.diasDesdeVenta ?? 0) / (data.garantia.diasTotalesGarantia || 90)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                    {data.garantia.fechaVencimientoGarantia && (
+                      <div className="flex justify-between text-[10px] text-slate-500 pt-0.5">
+                        <span>
+                          Inicio: <strong className="text-slate-700">{data.venta?.fechaVenta ? new Date(data.venta.fechaVenta).toLocaleDateString('es-BO') : '-'}</strong>
+                        </span>
+                        <span>
+                          Vence: <strong className="text-slate-700">{new Date(data.garantia.fechaVencimientoGarantia).toLocaleDateString('es-BO')}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

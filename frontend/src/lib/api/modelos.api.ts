@@ -158,9 +158,14 @@ export interface LineaVidaResponse {
   } | null;
   garantia: {
     estadoInventario: string;
-    diasDesdeVenta: number | null;
-    garantiaVigente: boolean | null;
     periodoMeses: number;
+    diasTotalesGarantia: number;
+    fechaVenta: string | null;
+    fechaVencimientoGarantia: string | null;
+    diasDesdeVenta: number | null;
+    diasRestantesGarantia: number | null;
+    diasVencida?: number;
+    garantiaVigente: boolean | null;
   };
 }
 

@@ -46,6 +46,15 @@ export function ModalTicketVenta({
   const permutaBateriaDisplay =
     permutaDisp?.porcentajeBateria || permutaDto?.porcentajeBateria || null;
 
+  const fechaVentaObj = sale.fechaHora ? new Date(sale.fechaHora) : new Date();
+  const fechaFinGarantia = new Date(fechaVentaObj);
+  fechaFinGarantia.setDate(fechaFinGarantia.getDate() + 90);
+  const fechaFinGarantiaStr = fechaFinGarantia.toLocaleDateString('es-BO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
   return (
     <Modal
       isOpen={!!sale}
@@ -167,7 +176,7 @@ export function ModalTicketVenta({
           {/* Pie de Garantía Oficial */}
           <div className="text-center pt-2 border-t border-dashed border-slate-300 text-[10.5px] text-slate-500 leading-tight space-y-0.5">
             <p className="font-bold text-slate-700">*** GARANTÍA OFICIAL CENTRALPHONE ***</p>
-            <p>3 Meses de Garantía en Dispositivos Apple.</p>
+            <p>3 Meses en Dispositivos Apple (Vence: {fechaFinGarantiaStr}).</p>
             <p>15 días en accesorios.</p>
             <p className="text-[9.5px] text-slate-400">Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.</p>
           </div>

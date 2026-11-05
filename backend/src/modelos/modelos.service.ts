@@ -503,14 +503,28 @@ export class ModelosService {
       gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0),
     );
 
+    const DIAS_GARANTIA_APPLE = 90;
+    const MESES_GARANTIA_APPLE = 3;
+
     let diasDesdeVenta: number | null = null;
+    let diasRestantesGarantia: number | null = null;
     let garantiaVigente: boolean | null = null;
+    let fechaVencimientoGarantia: string | null = null;
+    let diasVencida: number = 0;
+
     if (venta && venta.estado === 'COMPLETADA') {
       const ahora = new Date();
       const fechaVenta = new Date(venta.fechaHora);
-      const diffTime = Math.abs(ahora.getTime() - fechaVenta.getTime());
-      diasDesdeVenta = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      garantiaVigente = diasDesdeVenta <= 365;
+
+      const fechaVencimiento = new Date(fechaVenta);
+      fechaVencimiento.setDate(fechaVencimiento.getDate() + DIAS_GARANTIA_APPLE);
+      fechaVencimientoGarantia = fechaVencimiento.toISOString();
+
+      const diffTime = ahora.getTime() - fechaVenta.getTime();
+      diasDesdeVenta = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+      diasRestantesGarantia = Math.max(0, DIAS_GARANTIA_APPLE - diasDesdeVenta);
+      garantiaVigente = diasDesdeVenta <= DIAS_GARANTIA_APPLE;
+      diasVencida = !garantiaVigente ? diasDesdeVenta - DIAS_GARANTIA_APPLE : 0;
     }
 
     return {
@@ -577,9 +591,14 @@ export class ModelosService {
         : null,
       garantia: {
         estadoInventario: dispositivo.estadoInventario,
+        periodoMeses: MESES_GARANTIA_APPLE,
+        diasTotalesGarantia: DIAS_GARANTIA_APPLE,
+        fechaVenta: venta?.fechaHora || null,
+        fechaVencimientoGarantia,
         diasDesdeVenta,
+        diasRestantesGarantia,
+        diasVencida,
         garantiaVigente,
-        periodoMeses: 12,
       },
     };
   }
