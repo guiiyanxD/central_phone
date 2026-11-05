@@ -22,6 +22,17 @@ export function ModalConfirmacionIngreso({
 }: ModalConfirmacionIngresoProps) {
   if (!notaCreada) return null;
 
+  // Calcular el costo total en USD si existen dispositivos o si viene calculado
+  const totalCostoUsd =
+    notaCreada.totalCostoUsd !== undefined && notaCreada.totalCostoUsd !== null
+      ? Number(notaCreada.totalCostoUsd)
+      : Array.isArray(notaCreada.dispositivos)
+        ? notaCreada.dispositivos.reduce(
+            (sum: number, d: any) => sum + Number(d.costoUsd || 0),
+            0
+          )
+        : 0;
+
   return (
     <div className="max-w-2xl mx-auto py-12 animate-in fade-in duration-300">
       <Card className="border-slate-200 bg-white shadow-card p-8 text-center space-y-6">
@@ -55,6 +66,14 @@ export function ModalConfirmacionIngreso({
           <div className="flex justify-between">
             <span className="text-slate-500">Lotes de Accesorios:</span>
             <strong className="text-slate-900">{notaCreada.lotesAccesorio?.length || 0} lotes</strong>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Costo Total USD:</span>
+            <strong className="text-slate-900 font-semibold">
+              {totalCostoUsd > 0
+                ? `$ ${totalCostoUsd.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
+                : '-'}
+            </strong>
           </div>
           <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-sans font-bold">
             <span className="text-slate-900">Total Costo de Ingreso:</span>
