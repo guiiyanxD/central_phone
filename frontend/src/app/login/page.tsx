@@ -59,8 +59,8 @@ export default function LoginPage() {
         </filter>
       </svg>
 
-      {/* Tarjeta Principal Split-Screen Unificada en Off-White No Absoluto */}
-      <div className="w-full max-w-md lg:max-w-5xl bg-[#F8FAFC] rounded-3xl shadow-xl shadow-slate-200/70 border border-slate-200/90 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 max-h-[min(620px,94vh)]">
+      {/* Tarjeta Principal Split-Screen Unificada con Efecto de Elevación Flotante */}
+      <div className="w-full max-w-md lg:max-w-5xl bg-[#F8FAFC] rounded-3xl shadow-2xl shadow-slate-900/15 ring-1 ring-slate-900/5 border border-slate-200/80 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 max-h-[min(620px,94vh)]">
         {/* =========================================================================
             PANEL IZQUIERDO: Formulario de Autenticación con Identidad Centrada
             ========================================================================= */}
@@ -68,7 +68,7 @@ export default function LoginPage() {
           <div className="space-y-5 my-auto">
             {/* 1. Identidad de Marca Oficial: Logo y Nombre Centrados por Encima */}
             <div className="flex flex-col items-center justify-center text-center">
-              <div className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-[#F8FAFC] border border-slate-200 p-2 shadow-sm flex items-center justify-center mb-2.5 transition-transform hover:scale-105">
+              <div className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-[#F8FAFC] border border-slate-200 p-2 shadow-md shadow-slate-900/5 flex items-center justify-center mb-2.5 transition-transform hover:scale-105">
                 <Image
                   src="/logo.png"
                   alt="CentralPhone Logo"
