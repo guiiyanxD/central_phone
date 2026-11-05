@@ -46,9 +46,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 lg:p-6 bg-[#F8FAFC] overflow-y-auto lg:overflow-hidden select-none">
-      {/* Filtro SVG Goo para la Fusión Orgánica de los Blobs de Lava */}
-      <svg width="0" height="0" className="absolute invisible pointer-events-none" aria-hidden="true">
+    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-3 sm:p-4 lg:p-6 bg-[#F8FAFC] overflow-y-auto lg:overflow-hidden select-none">
+      {/* Filtro SVG Goo para la Fusión Orgánica de los Blobs de Lava (Compatible con WebKit/Safari sin 'invisible') */}
+      <svg
+        width="0"
+        height="0"
+        className="absolute -top-[9999px] -left-[9999px] w-0 h-0 pointer-events-none overflow-hidden"
+        aria-hidden="true"
+      >
         <filter id="goo">
           <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur" />
           <feColorMatrix
@@ -59,25 +64,10 @@ export default function LoginPage() {
         </filter>
       </svg>
 
-      {/* =========================================================================
-          TELÓN DE FONDO MÓVIL: Efecto Lava Lamp de pantalla completa en móviles (< lg)
-          ========================================================================= */}
-      <div className="lg:hidden absolute inset-0 z-0 lava-hero overflow-hidden pointer-events-none" aria-hidden="true">
-        <div className="lava-container">
-          <div className="lava-pool" />
-          <div className="lava-blob lava-b1" />
-          <div className="lava-blob lava-b2" />
-          <div className="lava-blob lava-b3" />
-          <div className="lava-blob lava-b4" />
-          <div className="lava-blob lava-b5" />
-        </div>
-        <div className="lava-glow" />
-      </div>
-
-      {/* Tarjeta Principal Split-Screen Unificada con Efecto de Elevación Flotante */}
-      <div className="relative z-10 w-full max-w-md lg:max-w-5xl bg-[#F8FAFC] rounded-3xl shadow-2xl shadow-slate-900/25 ring-1 ring-black/10 lg:ring-slate-900/5 border border-slate-200/80 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 max-h-[min(620px,94vh)]">
+      {/* Tarjeta Principal: Split-Screen en Desktop (lg) y Apilada en Columna (Bajo el Formulario) en Móvil */}
+      <div className="relative z-10 w-full max-w-md lg:max-w-5xl my-auto bg-[#F8FAFC] rounded-3xl shadow-2xl shadow-slate-900/15 ring-1 ring-slate-900/5 border border-slate-200/80 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 lg:max-h-[min(620px,94vh)]">
         {/* =========================================================================
-            PANEL IZQUIERDO: Formulario de Autenticación con Identidad Centrada
+            PANEL SUPERIOR / IZQUIERDO: Formulario de Autenticación con Identidad Centrada
             ========================================================================= */}
         <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-[#F8FAFC] flex-1 overflow-y-auto">
           <div className="space-y-5 my-auto">
@@ -195,10 +185,11 @@ export default function LoginPage() {
         </div>
 
         {/* =========================================================================
-            PANEL DERECHO: Hero Visual con Efecto Lava Lamp "iPhone 18 Burgundy"
-            Visible en pantallas medianas y grandes (lg)
+            PANEL INFERIOR / DERECHO: Hero Visual con Efecto Lava Lamp "iPhone 18 Burgundy"
+            En Desktop (lg): Panel derecho de la tarjeta (50%)
+            En Móvil (< lg): Se ubica directamente BAJO EL FORMULARIO
             ========================================================================= */}
-        <div className="hidden lg:block relative lava-hero h-full min-h-[480px]">
+        <div className="relative lava-hero w-full min-h-[380px] lg:min-h-[480px] h-full flex flex-col justify-between">
           {/* Animación de Fluido Orgánico Lava */}
           <div className="lava-container" aria-hidden="true">
             <div className="lava-pool" />
@@ -213,14 +204,14 @@ export default function LoginPage() {
           <div className="lava-glow" />
 
           {/* Mensaje Editorial en Champagne Gold (#e6c594) */}
-          <div className="relative z-10 p-10 lg:p-12 flex flex-col justify-between h-full text-[#e6c594]">
+          <div className="relative z-10 p-8 sm:p-10 lg:p-12 flex flex-col justify-between h-full text-[#e6c594]">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-[#e6c594]/10 border border-[#e6c594]/30 backdrop-blur-md shadow-xs">
                 <Sparkles className="h-3.5 w-3.5 text-[#e6c594]" />
                 <span>iPhone 18 Burgundy Edition</span>
               </div>
 
-              <h2 className="text-4xl lg:text-5xl font-light tracking-tight leading-[1.12] drop-shadow-[0_2px_24px_rgba(40,5,15,0.7)]">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-tight leading-[1.12] drop-shadow-[0_2px_24px_rgba(40,5,15,0.7)]">
                 Potencia.<br />
                 Elegancia.<br />
                 <span className="font-semibold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]">CentralPhone.</span>
