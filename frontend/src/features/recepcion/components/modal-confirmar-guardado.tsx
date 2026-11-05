@@ -123,18 +123,20 @@ export function ModalConfirmarGuardado({
             </p>
           </div>
 
-          <div className="p-3 rounded-xl border border-slate-200 bg-slate-900 text-center text-white">
+          <div className="p-3 rounded-xl border border-slate-200 bg-slate-900 text-center text-white flex flex-col justify-center">
             <span className="text-[11px] text-slate-300 font-medium">
               Inversión Total
             </span>
-            <p className="text-base sm:text-lg font-bold font-mono mt-0.5 whitespace-nowrap">
-              Bs {totalCostoBs.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
-            {totalCostoUsd > 0 && (
-              <p className="text-[10px] font-mono text-slate-400">
-                $ {totalCostoUsd.toFixed(2)} USD
+            <div className="mt-1 space-y-0.5">
+              <p className="text-sm sm:text-base font-bold font-mono whitespace-nowrap text-white">
+                Bs {totalCostoBs.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-            )}
+              <p className="text-sm sm:text-base font-bold font-mono whitespace-nowrap text-white">
+                {totalCostoUsd > 0
+                  ? `$ ${totalCostoUsd.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
+                  : '-'}
+              </p>
+            </div>
           </div>
         </div>
 

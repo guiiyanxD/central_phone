@@ -30,8 +30,18 @@ describe('ModalConfirmacionIngreso Component', () => {
 
     expect(screen.getByText('Costo Total USD:')).toBeInTheDocument();
     // 1000 + 250 = 1250 => "$ 1.250,00 USD" en es-BO
-    expect(screen.getByText(/\$ 1[.,]250[.,]00 USD/i)).toBeInTheDocument();
+    const usdAmount = screen.getByText(/\$ 1[.,]250[.,]00 USD/i);
+    expect(usdAmount).toBeInTheDocument();
+    expect(usdAmount.className).toContain('font-mono');
     expect(screen.getByText('2 unidades')).toBeInTheDocument();
+
+    // Validar jerarquía idéntica entre USD y Bs
+    const usdRow = screen.getByText('Costo Total USD:').closest('div');
+    const bsRow = screen.getByText('Total Costo de Ingreso (Bs):').closest('div');
+    expect(usdRow?.className).toContain('font-bold');
+    expect(bsRow?.className).toContain('font-bold');
+    expect(usdRow?.className).toContain('text-sm');
+    expect(bsRow?.className).toContain('text-sm');
   });
 
   it('debe mostrar un guion medio (-) cuando solo se reciben accesorios y no aplica costo en USD', () => {

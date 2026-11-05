@@ -67,19 +67,21 @@ export function ModalConfirmacionIngreso({
             <span className="text-slate-500">Lotes de Accesorios:</span>
             <strong className="text-slate-900">{notaCreada.lotesAccesorio?.length || 0} lotes</strong>
           </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Costo Total USD:</span>
-            <strong className="text-slate-900 font-semibold">
-              {totalCostoUsd > 0
-                ? `$ ${totalCostoUsd.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
-                : '-'}
-            </strong>
-          </div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-sans font-bold">
-            <span className="text-slate-900">Total Costo de Ingreso:</span>
-            <span className="text-slate-900">
-              Bs {Number(notaCreada.totalCostoBs || 0).toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-            </span>
+          <div className="border-t border-slate-200 pt-3 space-y-2 font-sans">
+            <div className="flex justify-between items-center text-sm sm:text-base font-bold">
+              <span className="text-slate-900">Costo Total USD:</span>
+              <span className="text-slate-900 font-mono">
+                {totalCostoUsd > 0
+                  ? `$ ${totalCostoUsd.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
+                  : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-sm sm:text-base font-bold">
+              <span className="text-slate-900">Total Costo de Ingreso (Bs):</span>
+              <span className="text-slate-900 font-mono">
+                Bs {Number(notaCreada.totalCostoBs || 0).toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
         </div>
 

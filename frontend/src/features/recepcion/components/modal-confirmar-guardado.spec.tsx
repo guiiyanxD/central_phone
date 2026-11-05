@@ -29,8 +29,24 @@ describe('ModalConfirmarGuardado - Resumen Ejecutivo y Prevención de Guardado A
     expect(screen.getByText(/Lote prioritario/)).toBeDefined();
     expect(screen.getByText('3')).toBeDefined(); // teléfonos
     expect(screen.getByText('0')).toBeDefined(); // accesorios
-    expect(screen.getByText(/15.750,00/)).toBeDefined(); // Bs
-    expect(screen.getByText(/\$ 2250.00 USD/)).toBeDefined(); // USD
+    const bsElement = screen.getByText(/15[.,]750[.,]00/);
+    const usdElement = screen.getByText(/\$ 2[.,]250[.,]00 USD/);
+    expect(bsElement).toBeDefined(); // Bs
+    expect(usdElement).toBeDefined(); // USD
+    // Validar homologación de jerarquía visual (ambos en negrita y monoespaciados)
+    expect(bsElement.className).toContain('font-bold');
+    expect(bsElement.className).toContain('font-mono');
+    expect(usdElement.className).toContain('font-bold');
+    expect(usdElement.className).toContain('font-mono');
+  });
+
+  it('debe mostrar un guion medio (-) con la misma jerarquía cuando no hay costo en USD', () => {
+    render(<ModalConfirmarGuardado {...defaultProps} totalCostoUsd={0} totalTelefonos={0} totalAccesorios={15} />);
+
+    const hyphenElement = screen.getByText('-');
+    expect(hyphenElement).toBeInTheDocument();
+    expect(hyphenElement.className).toContain('font-bold');
+    expect(hyphenElement.className).toContain('font-mono');
   });
 
   it('debe llamar a onClose cuando se pulsa "Revisar y Corregir"', () => {
