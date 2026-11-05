@@ -59,8 +59,23 @@ export default function LoginPage() {
         </filter>
       </svg>
 
+      {/* =========================================================================
+          TELÓN DE FONDO MÓVIL: Efecto Lava Lamp de pantalla completa en móviles (< lg)
+          ========================================================================= */}
+      <div className="lg:hidden absolute inset-0 z-0 lava-hero overflow-hidden pointer-events-none" aria-hidden="true">
+        <div className="lava-container">
+          <div className="lava-pool" />
+          <div className="lava-blob lava-b1" />
+          <div className="lava-blob lava-b2" />
+          <div className="lava-blob lava-b3" />
+          <div className="lava-blob lava-b4" />
+          <div className="lava-blob lava-b5" />
+        </div>
+        <div className="lava-glow" />
+      </div>
+
       {/* Tarjeta Principal Split-Screen Unificada con Efecto de Elevación Flotante */}
-      <div className="w-full max-w-md lg:max-w-5xl bg-[#F8FAFC] rounded-3xl shadow-2xl shadow-slate-900/15 ring-1 ring-slate-900/5 border border-slate-200/80 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 max-h-[min(620px,94vh)]">
+      <div className="relative z-10 w-full max-w-md lg:max-w-5xl bg-[#F8FAFC] rounded-3xl shadow-2xl shadow-slate-900/25 ring-1 ring-black/10 lg:ring-slate-900/5 border border-slate-200/80 overflow-hidden flex flex-col lg:grid lg:grid-cols-2 max-h-[min(620px,94vh)]">
         {/* =========================================================================
             PANEL IZQUIERDO: Formulario de Autenticación con Identidad Centrada
             ========================================================================= */}
