@@ -250,103 +250,106 @@ export class CajaService {
     dto: CerrarCajaDto,
     userRole?: string,
   ) {
-    const caja = await this.prisma.cajaDiaria.findUnique({
-      where: { id: cajaId },
-      include: {
-        ventas: {
-          include: { metodoPago: true },
+    return this.prisma.$transaction(async (tx) => {
+      const caja = await tx.cajaDiaria.findUnique({
+        where: { id: cajaId },
+        include: {
+          ventas: {
+            include: { metodoPago: true },
+          },
+          gastosOperativos: {
+            include: { metodoPago: true },
+          },
+          gastosDispositivo: {
+            where: { estado: 'ACTIVO', aplicoEnCaja: true },
+          },
         },
-        gastosOperativos: {
-          include: { metodoPago: true },
-        },
-        gastosDispositivo: {
-          where: { estado: 'ACTIVO', aplicoEnCaja: true },
-        },
-      },
-    });
+      });
 
-    if (!caja) {
-      throw new NotFoundException(`La caja con ID ${cajaId} no existe.`);
-    }
-
-    if (caja.estado === EstadoCaja.CERRADA) {
-      throw new BadRequestException('Esta sesión de caja ya se encuentra CERRADA.');
-    }
-
-    // Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-004):
-    if (userRole !== 'ADMIN' && caja.sucursalId !== userSucursalId) {
-      throw new ForbiddenException('No tienes permisos para cerrar la caja de otra sucursal.');
-    }
-
-    // Calcular balance teórico en efectivo
-    const montoInicial = roundMoney(caja.montoInicialEfectivo);
-    const ventasEfectivo = roundMoney(
-      caja.ventas
-        .filter((v) => v.estado !== 'ANULADA')
-        .reduce((sum, v) => {
-          const montoTotal = Number(v.totalVentaBs) || 0;
-          const montoPermuta = Number(v.montoPermutaBs) || 0;
-          const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
-
-          if (v.metodoPago.codigo === 'MIXTO') {
-            return sum + (Number(v.montoEfectivoBs) || 0);
-          }
-          if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
-            const efectivo =
-              v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
-                ? Number(v.montoEfectivoBs)
-                : saldoCobrado;
-            return sum + efectivo;
-          }
-          return sum;
-        }, 0)
-    );
-
-    const gastosOperativosEfectivo = roundMoney(
-      caja.gastosOperativos
-        .filter((g) => this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
-        .reduce((sum, g) => sum + Number(g.montoBs), 0)
-    );
-
-    const gastosDispositivoEfectivo = roundMoney(
-      (caja.gastosDispositivo || [])
-        .reduce((sum, g) => sum + Number(g.costoBs), 0)
-    );
-
-    const gastosEfectivo = roundMoney(gastosOperativosEfectivo + gastosDispositivoEfectivo);
-
-    const balanceTeorico = roundMoney(montoInicial + ventasEfectivo - gastosEfectivo);
-    const montoFisicoContado = roundMoney(dto.montoFinalEfectivo);
-    const diferencia = roundMoney(montoFisicoContado - balanceTeorico);
-
-    // Regla de Negocio US12: Si hay diferencia (sobrante o faltante), justificación obligatoria
-    if (Math.abs(diferencia) > 0.01) {
-      if (!dto.justificacion || dto.justificacion.trim().length === 0) {
-        throw new BadRequestException(
-          `Existe un descuadre en caja de Bs ${diferencia.toFixed(2)} (${
-            diferencia < 0 ? 'Faltante' : 'Sobrante'
-          } frente al saldo teórico de Bs ${balanceTeorico.toFixed(2)}). Es obligatorio ingresar una justificación detallada para el Administrador.`
-        );
+      if (!caja) {
+        throw new NotFoundException(`La caja con ID ${cajaId} no existe.`);
       }
-    }
 
-    return this.prisma.cajaDiaria.update({
-      where: { id: cajaId },
-      data: {
-        usuarioCierreId: usuarioId,
-        fechaCierre: new Date(),
-        montoFinalEfectivo: montoFisicoContado,
-        montoTeoricoEfectivo: balanceTeorico,
-        diferenciaEfectivo: diferencia,
-        justificacion: dto.justificacion?.trim() || null,
-        estado: EstadoCaja.CERRADA,
-        observaciones: dto.observaciones?.trim() || caja.observaciones,
-      },
-      include: {
-        sucursal: true,
-        usuarioApertura: { select: { id: true, nombre: true } },
-        usuarioCierre: { select: { id: true, nombre: true } },
-      },
+      if (caja.estado === EstadoCaja.CERRADA) {
+        throw new BadRequestException('Esta sesión de caja ya se encuentra CERRADA.');
+      }
+
+      // Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-004):
+      if (userRole !== 'ADMIN' && caja.sucursalId !== userSucursalId) {
+        throw new ForbiddenException('No tienes permisos para cerrar la caja de otra sucursal.');
+      }
+
+      // Calcular balance teórico en efectivo
+      const montoInicial = roundMoney(caja.montoInicialEfectivo);
+      const ventasEfectivo = roundMoney(
+        caja.ventas
+          .filter((v) => v.estado !== 'ANULADA')
+          .reduce((sum, v) => {
+            const montoTotal = Number(v.totalVentaBs) || 0;
+            const montoPermuta = Number(v.montoPermutaBs) || 0;
+            const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
+
+            if (v.metodoPago.codigo === 'MIXTO') {
+              return sum + (Number(v.montoEfectivoBs) || 0);
+            }
+            if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
+              const efectivo =
+                v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
+                  ? Number(v.montoEfectivoBs)
+                  : saldoCobrado;
+              return sum + efectivo;
+            }
+            return sum;
+          }, 0)
+      );
+
+      const gastosOperativosEfectivo = roundMoney(
+        caja.gastosOperativos
+          .filter((g) => this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
+          .reduce((sum, g) => sum + Number(g.montoBs), 0)
+      );
+
+      const gastosDispositivoEfectivo = roundMoney(
+        (caja.gastosDispositivo || [])
+          .filter((g) => g.aplicoEnCaja && g.estado === 'ACTIVO')
+          .reduce((sum, g) => sum + Number(g.costoBs), 0)
+      );
+
+      const gastosEfectivo = roundMoney(gastosOperativosEfectivo + gastosDispositivoEfectivo);
+
+      const balanceTeorico = roundMoney(montoInicial + ventasEfectivo - gastosEfectivo);
+      const montoFisicoContado = roundMoney(dto.montoFinalEfectivo);
+      const diferencia = roundMoney(montoFisicoContado - balanceTeorico);
+
+      // Regla de Negocio US12: Si hay diferencia (sobrante o faltante), justificación obligatoria
+      if (Math.abs(diferencia) > 0.01) {
+        if (!dto.justificacion || dto.justificacion.trim().length === 0) {
+          throw new BadRequestException(
+            `Existe un descuadre en caja de Bs ${diferencia.toFixed(2)} (${
+              diferencia < 0 ? 'Faltante' : 'Sobrante'
+            } frente al saldo teórico de Bs ${balanceTeorico.toFixed(2)}). Es obligatorio ingresar una justificación detallada para el Administrador.`
+          );
+        }
+      }
+
+      return tx.cajaDiaria.update({
+        where: { id: cajaId },
+        data: {
+          usuarioCierreId: usuarioId,
+          fechaCierre: new Date(),
+          montoFinalEfectivo: montoFisicoContado,
+          montoTeoricoEfectivo: balanceTeorico,
+          diferenciaEfectivo: diferencia,
+          justificacion: dto.justificacion?.trim() || null,
+          estado: EstadoCaja.CERRADA,
+          observaciones: dto.observaciones?.trim() || caja.observaciones,
+        },
+        include: {
+          sucursal: true,
+          usuarioApertura: { select: { id: true, nombre: true } },
+          usuarioCierre: { select: { id: true, nombre: true } },
+        },
+      });
     });
   }
 
@@ -358,79 +361,116 @@ export class CajaService {
     dto: RegistrarGastoDto,
     userRole?: string,
   ) {
-    const caja = await this.prisma.cajaDiaria.findUnique({
-      where: { id: cajaId },
-      include: {
-        ventas: { include: { metodoPago: true } },
-        gastosOperativos: { include: { metodoPago: true } },
-      },
-    });
-
-    if (!caja) {
-      throw new NotFoundException(`La caja con ID ${cajaId} no existe.`);
-    }
-
-    if (caja.estado !== EstadoCaja.ABIERTA) {
-      throw new BadRequestException('No se pueden registrar gastos en una caja cerrada.');
-    }
-
-    // Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-004):
-    if (userRole !== 'ADMIN' && caja.sucursalId !== userSucursalId) {
-      throw new ForbiddenException(
-        'No tienes permisos para registrar gastos en la caja de otra sucursal.',
-      );
-    }
-
-    // Resolver método de pago (default EFECTIVO)
-    let metodoPagoId = dto.metodoPagoId;
-    if (!metodoPagoId) {
-      const mpEfectivo = await this.prisma.metodoPago.findUnique({
-        where: { codigo: 'EFECTIVO' },
+    return this.prisma.$transaction(async (tx) => {
+      const caja = await tx.cajaDiaria.findUnique({
+        where: { id: cajaId },
+        include: {
+          ventas: {
+            where: { estado: { not: 'ANULADA' } },
+            include: { metodoPago: true },
+          },
+          gastosOperativos: {
+            include: { metodoPago: true },
+          },
+          gastosDispositivo: {
+            where: { estado: 'ACTIVO', aplicoEnCaja: true },
+          },
+        },
       });
-      if (!mpEfectivo) {
-        throw new NotFoundException('Método de pago EFECTIVO no configurado.');
+
+      if (!caja) {
+        throw new NotFoundException(`La caja con ID ${cajaId} no existe.`);
       }
-      metodoPagoId = mpEfectivo.id;
-    }
 
-    const metodoPago = await this.prisma.metodoPago.findUnique({
-      where: { id: metodoPagoId },
-    });
+      if (caja.estado !== EstadoCaja.ABIERTA) {
+        throw new BadRequestException('No se pueden registrar gastos en una caja cerrada.');
+      }
 
-    // Control de saldo suficiente si es gasto en método que afecta arqueo en caja (US13)
-    if (this.paymentRegistry.impactsCashDrawer(metodoPago?.codigo || '')) {
-      const montoInicial = Number(caja.montoInicialEfectivo) || 0;
-      const ventasEfectivo = caja.ventas
-        .filter((v) => v.metodoPago.codigo === 'EFECTIVO' || this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo))
-        .reduce((sum, v) => sum + Number(v.totalVentaBs), 0);
-
-      const gastosEfectivo = caja.gastosOperativos
-        .filter((g) => g.metodoPago.codigo === 'EFECTIVO' || this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
-        .reduce((sum, g) => sum + Number(g.montoBs), 0);
-
-      const saldoDisponible = montoInicial + ventasEfectivo - gastosEfectivo;
-
-      if (dto.montoBs > saldoDisponible) {
-        throw new BadRequestException(
-          `Saldo en efectivo insuficiente en caja para cubrir el egreso. Disponible: Bs ${saldoDisponible.toFixed(2)}, Requerido: Bs ${dto.montoBs.toFixed(2)}.`
+      // Aislamiento Multi-Sucursal (CENTRALPHONE-CONF-004):
+      if (userRole !== 'ADMIN' && caja.sucursalId !== userSucursalId) {
+        throw new ForbiddenException(
+          'No tienes permisos para registrar gastos en la caja de otra sucursal.',
         );
       }
-    }
 
-    return this.prisma.gastoOperativo.create({
-      data: {
-        cajaId,
-        categoriaId: dto.categoriaId,
-        usuarioId,
-        metodoPagoId,
-        montoBs: dto.montoBs,
-        concepto: dto.concepto.trim(),
-      },
-      include: {
-        categoria: true,
-        metodoPago: true,
-        usuario: { select: { id: true, nombre: true } },
-      },
+      // Resolver método de pago (default EFECTIVO)
+      let metodoPagoId = dto.metodoPagoId;
+      if (!metodoPagoId) {
+        const mpEfectivo = await tx.metodoPago.findUnique({
+          where: { codigo: 'EFECTIVO' },
+        });
+        if (!mpEfectivo) {
+          throw new NotFoundException('Método de pago EFECTIVO no configurado.');
+        }
+        metodoPagoId = mpEfectivo.id;
+      }
+
+      const metodoPago = await tx.metodoPago.findUnique({
+        where: { id: metodoPagoId },
+      });
+
+      // Control de saldo suficiente si es gasto en método que afecta arqueo en caja (US13)
+      if (this.paymentRegistry.impactsCashDrawer(metodoPago?.codigo || '')) {
+        const montoInicial = roundMoney(caja.montoInicialEfectivo);
+        const ventasEfectivo = roundMoney(
+          caja.ventas
+            .filter((v) => v.estado !== 'ANULADA')
+            .reduce((sum, v) => {
+              const montoTotal = Number(v.totalVentaBs) || 0;
+              const montoPermuta = Number(v.montoPermutaBs) || 0;
+              const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
+
+              if (v.metodoPago.codigo === 'MIXTO') {
+                return sum + (Number(v.montoEfectivoBs) || 0);
+              }
+              if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
+                const efectivo =
+                  v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
+                    ? Number(v.montoEfectivoBs)
+                    : saldoCobrado;
+                return sum + efectivo;
+              }
+              return sum;
+            }, 0)
+        );
+
+        const gastosOperativosEfectivo = roundMoney(
+          caja.gastosOperativos
+            .filter((g) => this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
+            .reduce((sum, g) => sum + Number(g.montoBs), 0)
+        );
+
+        const gastosDispositivoEfectivo = roundMoney(
+          (caja.gastosDispositivo || [])
+            .filter((g) => g.aplicoEnCaja && g.estado === 'ACTIVO')
+            .reduce((sum, g) => sum + Number(g.costoBs), 0)
+        );
+
+        const gastosEfectivo = roundMoney(gastosOperativosEfectivo + gastosDispositivoEfectivo);
+        const saldoDisponible = roundMoney(montoInicial + ventasEfectivo - gastosEfectivo);
+
+        if (dto.montoBs > saldoDisponible) {
+          throw new BadRequestException(
+            `Saldo en efectivo insuficiente en caja para cubrir el egreso. Disponible: Bs ${saldoDisponible.toFixed(2)}, Requerido: Bs ${dto.montoBs.toFixed(2)}.`
+          );
+        }
+      }
+
+      return tx.gastoOperativo.create({
+        data: {
+          cajaId,
+          categoriaId: dto.categoriaId,
+          usuarioId,
+          metodoPagoId,
+          montoBs: dto.montoBs,
+          concepto: dto.concepto.trim(),
+        },
+        include: {
+          categoria: true,
+          metodoPago: true,
+          usuario: { select: { id: true, nombre: true } },
+        },
+      });
     });
   }
 

@@ -176,7 +176,7 @@ export function ModalCrearVarianteInline({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Plus className="h-3.5 w-3.5 text-blue-600" />
-                Nuevo Modelo "Al Vuelo"
+                Nuevo Modelo &quot;Al Vuelo&quot;
               </span>
               <button
                 type="button"

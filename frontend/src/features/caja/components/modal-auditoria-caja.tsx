@@ -475,7 +475,7 @@ export function ModalAuditoriaCaja({
                           <span>Justificación Registrada en Arqueo a Ciegas:</span>
                         </div>
                         <p className="italic text-slate-800 pl-5">
-                          "{detCaja.justificacion}"
+                          &quot;{detCaja.justificacion}&quot;
                         </p>
                         <p className="text-[10px] text-slate-500 pl-5 pt-1">
                           Declarado por {detCaja.usuarioCierre?.nombre || detCaja.usuarioApertura.nombre} al momento del cierre.

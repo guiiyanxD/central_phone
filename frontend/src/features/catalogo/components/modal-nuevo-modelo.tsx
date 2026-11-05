@@ -117,7 +117,7 @@ export function ModalNuevoModelo({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   <Plus className="h-3.5 w-3.5 text-blue-600" />
-                  Crear Tipo de Dispositivo "Al Vuelo"
+                  Crear Tipo de Dispositivo &quot;Al Vuelo&quot;
                 </span>
                 <button
                   type="button"
