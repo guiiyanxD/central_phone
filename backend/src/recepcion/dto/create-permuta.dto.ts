@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsDateString,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -43,6 +44,10 @@ export class GastoInicialPermutaDto {
   @IsBoolean()
   @IsOptional()
   aplicoEnCaja?: boolean; // Por defecto true
+
+  @IsDateString({}, { message: 'La fecha del gasto debe tener un formato de fecha válido.' })
+  @IsOptional()
+  fechaGasto?: string;
 }
 
 export class DispositivoPermutaDto {

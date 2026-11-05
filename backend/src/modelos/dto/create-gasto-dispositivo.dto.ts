@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsDateString,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -23,4 +24,8 @@ export class CreateGastoDispositivoDto {
   @IsBoolean()
   @IsOptional()
   aplicoEnCaja?: boolean; // Por defecto true
+
+  @IsDateString({}, { message: 'La fecha del gasto debe tener un formato de fecha válido.' })
+  @IsOptional()
+  fechaGasto?: string;
 }

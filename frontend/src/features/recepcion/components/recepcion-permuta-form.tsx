@@ -27,6 +27,7 @@ interface GastoRow {
   id: string;
   concepto: string;
   costoBs: number | '';
+  fechaGasto: string;
   observacion: string;
   aplicoEnCaja: boolean;
 }
@@ -99,12 +100,14 @@ export function RecepcionPermutaForm({
 
   // Manejo de gastos dinámicos
   const handleAddGasto = () => {
+    const today = new Date().toISOString().slice(0, 10);
     setGastos((prev) => [
       ...prev,
       {
         id: `gasto-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         concepto: '',
         costoBs: '',
+        fechaGasto: today,
         observacion: '',
         aplicoEnCaja: true, // Predeterminadamente activo según regla inmutable
       },
@@ -206,6 +209,7 @@ export function RecepcionPermutaForm({
         gastosIniciales: gastos.map((g) => ({
           concepto: g.concepto.trim(),
           costoBs: Number(g.costoBs),
+          fechaGasto: g.fechaGasto ? new Date(`${g.fechaGasto}T12:00:00`).toISOString() : new Date().toISOString(),
           observacion: g.observacion.trim() || undefined,
           aplicoEnCaja: g.aplicoEnCaja,
         })),
@@ -597,7 +601,7 @@ export function RecepcionPermutaForm({
                   key={gasto.id}
                   className="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-3 items-center text-xs"
                 >
-                  <div className="sm:col-span-4">
+                  <div className="sm:col-span-3">
                     <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
                       Concepto del Gasto #{index + 1} <span className="text-rose-500">*</span>
                     </Label>
@@ -629,9 +633,22 @@ export function RecepcionPermutaForm({
                     />
                   </div>
 
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-2">
                     <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
-                      Observación / Proveedor Repuesto
+                      Fecha Gasto <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      value={gasto.fechaGasto}
+                      onChange={(e) => handleUpdateGasto(gasto.id, 'fechaGasto', e.target.value)}
+                      className="text-xs h-8 bg-white font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
+                      Observación / Repuesto
                     </Label>
                     <Input
                       placeholder="Ej: Repuesto original Apple"
@@ -653,7 +670,7 @@ export function RecepcionPermutaForm({
                       htmlFor={`caja-${gasto.id}`}
                       className="text-[11px] font-medium text-slate-700 cursor-pointer leading-tight"
                     >
-                      Restar de Caja Diaria
+                      Restar de Caja
                     </label>
                   </div>
 

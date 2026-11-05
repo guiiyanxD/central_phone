@@ -51,10 +51,21 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
   const [editingGastoId, setEditingGastoId] = useState<number | null>(null);
   const [conceptoGasto, setConceptoGasto] = useState('');
   const [costoBsGasto, setCostoBsGasto] = useState<number | ''>('');
+  const [fechaGasto, setFechaGasto] = useState('');
   const [observacionGasto, setObservacionGasto] = useState('');
   const [aplicoEnCajaGasto, setAplicoEnCajaGasto] = useState(true);
   const [isSubmittingGasto, setIsSubmittingGasto] = useState(false);
   const [gastoFormError, setGastoFormError] = useState<string | null>(null);
+
+  const getLocalDateTimeString = (date = new Date()) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
 
   // Modal para anulación de gasto (Exclusivo ADMIN)
   const [modalAnularGastoOpen, setModalAnularGastoOpen] = useState(false);
@@ -101,6 +112,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
     setEditingGastoId(null);
     setConceptoGasto('');
     setCostoBsGasto('');
+    setFechaGasto(getLocalDateTimeString(new Date()));
     setObservacionGasto('');
     setAplicoEnCajaGasto(true);
     setGastoFormError(null);
@@ -112,6 +124,8 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
     setEditingGastoId(gasto.id);
     setConceptoGasto(gasto.concepto);
     setCostoBsGasto(Number(gasto.costoBs));
+    const fg = gasto.fechaGasto || gasto.fechaRegistro;
+    setFechaGasto(fg ? getLocalDateTimeString(new Date(fg)) : getLocalDateTimeString(new Date()));
     setObservacionGasto(gasto.observacion || '');
     setAplicoEnCajaGasto(gasto.aplicoEnCaja);
     setGastoFormError(null);
@@ -131,6 +145,8 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
       return;
     }
 
+    const payloadFecha = fechaGasto ? new Date(fechaGasto).toISOString() : new Date().toISOString();
+
     setIsSubmittingGasto(true);
     try {
       if (gastoModo === 'crear') {
@@ -139,6 +155,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
           costoBs: costoBsGasto,
           observacion: observacionGasto.trim() || undefined,
           aplicoEnCaja: aplicoEnCajaGasto,
+          fechaGasto: payloadFecha,
         });
         setGastoSuccessMsg(`Gasto "${conceptoGasto.trim()}" (Bs ${costoBsGasto.toFixed(2)}) agregado exitosamente.`);
       } else if (editingGastoId) {
@@ -146,6 +163,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
           concepto: conceptoGasto.trim(),
           costoBs: costoBsGasto,
           observacion: observacionGasto.trim() || undefined,
+          fechaGasto: payloadFecha,
         });
         setGastoSuccessMsg(`Gasto actualizado correctamente. Precio sugerido recalculado.`);
       }
@@ -446,9 +464,13 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                             {g.observacion && (
                               <p className="text-[11px] text-slate-500">{g.observacion}</p>
                             )}
-                            <p className="text-[10px] text-slate-400">
-                              Registrado por: {g.usuario?.nombre || 'Usuario'} •{' '}
-                              {new Date(g.fechaRegistro).toLocaleDateString('es-BO')}
+                            <p className="text-[10px] text-slate-500">
+                              <span className="font-semibold text-slate-700">Fecha del Gasto:</span>{' '}
+                              {new Date(g.fechaGasto || g.fechaRegistro).toLocaleString('es-BO', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })}
+                              {' '}• Registrado por: {g.usuario?.nombre || 'Usuario'}
                             </p>
                             {isAnulado && (
                               <p className="text-[10px] text-rose-700 font-medium">
@@ -864,6 +886,22 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 mb-1 block">
+                      Fecha y Hora del Gasto <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      type="datetime-local"
+                      value={fechaGasto}
+                      onChange={(e) => setFechaGasto(e.target.value)}
+                      className="text-xs h-9 bg-white"
+                      required
+                    />
+                    <span className="text-[10px] text-slate-500 mt-0.5 block">
+                      Momento en que se realizó el gasto (por defecto la fecha y hora actual).
+                    </span>
                   </div>
 
                   <div>

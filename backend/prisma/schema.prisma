@@ -352,6 +352,7 @@ model GastoDispositivo {
   anuladoEn       DateTime? @map("anulado_en")
   anuladoPorId    Int?      @map("anulado_por_id")
   motivoAnulacion String?   @map("motivo_anulacion") @db.Text
+  fechaGasto      DateTime  @default(now()) @map("fecha_gasto")
   fechaRegistro   DateTime  @default(now()) @map("fecha_registro")
 
   dispositivo Dispositivo @relation(fields: [dispositivoId], references: [id], onDelete: Cascade)

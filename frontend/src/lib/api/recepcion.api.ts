@@ -65,6 +65,7 @@ export interface CreatePermutaData {
     costoBs: number;
     observacion?: string;
     aplicoEnCaja?: boolean;
+    fechaGasto?: string;
   }>;
   observaciones?: string;
 }

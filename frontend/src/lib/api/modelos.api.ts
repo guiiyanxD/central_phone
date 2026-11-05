@@ -46,6 +46,7 @@ export interface GastoDispositivoItem {
   anuladoEn?: string | null;
   anuladoPorId?: number | null;
   motivoAnulacion?: string | null;
+  fechaGasto?: string;
   fechaRegistro: string;
   usuario?: { id: number; nombre: string };
   anuladoPor?: { id: number; nombre: string };
@@ -274,6 +275,7 @@ export const modelosApi = {
       costoBs: number;
       observacion?: string;
       aplicoEnCaja?: boolean;
+      fechaGasto?: string;
     },
   ) =>
     request<any>(`/modelos/dispositivos/${dispositivoId}/gastos`, {
@@ -286,6 +288,7 @@ export const modelosApi = {
       concepto?: string;
       costoBs?: number;
       observacion?: string;
+      fechaGasto?: string;
     },
   ) =>
     request<any>(`/modelos/dispositivos/gastos/${gastoId}`, {

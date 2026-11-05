@@ -961,6 +961,7 @@ export class ModelosService {
           costoBs: dto.costoBs,
           observacion: dto.observacion?.trim() || null,
           aplicoEnCaja,
+          fechaGasto: dto.fechaGasto ? new Date(dto.fechaGasto) : new Date(),
           estado: 'ACTIVO',
         },
         include: {
@@ -1064,6 +1065,7 @@ export class ModelosService {
           ...(dto.concepto ? { concepto: dto.concepto.trim() } : {}),
           ...(dto.costoBs !== undefined ? { costoBs: dto.costoBs } : {}),
           ...(dto.observacion !== undefined ? { observacion: dto.observacion?.trim() || null } : {}),
+          ...(dto.fechaGasto !== undefined ? { fechaGasto: new Date(dto.fechaGasto) } : {}),
         },
         include: {
           usuario: { select: { id: true, nombre: true } },

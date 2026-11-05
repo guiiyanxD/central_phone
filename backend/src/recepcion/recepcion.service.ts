@@ -1358,6 +1358,7 @@ export class RecepcionService {
               costoBs: costoGasto,
               observacion: g.observacion?.trim() || null,
               aplicoEnCaja: aplicoCaja,
+              fechaGasto: g.fechaGasto ? new Date(g.fechaGasto) : new Date(),
               estado: 'ACTIVO',
             },
           });

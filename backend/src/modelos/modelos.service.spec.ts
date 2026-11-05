@@ -877,12 +877,39 @@ describe('ModelosService', () => {
           costoBs: 150,
           cajaId: 10,
           aplicoEnCaja: true,
+          fechaGasto: expect.any(Date),
         }),
         include: { usuario: { select: { id: true, nombre: true } } },
       });
       expect(res.nuevoPrecioVentaSugeridoBs).toBe(2450);
       expect(res.totalGastosActivosBs).toBe(150);
       expect(res.inversionTotalBs).toBe(2150);
+    });
+
+    it('debe aceptar y guardar fechaGasto personalizada si se proporciona', async () => {
+      const fechaPersonalizada = '2026-11-01T15:00:00.000Z';
+      await service.addGastoDispositivo(
+        50,
+        {
+          concepto: 'Batería Original',
+          costoBs: 200,
+          aplicoEnCaja: false,
+          fechaGasto: fechaPersonalizada,
+        },
+        1,
+        1,
+      );
+
+      expect(prisma.gastoDispositivo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          dispositivoId: 50,
+          costoBs: 200,
+          cajaId: null,
+          aplicoEnCaja: false,
+          fechaGasto: new Date(fechaPersonalizada),
+        }),
+        include: { usuario: { select: { id: true, nombre: true } } },
+      });
     });
 
     it('debe permitir anular gasto y revertir el costo en el precio sugerido', async () => {

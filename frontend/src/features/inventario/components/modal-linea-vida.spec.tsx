@@ -174,4 +174,37 @@ describe('ModalLineaVida - Etapa 4: Cobertura de Garantía', () => {
     });
     expect(screen.getByText(/No vendido/i)).toBeInTheDocument();
   });
+
+  it('debe mostrar la fecha del gasto en la tarjeta del dispositivo y permitir manipularla en el formulario', async () => {
+    const mockLifelineData = createMockLifeline({
+      dispositivo: {
+        totalGastosActivosBs: 150,
+        inversionTotalBs: 6150,
+        gastos: [
+          {
+            id: 101,
+            concepto: 'Cambio de Pantalla OLED',
+            costoBs: 150,
+            observacion: 'Repuesto original',
+            aplicoEnCaja: true,
+            estado: 'ACTIVO',
+            fechaGasto: '2026-11-04T15:30:00Z',
+            fechaRegistro: '2026-11-04T16:00:00Z',
+            usuario: { id: 1, nombre: 'Admin User' },
+          },
+        ],
+      },
+    });
+
+    (api.modelos.getLineaVida as any).mockResolvedValue(mockLifelineData);
+
+    render(<ModalLineaVida isOpen={true} onClose={vi.fn()} imei="356987112233449" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de Pantalla OLED')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Fecha del Gasto:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Cambio de Pantalla OLED/i)).toBeInTheDocument();
+  });
 });

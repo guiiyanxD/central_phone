@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsNumber,
   IsOptional,
   IsString,
@@ -18,4 +19,8 @@ export class UpdateGastoDispositivoDto {
   @IsString()
   @IsOptional()
   observacion?: string;
+
+  @IsDateString({}, { message: 'La fecha del gasto debe tener un formato de fecha válido.' })
+  @IsOptional()
+  fechaGasto?: string;
 }
