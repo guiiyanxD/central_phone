@@ -59,6 +59,7 @@ export function ModalConfirmarInterSucursal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      className="max-w-xl"
       title={
         <div className="flex items-center gap-2 text-amber-700">
           <ArrowRightLeft className="h-5 w-5" />
@@ -113,9 +114,13 @@ export function ModalConfirmarInterSucursal({
         </div>
 
         {/* Acciones */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100">
-          <div>
-            {onSwitchSucursalAndAdd && sucursalOrigenId && (
+        <div className="space-y-3 pt-2">
+          {onSwitchSucursalAndAdd && sucursalOrigenId && (
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-2.5 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs text-blue-900 font-medium">
+                <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+                <span>¿Prefieres conmutar a la sucursal de origen?</span>
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -127,19 +132,21 @@ export function ModalConfirmarInterSucursal({
                     ciudad: sucursalOrigenObj?.ciudad || '',
                   });
                 }}
-                className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 w-full sm:w-auto"
+                className="text-xs text-blue-700 bg-white border-blue-200 hover:bg-blue-50 w-full sm:w-auto shrink-0 shadow-2xs font-semibold"
               >
-                <Building2 className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
+                <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
                 Cambiar a {sucursalOrigenNombre} y Vender Local
               </Button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={onClose}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
@@ -148,7 +155,7 @@ export function ModalConfirmarInterSucursal({
               size="sm"
               autoFocus
               onClick={onConfirm}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto shadow-sm font-semibold"
             >
               <Check className="mr-1.5 h-3.5 w-3.5" />
               Vender como Inter-Sucursal

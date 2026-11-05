@@ -58,4 +58,27 @@ describe('ModalConfirmarInterSucursal', () => {
 
     expect(mockOnConfirm).toHaveBeenCalled();
   });
+
+  it('permite cancelar la acción y cerrar el modal', () => {
+    const mockOnConfirm = vi.fn();
+    const mockOnSwitch = vi.fn();
+    const mockOnClose = vi.fn();
+
+    render(
+      <ModalConfirmarInterSucursal
+        isOpen={true}
+        onClose={mockOnClose}
+        pendingItem={pendingPhone}
+        currentSucursalNombre="Sucursal Central (Santa Cruz)"
+        onConfirm={mockOnConfirm}
+        onSwitchSucursalAndAdd={mockOnSwitch}
+      />
+    );
+
+    const cancelBtn = screen.getByText('Cancelar');
+    expect(cancelBtn).toBeInTheDocument();
+    fireEvent.click(cancelBtn);
+
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
 });
