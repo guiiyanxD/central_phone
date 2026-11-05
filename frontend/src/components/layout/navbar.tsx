@@ -20,6 +20,7 @@ import {
   BarChart3,
   QrCode,
   ShieldCheck,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
@@ -27,7 +28,8 @@ import { cn } from '@/lib/utils';
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, logout, isLoading, isAuthenticated } = useAuth();
+  const { user, logout, isLoading, isAuthenticated, activeSucursal, setActiveSucursal } = useAuth();
+  const [sucursales, setSucursales] = useState<any[]>([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [config, setConfig] = useState<{
     tcOficial?: number;
@@ -66,6 +68,19 @@ export function Navbar() {
       window.removeEventListener('configuracion-updated', handleUpdate);
     };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.rol === 'ADMIN') {
+      api.sucursales
+        .getAll()
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setSucursales(data.filter((s: any) => s.activo !== false));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAuthenticated, user?.rol]);
 
   // Si estamos en la página de login, no mostrar la barra de navegación del sistema
   if (pathname === '/login' || !isAuthenticated) {
@@ -176,7 +191,7 @@ export function Navbar() {
                   {user?.nombre || 'Usuario'}
                 </p>
                 <p className="text-[10px] text-slate-500 font-normal mt-0.5 flex items-center gap-1 justify-end">
-                  <span>{user?.sucursal?.nombre || 'Sucursal Central'}</span>
+                  <span>{activeSucursal?.nombre || user?.sucursal?.nombre || 'Sucursal Central'}</span>
                   <span>•</span>
                   <span className="font-medium text-slate-700">
                     {user?.rol === 'ADMIN' ? 'Administrador' : 'Vendedor'}
@@ -199,9 +214,55 @@ export function Navbar() {
                   </p>
                   <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-600">
                     <Building2 className="h-3 w-3 text-slate-400" />
-                    <span>{user?.sucursal?.nombre}</span>
+                    <span>{activeSucursal?.nombre || user?.sucursal?.nombre}</span>
                   </div>
                 </div>
+
+                {/* Selector de Sucursal Activa (Exclusivo ADMIN) */}
+                {user?.rol === 'ADMIN' && sucursales.length > 0 && (
+                  <div className="py-1.5 border-b border-slate-100 mb-1.5 bg-slate-50/70 rounded-lg p-1.5">
+                    <div className="flex items-center justify-between px-1.5 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      <span>Sucursal Activa</span>
+                      <Building2 className="h-3 w-3 text-slate-400" />
+                    </div>
+                    <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                      {sucursales.map((s) => {
+                        const isCurrent = activeSucursal
+                          ? activeSucursal.id === s.id
+                          : user?.sucursal?.id === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              if (!isCurrent) {
+                                setActiveSucursal({
+                                  id: s.id,
+                                  nombre: s.nombre,
+                                  ciudad: s.ciudad,
+                                });
+                              }
+                              setShowUserMenu(false);
+                            }}
+                            className={cn(
+                              'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium transition-colors text-left',
+                              isCurrent
+                                ? 'bg-slate-900 text-white font-semibold shadow-xs'
+                                : 'text-slate-700 hover:bg-white hover:shadow-2xs'
+                            )}
+                          >
+                            <span className="truncate">
+                              {s.nombre} {s.ciudad ? `(${s.ciudad})` : ''}
+                            </span>
+                            {isCurrent && (
+                              <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-1.5" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Widget de TC en móvil */}
                 <div className="sm:hidden px-2.5 py-2 border-b border-slate-100 mb-1.5 bg-slate-50/70 rounded-lg text-xs font-mono">

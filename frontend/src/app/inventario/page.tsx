@@ -15,7 +15,7 @@ import { InventarioAccesoriosTab } from '@/features/inventario/components/invent
 import { ModalLineaVida } from '@/features/inventario/components/modal-linea-vida';
 
 export default function InventarioPage() {
-  const { user } = useAuth();
+  const { user, activeSucursal } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
   const [activeTab, setActiveTab] = useState<'telefonos' | 'accesorios' | 'permutas'>('telefonos');
 
@@ -100,6 +100,14 @@ export default function InventarioPage() {
       }
     });
   }, []);
+
+  // Sincronizar filtro de sucursal con activeSucursal para administradores
+  useEffect(() => {
+    if (isAdmin && activeSucursal?.id) {
+      setSucursalFilter(String(activeSucursal.id));
+      setLotesSucursal(String(activeSucursal.id));
+    }
+  }, [isAdmin, activeSucursal?.id]);
 
   // Carga de datos de dispositivos con paginación en servidor
   const fetchDispositivos = async (pageToFetch = 1, currentLimit = dispositivosMeta.limit) => {

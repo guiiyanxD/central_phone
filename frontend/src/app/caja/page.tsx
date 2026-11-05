@@ -17,7 +17,7 @@ import { ModalDetalleVenta } from '@/features/caja/components/modal-detalle-vent
 import { CajaHistorialTable } from '@/features/caja/components/caja-historial-table';
 
 export default function CajaDiariaPage() {
-  const { user } = useAuth();
+  const { user, activeSucursal } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
 
   // Estados de la sesión activa
@@ -106,7 +106,8 @@ export default function CajaDiariaPage() {
   const fetchSesionActiva = async () => {
     setIsLoadingSession(true);
     try {
-      const data = await api.caja.getActiva();
+      const sucursalToQuery = isAdmin && activeSucursal?.id ? activeSucursal.id : undefined;
+      const data = await api.caja.getActiva(sucursalToQuery);
       setSessionData(data);
     } catch {
       // Silencioso
@@ -184,7 +185,7 @@ export default function CajaDiariaPage() {
     fetchSesionActiva();
     fetchCategorias();
     fetchSelectsList();
-  }, [user]);
+  }, [user, activeSucursal?.id]);
 
   useEffect(() => {
     if (activeTab === 'historial') {
@@ -205,7 +206,8 @@ export default function CajaDiariaPage() {
     setOpeningError(null);
     setIsOpening(true);
     try {
-      const sucursalId = user?.sucursal?.id || sessionData?.caja?.sucursalId || 1;
+      const sucursalId =
+        (isAdmin && activeSucursal?.id) || user?.sucursal?.id || sessionData?.caja?.sucursalId || 1;
       await api.caja.abrir({
         sucursalId,
         montoInicialEfectivo: Number(montoApertura) || 0,

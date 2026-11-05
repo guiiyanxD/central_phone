@@ -24,7 +24,7 @@ import { ModalCrearProveedorInline } from '@/features/recepcion/components/modal
 import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
 
 export default function RecepcionMercaderiaPage() {
-  const { user } = useAuth();
+  const { user, activeSucursal } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
   const [activeTab, setActiveTab] = useState<'nuevo' | 'historial'>('nuevo');
   const [modoRecepcion, setModoRecepcion] = useState<'MAYORISTA' | 'PERMUTA'>('MAYORISTA');
@@ -77,7 +77,9 @@ export default function RecepcionMercaderiaPage() {
 
   // Formulario de Nota de Ingreso
   const [proveedorId, setProveedorId] = useState<number>(1);
-  const [sucursalId, setSucursalId] = useState<number>(user?.sucursal?.id || 1);
+  const [sucursalId, setSucursalId] = useState<number>(
+    (isAdmin && activeSucursal?.id) || user?.sucursal?.id || 1
+  );
   const [numeroComprobante, setNumeroComprobante] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
   const [modalCrearProveedorOpen, setModalCrearProveedorOpen] = useState(false);
@@ -158,7 +160,9 @@ export default function RecepcionMercaderiaPage() {
         setTiposDispositivo(tiposData);
 
         if (provData.length > 0) setProveedorId(provData[0].id);
-        if (sucData.length > 0) setSucursalId(user?.sucursal?.id || sucData[0].id);
+        if (sucData.length > 0) {
+          setSucursalId((isAdmin && activeSucursal?.id) || user?.sucursal?.id || sucData[0].id);
+        }
         if (catData.length > 0) setNuevoAccCategoriaId(catData[0].id);
       } catch {
         setErrorMessage('No se pudieron cargar los datos maestros de recepción.');
@@ -168,6 +172,13 @@ export default function RecepcionMercaderiaPage() {
     }
     fetchMasterData();
   }, [user]);
+
+  // Sincronizar sucursalId cuando activeSucursal cambie para administradores
+  useEffect(() => {
+    if (isAdmin && activeSucursal?.id) {
+      setSucursalId(activeSucursal.id);
+    }
+  }, [isAdmin, activeSucursal?.id]);
 
   // Debounce para búsqueda en historial
   useEffect(() => {

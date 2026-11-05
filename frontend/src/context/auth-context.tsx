@@ -4,16 +4,18 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { api, setStoredToken, removeStoredToken } from '@/lib/api';
 
+export interface SucursalInfo {
+  id: number;
+  nombre: string;
+  ciudad: string;
+}
+
 export interface UserSession {
   id: number;
   nombre: string;
   email: string;
   rol: 'ADMIN' | 'VENDEDOR';
-  sucursal: {
-    id: number;
-    nombre: string;
-    ciudad: string;
-  };
+  sucursal: SucursalInfo;
 }
 
 interface AuthContextType {
@@ -21,6 +23,8 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  activeSucursal: SucursalInfo | null;
+  setActiveSucursal: (sucursal: SucursalInfo) => void;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
 }
@@ -30,6 +34,8 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   isAuthenticated: false,
   isLoading: true,
+  activeSucursal: null,
+  setActiveSucursal: () => {},
   login: async () => {},
   logout: () => {},
 });
@@ -39,7 +45,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<UserSession | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [activeSucursal, setActiveSucursalState] = useState<SucursalInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Helper para resolver la sucursal activa inicial
+  const resolveActiveSucursal = (userObj: UserSession | null): SucursalInfo | null => {
+    if (!userObj) return null;
+    if (userObj.rol === 'ADMIN' && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('centralphone_active_sucursal');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed.id === 'number' && parsed.nombre) {
+            return parsed;
+          }
+        }
+      } catch {
+        // En caso de error, recurre a la sucursal asignada
+      }
+    }
+    return userObj.sucursal || null;
+  };
+
+  const setActiveSucursal = (sucursal: SucursalInfo) => {
+    if (!user || user.rol !== 'ADMIN') return;
+    setActiveSucursalState(sucursal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('centralphone_active_sucursal', JSON.stringify(sucursal));
+      window.dispatchEvent(
+        new CustomEvent('active-sucursal-changed', { detail: sucursal })
+      );
+    }
+  };
 
   // Inicialización estricta de sesión (sin auto-login bypass)
   useEffect(() => {
@@ -49,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         removeStoredToken();
         setUser(null);
         setToken(null);
+        setActiveSucursalState(null);
         setIsLoading(false);
         return;
       }
@@ -60,11 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const me = await api.auth.me();
         setUser(me);
         setToken(stored);
+        setActiveSucursalState(resolveActiveSucursal(me));
       } catch {
         // Token inválido o expirado
         removeStoredToken();
         setUser(null);
         setToken(null);
+        setActiveSucursalState(null);
       } finally {
         setIsLoading(false);
       }
@@ -91,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStoredToken(res.accessToken);
       setToken(res.accessToken);
       setUser(res.user);
+      setActiveSucursalState(resolveActiveSucursal(res.user));
       router.push('/');
     } finally {
       setIsLoading(false);
@@ -99,8 +140,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     removeStoredToken();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('centralphone_active_sucursal');
+    }
     setUser(null);
     setToken(null);
+    setActiveSucursalState(null);
     router.push('/login');
   };
 
@@ -129,6 +174,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         isAuthenticated: !!user,
         isLoading,
+        activeSucursal,
+        setActiveSucursal,
         login,
         logout,
       }}

@@ -25,7 +25,7 @@ import { PermutaTradeInDto } from '@/lib/api/ventas.api';
 import { printReceipt } from '@/features/pos/utils/receipt-printer';
 
 export default function PosPage() {
-  const { user } = useAuth();
+  const { user, activeSucursal, setActiveSucursal } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
 
   // Helper de cálculo unificado de precio sugerido
@@ -93,15 +93,23 @@ export default function PosPage() {
     lote?: any;
   } | null>(null);
 
-  const currentSucursalId = sessionData?.caja?.sucursalId || user?.sucursal?.id;
+  const currentSucursalId =
+    (isAdmin && activeSucursal?.id) || sessionData?.caja?.sucursalId || user?.sucursal?.id;
   const currentSucursalNombre =
-    sessionData?.caja?.sucursal?.nombre || user?.sucursal?.nombre || 'Sucursal Actual';
+    (isAdmin && activeSucursal?.nombre) ||
+    sessionData?.caja?.sucursal?.nombre ||
+    user?.sucursal?.nombre ||
+    'Sucursal Actual';
 
   // Carga de datos
-  const loadData = async () => {
+  const loadData = async (targetSucursal?: number) => {
     setIsLoadingSession(true);
     try {
-      const cajaRes = await api.caja.getActiva();
+      const sucursalToQuery =
+        targetSucursal !== undefined
+          ? targetSucursal
+          : (isAdmin ? activeSucursal?.id : undefined);
+      const cajaRes = await api.caja.getActiva(sucursalToQuery);
       setSessionData(cajaRes);
 
       const targetSucursalId = isAdmin
@@ -131,7 +139,8 @@ export default function PosPage() {
 
   const silentRefresh = async () => {
     try {
-      const cajaRes = await api.caja.getActiva();
+      const sucursalToQuery = isAdmin ? activeSucursal?.id : undefined;
+      const cajaRes = await api.caja.getActiva(sucursalToQuery);
       setSessionData(cajaRes);
 
       const targetSucursalId = isAdmin
@@ -155,9 +164,25 @@ export default function PosPage() {
     }
   };
 
+  // Escuchar cambios de sucursal activa o usuario
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [user, activeSucursal?.id]);
+
+  // Si cambia la sucursal activa en POS y el carrito tiene productos, reiniciar carrito
+  const prevSucursalIdRef = useRef<number | undefined>(activeSucursal?.id);
+  useEffect(() => {
+    if (prevSucursalIdRef.current !== undefined && prevSucursalIdRef.current !== activeSucursal?.id) {
+      if (cart.length > 0) {
+        setCart([]);
+        setScanFeedback(
+          `Conmutado a ${activeSucursal?.nombre || 'nueva sucursal'}. El carrito previo fue reiniciado.`
+        );
+        setTimeout(() => setScanFeedback(null), 4000);
+      }
+    }
+    prevSucursalIdRef.current = activeSucursal?.id;
+  }, [activeSucursal?.id, cart.length]);
 
   // Atajos globales de teclado en mostrador (F2, F4, F8, F9, Ctrl+Z)
   useEffect(() => {
@@ -317,6 +342,22 @@ export default function PosPage() {
         true
       );
     }
+    setModalInterSucursalOpen(false);
+    setPendingInterSucursalItem(null);
+  };
+
+  const handleSwitchSucursalAndAdd = (origenSucursal: { id: number; nombre: string; ciudad: string }) => {
+    if (!pendingInterSucursalItem) return;
+    const item = pendingInterSucursalItem;
+    setActiveSucursal(origenSucursal);
+    if (item.tipo === 'DISPOSITIVO') {
+      commitAddPhone(item.disp, false);
+      setScanFeedback(`✓ Conmutado a ${origenSucursal.nombre} y agregado al ticket local.`);
+    } else if (item.tipo === 'ACCESORIO') {
+      commitAddAccessory(item.acc, item.lote, false);
+      setScanFeedback(`✓ Conmutado a ${origenSucursal.nombre} y agregado al ticket local.`);
+    }
+    setTimeout(() => setScanFeedback(null), 3500);
     setModalInterSucursalOpen(false);
     setPendingInterSucursalItem(null);
   };
@@ -839,6 +880,7 @@ export default function PosPage() {
         pendingItem={pendingInterSucursalItem}
         currentSucursalNombre={currentSucursalNombre}
         onConfirm={handleConfirmInterSucursal}
+        onSwitchSucursalAndAdd={handleSwitchSucursalAndAdd}
       />
 
       {/* Toast Flotante de Deshacer Eliminación */}

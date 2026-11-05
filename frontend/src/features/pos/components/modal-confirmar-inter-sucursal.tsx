@@ -19,6 +19,7 @@ interface ModalConfirmarInterSucursalProps {
   pendingItem: PendingInterSucursalItem | null;
   currentSucursalNombre: string;
   onConfirm: () => void;
+  onSwitchSucursalAndAdd?: (sucursal: { id: number; nombre: string; ciudad: string }) => void;
 }
 
 export function ModalConfirmarInterSucursal({
@@ -27,6 +28,7 @@ export function ModalConfirmarInterSucursal({
   pendingItem,
   currentSucursalNombre,
   onConfirm,
+  onSwitchSucursalAndAdd,
 }: ModalConfirmarInterSucursalProps) {
   if (!pendingItem) return null;
 
@@ -42,6 +44,12 @@ export function ModalConfirmarInterSucursal({
           : '0 GB'
       } [IMEI: ${pendingItem.disp?.imei1 || pendingItem.disp?.numeroSerie || 'N/A'}]`
     : pendingItem.lote?.nombreDiferenciador || 'Lote';
+
+  const sucursalOrigenId = isPhone
+    ? pendingItem.disp?.sucursalId || pendingItem.disp?.sucursal?.id
+    : pendingItem.lote?.sucursalId || pendingItem.lote?.sucursal?.id;
+
+  const sucursalOrigenObj = isPhone ? pendingItem.disp?.sucursal : pendingItem.lote?.sucursal;
 
   const sucursalOrigenNombre = isPhone
     ? pendingItem.disp?.sucursal?.nombre || `Sucursal ID #${pendingItem.disp?.sucursalId}`
@@ -105,25 +113,47 @@ export function ModalConfirmarInterSucursal({
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            autoFocus
-            onClick={onConfirm}
-            className="bg-amber-600 hover:bg-amber-700 text-white"
-          >
-            <Check className="mr-1.5 h-3.5 w-3.5" />
-            Confirmar y Agregar al Ticket
-          </Button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <div>
+            {onSwitchSucursalAndAdd && sucursalOrigenId && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onSwitchSucursalAndAdd({
+                    id: Number(sucursalOrigenId),
+                    nombre: sucursalOrigenNombre,
+                    ciudad: sucursalOrigenObj?.ciudad || '',
+                  });
+                }}
+                className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 w-full sm:w-auto"
+              >
+                <Building2 className="mr-1.5 h-3.5 w-3.5 text-blue-600" />
+                Cambiar a {sucursalOrigenNombre} y Vender Local
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              autoFocus
+              onClick={onConfirm}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+              Vender como Inter-Sucursal
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>
