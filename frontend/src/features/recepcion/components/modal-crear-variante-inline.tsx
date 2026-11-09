@@ -23,7 +23,8 @@ interface ModalCrearVarianteInlineProps {
   setNuevaVarCapacidad: (val: number) => void;
   nuevaVarSim: string;
   setNuevaVarSim: (val: string) => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
+  onVarianteCreada?: (variante: any, modeloId: number) => void;
   onModeloCreado?: (modelo: any, primeraVariante: any) => void;
   onTipoCreado?: (tipo: TipoDispositivoItem) => void;
 }
@@ -42,6 +43,7 @@ export function ModalCrearVarianteInline({
   nuevaVarSim,
   setNuevaVarSim,
   onConfirm,
+  onVarianteCreada,
   onModeloCreado,
   onTipoCreado,
 }: ModalCrearVarianteInlineProps) {
@@ -151,9 +153,55 @@ export function ModalCrearVarianteInline({
         setIsSavingModelo(false);
       }
     } else {
-      // Flujo tradicional: variante para modelo existente
-      onConfirm();
-      handleClose();
+      // Flujo de persistencia inmediata para modelo existente
+      if (!nuevaVarColor.trim()) {
+        setInlineModeloError('El color de la variante es requerido.');
+        return;
+      }
+
+      setIsSavingModelo(true);
+      setInlineModeloError(null);
+
+      try {
+        const payload = {
+          color: nuevaVarColor.trim(),
+          capacidadGb: Number(nuevaVarCapacidad),
+          tipoSim: nuevaVarSim,
+        };
+
+        const nuevaVariante = await api.modelos.addVariante(nuevaVarModeloId, payload);
+        if (onVarianteCreada) {
+          onVarianteCreada(nuevaVariante, nuevaVarModeloId);
+        } else {
+          onConfirm?.();
+        }
+        handleClose();
+      } catch (err: any) {
+        // Si el backend responde que ya existía (409 Conflict), buscarla en el modelo local y reusarla
+        if (err instanceof ApiError && err.statusCode === 409) {
+          const modeloActual = modelos.find((m) => m.id === nuevaVarModeloId);
+          const varExistente = modeloActual?.variantes?.find(
+            (v: any) =>
+              v.color?.toLowerCase() === nuevaVarColor.trim().toLowerCase() &&
+              Number(v.capacidadGb) === Number(nuevaVarCapacidad) &&
+              v.tipoSim === nuevaVarSim
+          );
+          if (varExistente) {
+            if (onVarianteCreada) {
+              onVarianteCreada(varExistente, nuevaVarModeloId);
+            } else {
+              onConfirm?.();
+            }
+            handleClose();
+            return;
+          }
+        }
+        setInlineModeloError(
+          err instanceof ApiError ? err.message : 'Error al registrar la variante en el catálogo.'
+        );
+      } finally {
+        setIsSavingModelo(false);
+      }
     }
   };
 
@@ -360,6 +408,9 @@ export function ModalCrearVarianteInline({
         )}
 
         {/* Campos de Variante (Color, Capacidad, SIM) */}
+        {!showInlineModelo && inlineModeloError && (
+          <p className="text-[11px] text-rose-600 font-medium">{inlineModeloError}</p>
+        )}
         <div>
           <Label required>Color</Label>
           <Input

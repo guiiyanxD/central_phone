@@ -541,6 +541,61 @@ export default function RecepcionMercaderiaPage() {
     setModalVarianteOpen(false);
   };
 
+  const handleVarianteCreadaInline = (nuevaVariante: any, modeloId: number) => {
+    if (!targetTelefonoId) return;
+
+    // 1. Inyectar reactivamente la nueva variante en el catálogo de modelos
+    setModelos((prev) =>
+      prev.map((m) => {
+        if (m.id === modeloId) {
+          const existing = m.variantes || [];
+          const alreadyInList = existing.some((v: any) => v.id === nuevaVariante.id);
+          return {
+            ...m,
+            variantes: alreadyInList ? existing : [...existing, nuevaVariante],
+          };
+        }
+        return m;
+      })
+    );
+
+    // 2. Resolver datos del modelo para la fila
+    const modeloSeleccionado = modelos.find((m) => m.id === modeloId);
+    const capDisplay =
+      nuevaVariante.capacidadGb >= 1024
+        ? `${nuevaVariante.capacidadGb / 1024}TB`
+        : `${nuevaVariante.capacidadGb}GB`;
+    const capLabel = nuevaVariante.capacidadGb > 0 ? capDisplay : 'Sin alm.';
+
+    const simLower = (nuevaVariante.tipoSim || '').toLowerCase();
+    const noImei =
+      modeloSeleccionado?.tipo === 'MAC' ||
+      modeloSeleccionado?.tipo === 'AIRPODS' ||
+      simLower.includes('no aplica') ||
+      simLower.includes('gps only') ||
+      simLower.includes('wifi') ||
+      (modeloSeleccionado?.tipo === 'WATCH' && !simLower.includes('cellular'));
+
+    // 3. Asignar varianteId real y limpiar nuevaVariante
+    setTelefonos((prev) =>
+      prev.map((t) => {
+        if (t.id === targetTelefonoId) {
+          return {
+            ...t,
+            varianteId: nuevaVariante.id,
+            nuevaVariante: undefined,
+            modeloNombreDisplay: modeloSeleccionado?.nombreModelo || modeloSeleccionado?.nombre || 'Modelo',
+            modeloTipo: modeloSeleccionado?.tipo || 'IPHONE',
+            varianteTipoSim: nuevaVariante.tipoSim,
+            varianteDisplay: `${nuevaVariante.color} • ${capLabel} • ${nuevaVariante.tipoSim}`,
+            ...(noImei ? { imei1: '', imei2: '' } : {}),
+          };
+        }
+        return t;
+      })
+    );
+  };
+
   const handleModeloCreadoInline = (nuevoModelo: any, primeraVariante: any) => {
     if (!targetTelefonoId) return;
 
@@ -655,6 +710,31 @@ export default function RecepcionMercaderiaPage() {
     );
 
     setModalAccesorioOpen(false);
+  };
+
+  const handleAccesorioCreadoInline = (nuevoAccesorio: any) => {
+    if (!targetAccesorioId) return;
+
+    // 1. Inyectar reactivamente en el catálogo de accesorios
+    setAccesoriosCatalogo((prev) => {
+      const alreadyInList = prev.some((a) => a.id === nuevoAccesorio.id);
+      return alreadyInList ? prev : [...prev, nuevoAccesorio];
+    });
+
+    // 2. Asignar accesorioId real y limpiar nuevoAccesorio
+    setAccesorios((prev) =>
+      prev.map((a) => {
+        if (a.id === targetAccesorioId) {
+          return {
+            ...a,
+            accesorioId: nuevoAccesorio.id,
+            nuevoAccesorio: undefined,
+            accesorioDisplay: undefined,
+          };
+        }
+        return a;
+      })
+    );
   };
 
   // Cálculos Financieros y Totales en Vivo
@@ -1069,6 +1149,7 @@ export default function RecepcionMercaderiaPage() {
             nuevaVarSim={nuevaVarSim}
             setNuevaVarSim={setNuevaVarSim}
             onConfirm={handleConfirmInlineVariante}
+            onVarianteCreada={handleVarianteCreadaInline}
             onModeloCreado={handleModeloCreadoInline}
             onTipoCreado={handleTipoCreadoInline}
           />
@@ -1084,6 +1165,7 @@ export default function RecepcionMercaderiaPage() {
             nuevoAccDescripcion={nuevoAccDescripcion}
             setNuevoAccDescripcion={setNuevoAccDescripcion}
             onConfirm={handleConfirmInlineAccesorio}
+            onAccesorioCreado={handleAccesorioCreadoInline}
             onCategoriaCreada={(nuevaCat) => {
               setCategoriasAccesorios((prev) => [...prev, nuevaCat]);
             }}

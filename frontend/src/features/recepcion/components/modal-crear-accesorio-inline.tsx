@@ -20,7 +20,8 @@ interface ModalCrearAccesorioInlineProps {
   setNuevoAccNombre: (val: string) => void;
   nuevoAccDescripcion: string;
   setNuevoAccDescripcion: (val: string) => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
+  onAccesorioCreado?: (accesorio: any) => void;
   onCategoriaCreada?: (cat: CategoriaAccesorioItem) => void;
 }
 
@@ -35,6 +36,7 @@ export function ModalCrearAccesorioInline({
   nuevoAccDescripcion,
   setNuevoAccDescripcion,
   onConfirm,
+  onAccesorioCreado,
   onCategoriaCreada,
 }: ModalCrearAccesorioInlineProps) {
   // Estados para creación in-line de categoría "al vuelo"
@@ -43,6 +45,35 @@ export function ModalCrearAccesorioInline({
   const [inlineCatDesc, setInlineCatDesc] = useState('');
   const [isSavingInlineCat, setIsSavingInlineCat] = useState(false);
   const [inlineCatError, setInlineCatError] = useState<string | null>(null);
+
+  // Estados para creación y persistencia del accesorio base
+  const [isSavingAccesorio, setIsSavingAccesorio] = useState(false);
+  const [accesorioError, setAccesorioError] = useState<string | null>(null);
+
+  const handleConfirmAction = async () => {
+    if (!nuevoAccNombre.trim() || !nuevoAccCategoriaId) return;
+    setIsSavingAccesorio(true);
+    setAccesorioError(null);
+    try {
+      const nuevo = await api.accesorios.create({
+        categoriaId: Number(nuevoAccCategoriaId),
+        nombre: nuevoAccNombre.trim(),
+        descripcion: nuevoAccDescripcion.trim() || undefined,
+      });
+      if (onAccesorioCreado) {
+        onAccesorioCreado(nuevo);
+      } else {
+        onConfirm?.();
+      }
+      onClose();
+    } catch (err: any) {
+      setAccesorioError(
+        err instanceof ApiError ? err.message : 'Error al registrar el accesorio en el catálogo.'
+      );
+    } finally {
+      setIsSavingAccesorio(false);
+    }
+  };
 
   const handleGuardarCategoriaInline = async () => {
     if (!inlineCatNombre.trim()) {
@@ -204,6 +235,10 @@ export function ModalCrearAccesorioInline({
           />
         </div>
 
+        {accesorioError && (
+          <p className="text-[11px] text-rose-600 font-medium">{accesorioError}</p>
+        )}
+
         <div className="flex gap-2 pt-4">
           <Button
             type="button"
@@ -212,6 +247,7 @@ export function ModalCrearAccesorioInline({
             onClick={() => {
               setShowInlineCat(false);
               setInlineCatError(null);
+              setAccesorioError(null);
               onClose();
             }}
           >
@@ -220,7 +256,8 @@ export function ModalCrearAccesorioInline({
           <Button
             type="button"
             className="flex-1"
-            onClick={onConfirm}
+            onClick={handleConfirmAction}
+            isLoading={isSavingAccesorio}
             disabled={!nuevoAccNombre.trim() || !nuevoAccCategoriaId}
           >
             Confirmar e Inyectar
