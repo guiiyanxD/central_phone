@@ -321,6 +321,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
               <div className="mt-2 text-right">
                 <p className="text-xs text-emerald-400 font-bold font-mono">
                   P. Sug: Bs {data.dispositivo.precioVentaSugeridoBs.toFixed(2)}
+                  {data.dispositivo.costoUsd !== undefined ? ` ($ ${(Number(data.dispositivo.costoUsd) * 1.15).toFixed(2)})` : ''}
                 </p>
                 {isAdmin && data.dispositivo.inversionTotalBs !== undefined && (
                   <p className="text-[10px] text-slate-400 font-mono">

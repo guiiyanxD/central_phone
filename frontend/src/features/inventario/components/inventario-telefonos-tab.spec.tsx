@@ -92,9 +92,9 @@ describe('InventarioTelefonosTab Component', () => {
     expect(screen.getByText(/Bs 7000\.00/i)).toBeDefined();
     expect(screen.getByText(/Sug: Bs 8400\.00/i)).toBeDefined();
 
-    // Valores en Dólares ($ 1000 directo de costoUsd o 7000/10, y 8400/10 = $ 840.00)
+    // Valores en Dólares ($ 1000 directo de costoUsd, y precio sugerido con regla 15% sobre USD = $ 1150.00)
     expect(screen.getByText(/\$ 1000\.00/i)).toBeDefined();
-    expect(screen.getByText(/Sug: \$ 840\.00/i)).toBeDefined();
+    expect(screen.getByText(/Sug: \$ 1150\.00/i)).toBeDefined();
   });
 
   it('debe invocar onSelectImeiForLifeline al hacer clic en el botón DETALLE', () => {
@@ -120,6 +120,6 @@ describe('InventarioTelefonosTab Component', () => {
 
     // Solo debe mostrar el precio sugerido
     expect(screen.getByText(/Bs 8400\.00/i)).toBeDefined();
-    expect(screen.getByText(/\$ 840\.00/i)).toBeDefined();
+    expect(screen.getByText(/\$ 1150\.00/i)).toBeDefined();
   });
 });
