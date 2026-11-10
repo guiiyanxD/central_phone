@@ -83,16 +83,16 @@ export function ModalQrOficial({
 
           {/* Bloque Destacado de Monto y Cuenta */}
           <div className="w-full text-center z-10 space-y-1">
-            <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
+            <span className="text-xs text-slate-300 uppercase tracking-wider font-semibold">
               {isMixto ? 'Saldo a Transferir por QR:' : 'Monto Exacto a Transferir:'}
             </span>
             <div className="text-3xl font-extrabold font-mono text-emerald-400 tracking-tight">
               Bs {montoQrFinal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="text-[11px] font-mono text-slate-400 pt-1">
+            <div className="text-[11px] font-mono text-slate-300 pt-1">
               {configuracion?.bancoOficial || 'Banco de Crédito BCP'} • {configuracion?.titularCuenta || 'CentralPhone'}
             </div>
-            <div className="text-[10px] font-mono text-slate-500">
+            <div className="text-[10px] font-mono text-slate-300">
               Cta: {configuracion?.numeroCuenta || '201-50893214-3-12'}
             </div>
           </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface PosCatalogAccessoriesProps {
   searchAccessory: string;
@@ -43,7 +44,15 @@ export function PosCatalogAccessories({
           {filteredAccessories.map(({ acc, lote }) => (
             <div
               key={lote.id}
-              className="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-subtle transition-all text-xs flex flex-col justify-between"
+              onClick={() => {
+                if (lote.stockActual > 0) onAddAccessory(acc, lote);
+              }}
+              className={cn(
+                "p-3 rounded-xl border border-slate-200 bg-white transition-all text-xs flex flex-col justify-between select-none",
+                lote.stockActual > 0
+                  ? "hover:border-slate-400 hover:shadow-subtle cursor-pointer active:scale-[0.99]"
+                  : "opacity-60 cursor-not-allowed"
+              )}
             >
               <div>
                 <div className="flex items-center justify-between gap-1 flex-wrap">

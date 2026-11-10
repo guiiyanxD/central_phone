@@ -45,10 +45,14 @@ export function CajaResumenCards({
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <p className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
-            Bs {rf?.totalVentasEfectivo?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+            {isAdmin
+              ? `Bs ${rf?.totalVentasEfectivo?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`
+              : `${sessionData?.caja?.ventas?.filter((v: any) => v.estado !== 'ANULADA' && v.metodoPago?.codigo === 'EFECTIVO')?.length || 0} tickets`}
           </p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            {sessionData?.caja?.ventas?.filter((v: any) => v.estado !== 'ANULADA' && v.metodoPago?.codigo === 'EFECTIVO')?.length || 0} tickets
+            {isAdmin
+              ? `${sessionData?.caja?.ventas?.filter((v: any) => v.estado !== 'ANULADA' && v.metodoPago?.codigo === 'EFECTIVO')?.length || 0} tickets`
+              : 'Oculto para arqueo a ciegas'}
           </p>
         </CardContent>
       </Card>
@@ -81,10 +85,14 @@ export function CajaResumenCards({
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <p className="text-2xl font-bold tracking-tight text-rose-700 mt-1">
-            -Bs {(rf?.totalGastosOperativos ?? rf?.totalGastosEfectivo ?? 0)?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+            {isAdmin
+              ? `-Bs ${(rf?.totalGastosOperativos ?? rf?.totalGastosEfectivo ?? 0)?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`
+              : `${sessionData?.caja?.gastosOperativos?.length || 0} egresos`}
           </p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            {sessionData?.caja?.gastosOperativos?.length || 0} egresos registrados
+            {isAdmin
+              ? `${sessionData?.caja?.gastosOperativos?.length || 0} egresos registrados`
+              : 'Oculto para arqueo a ciegas'}
           </p>
         </CardContent>
       </Card>

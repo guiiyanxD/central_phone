@@ -240,9 +240,9 @@ export function PosCartPanel({
                   type="button"
                   aria-label={`Eliminar ${item.nombre} del carrito`}
                   onClick={() => onRemoveFromCart(item.cartId)}
-                  className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500 shrink-0"
+                  className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500 shrink-0"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -565,6 +565,8 @@ export function PosCartPanel({
               )}
 
               <Input
+                id="posComprobanteRefQr"
+                aria-label="Número de comprobante bancario o QR oficial"
                 placeholder="Ej: Nro. Comprobante BCP / 8 dígitos *"
                 value={comprobanteRef}
                 onChange={(e) => setComprobanteRef(e.target.value)}
@@ -620,6 +622,8 @@ export function PosCartPanel({
               </div>
 
               <Input
+                id="posComprobanteRefMixto"
+                aria-label="Número de comprobante bancario QR de saldo"
                 placeholder="Nro. Comprobante QR bancario *"
                 value={comprobanteRef}
                 onChange={(e) => setComprobanteRef(e.target.value)}

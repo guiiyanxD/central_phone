@@ -159,12 +159,16 @@ export function ModalAuditoriaCaja({
               </div>
 
               {/* PESTAÑAS DEL DETALLE */}
-              <div className="flex border-b border-slate-200 text-xs gap-4">
+              <div role="tablist" aria-label="Secciones de auditoría de caja" className="flex border-b border-slate-200 text-xs gap-4">
                 <button
                   type="button"
+                  role="tab"
+                  id="tab-auditoria-ventas"
+                  aria-controls="panel-auditoria-ventas"
+                  aria-selected={detalleTab === 'ventas'}
                   onClick={() => setDetalleTab('ventas')}
                   className={cn(
-                    'pb-2 font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+                    'pb-2 font-semibold border-b-2 transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded-t',
                     detalleTab === 'ventas'
                       ? 'border-slate-900 text-slate-900'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -176,9 +180,13 @@ export function ModalAuditoriaCaja({
 
                 <button
                   type="button"
+                  role="tab"
+                  id="tab-auditoria-gastos"
+                  aria-controls="panel-auditoria-gastos"
+                  aria-selected={detalleTab === 'gastos'}
                   onClick={() => setDetalleTab('gastos')}
                   className={cn(
-                    'pb-2 font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+                    'pb-2 font-semibold border-b-2 transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded-t',
                     detalleTab === 'gastos'
                       ? 'border-slate-900 text-slate-900'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -190,9 +198,13 @@ export function ModalAuditoriaCaja({
 
                 <button
                   type="button"
+                  role="tab"
+                  id="tab-auditoria-arqueo"
+                  aria-controls="panel-auditoria-arqueo"
+                  aria-selected={detalleTab === 'arqueo'}
                   onClick={() => setDetalleTab('arqueo')}
                   className={cn(
-                    'pb-2 font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+                    'pb-2 font-semibold border-b-2 transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded-t',
                     detalleTab === 'arqueo'
                       ? 'border-slate-900 text-slate-900'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -207,7 +219,7 @@ export function ModalAuditoriaCaja({
               <div className="flex-1 overflow-y-auto max-h-[46vh] pr-1">
                 {/* PESTAÑA VENTAS */}
                 {detalleTab === 'ventas' && (
-                  <div className="space-y-2">
+                  <div role="tabpanel" id="panel-auditoria-ventas" aria-labelledby="tab-auditoria-ventas" className="space-y-2">
                     {detCaja.ventas.length === 0 ? (
                       <div className="py-10 text-center text-slate-400">
                         <ShoppingCart className="h-6 w-6 mx-auto mb-1 text-slate-300" />
@@ -218,14 +230,14 @@ export function ModalAuditoriaCaja({
                         <table className="w-full text-left text-xs border-collapse">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                              <th className="py-2.5 px-3"># Venta & Hora</th>
-                              <th className="py-2.5 px-3">Vendedor & Cliente</th>
-                              <th className="py-2.5 px-3">Método</th>
-                              <th className="py-2.5 px-3">Artículos Vendidos</th>
-                              <th className="py-2.5 px-3 text-right">Total Venta</th>
-                              {isAdmin && <th className="py-2.5 px-3 text-right">Ganancia Neta</th>}
-                              <th className="py-2.5 px-3 text-center">Estado</th>
-                              <th className="py-2.5 px-3 text-center">Acción</th>
+                              <th scope="col" className="py-2.5 px-3"># Venta & Hora</th>
+                              <th scope="col" className="py-2.5 px-3">Vendedor & Cliente</th>
+                              <th scope="col" className="py-2.5 px-3">Método</th>
+                              <th scope="col" className="py-2.5 px-3">Artículos Vendidos</th>
+                              <th scope="col" className="py-2.5 px-3 text-right">Total Venta</th>
+                              {isAdmin && <th scope="col" className="py-2.5 px-3 text-right">Ganancia Neta</th>}
+                              <th scope="col" className="py-2.5 px-3 text-center">Estado</th>
+                              <th scope="col" className="py-2.5 px-3 text-center">Acción</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -371,7 +383,7 @@ export function ModalAuditoriaCaja({
 
                 {/* PESTAÑA GASTOS */}
                 {detalleTab === 'gastos' && (
-                  <div className="space-y-2">
+                  <div role="tabpanel" id="panel-auditoria-gastos" aria-labelledby="tab-auditoria-gastos" className="space-y-2">
                     {detCaja.gastosOperativos.length === 0 ? (
                       <div className="py-10 text-center text-slate-400">
                         <TrendingDown className="h-6 w-6 mx-auto mb-1 text-slate-300" />
@@ -382,12 +394,12 @@ export function ModalAuditoriaCaja({
                         <table className="w-full text-left text-xs border-collapse">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                              <th className="py-2.5 px-3">Hora</th>
-                              <th className="py-2.5 px-3">Categoría</th>
-                              <th className="py-2.5 px-3">Concepto / Motivo</th>
-                              <th className="py-2.5 px-3">Registrado Por</th>
-                              <th className="py-2.5 px-3">Método</th>
-                              <th className="py-2.5 px-3 text-right">Monto Egreso</th>
+                              <th scope="col" className="py-2.5 px-3">Hora</th>
+                              <th scope="col" className="py-2.5 px-3">Categoría</th>
+                              <th scope="col" className="py-2.5 px-3">Concepto / Motivo</th>
+                              <th scope="col" className="py-2.5 px-3">Registrado Por</th>
+                              <th scope="col" className="py-2.5 px-3">Método</th>
+                              <th scope="col" className="py-2.5 px-3 text-right">Monto Egreso</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -427,7 +439,7 @@ export function ModalAuditoriaCaja({
 
                 {/* PESTAÑA AUDITORÍA DE ARQUEO */}
                 {detalleTab === 'arqueo' && (
-                  <div className="space-y-4">
+                  <div role="tabpanel" id="panel-auditoria-arqueo" aria-labelledby="tab-auditoria-arqueo" className="space-y-4">
                     <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
                         Fórmula de Reconciliación de Gaveta (Efectivo)

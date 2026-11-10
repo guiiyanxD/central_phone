@@ -149,7 +149,7 @@ export function CajaMovimientosTurno({
                           Bs {saldoCobrado.toFixed(2)}
                         </span>
                         {montoPermuta > 0 && (
-                          <span className="text-[9px] text-slate-400 font-mono block">
+                          <span className="text-[9px] text-slate-600 font-mono block">
                             Total: Bs {Number(v.totalVentaBs).toFixed(2)}
                           </span>
                         )}
@@ -163,9 +163,10 @@ export function CajaMovimientosTurno({
                             size="sm"
                             className="h-8 px-2.5 text-xs text-slate-700 hover:text-slate-900 border-slate-300 flex items-center gap-1"
                             onClick={() => onSelectVenta(v)}
+                            aria-label={`Ver ticket #${formatFolioTicket(v.id)}`}
                             title="Ver detalle completo del ticket de venta"
                           >
-                            <Eye className="h-3.5 w-3.5 text-slate-600" />
+                            <Eye className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
                             <span className="hidden sm:inline">Ticket</span>
                           </Button>
                         )}
@@ -177,9 +178,10 @@ export function CajaMovimientosTurno({
                             size="sm"
                             className="h-8 px-2 text-xs text-rose-700 hover:text-rose-900 hover:bg-rose-50 border-rose-200 flex items-center gap-1"
                             onClick={() => setVentaParaAnular(v)}
+                            aria-label={`Anular venta #${formatFolioTicket(v.id)}`}
                             title="Anular venta y revertir inventario"
                           >
-                            <Ban className="h-3.5 w-3.5 text-rose-600" />
+                            <Ban className="h-3.5 w-3.5 text-rose-600" aria-hidden="true" />
                             <span className="hidden sm:inline">Anular</span>
                           </Button>
                         )}

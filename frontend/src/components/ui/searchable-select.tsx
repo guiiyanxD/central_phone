@@ -255,9 +255,11 @@ export function SearchableSelect({
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="text-slate-400 hover:text-slate-600 p-0.5"
+                aria-label="Borrar texto de búsqueda"
+                title="Borrar texto de búsqueda"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-200/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             )}
           </div>

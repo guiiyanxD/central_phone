@@ -23,6 +23,8 @@ export function Modal({
 }: ModalProps) {
   const modalRef = React.useRef<HTMLDivElement>(null);
   const previousActiveElement = React.useRef<HTMLElement | null>(null);
+  const titleId = React.useId();
+  const descId = React.useId();
 
   // Mantener la referencia actualizada de onClose sin provocar re-ejecuciones de efectos
   const onCloseRef = React.useRef(onClose);
@@ -69,7 +71,12 @@ export function Modal({
         modalRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         )
-      ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+      ).filter(
+        (el) =>
+          !el.hasAttribute('disabled') &&
+          el.getAttribute('aria-hidden') !== 'true' &&
+          (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0)
+      );
 
       if (focusable.length > 0) {
         const contentEl = focusable.find((el) => !el.hasAttribute('data-modal-close-button'));
@@ -79,7 +86,14 @@ export function Modal({
 
     // 3. Manejador de teclado para Escape y trampa de foco (Tab / Shift+Tab)
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        // En modales anidados, solo el diálogo superior en el DOM debe responder a Escape
+        const dialogs = document.querySelectorAll('[role="dialog"]');
+        if (dialogs.length > 0 && dialogs[dialogs.length - 1] !== modalRef.current) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
         onCloseRef.current();
         return;
       }
@@ -89,12 +103,24 @@ export function Modal({
           modalRef.current.querySelectorAll<HTMLElement>(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
           )
-        ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+        ).filter(
+          (el) =>
+            !el.hasAttribute('disabled') &&
+            el.getAttribute('aria-hidden') !== 'true' &&
+            (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0)
+        );
 
         if (focusable.length === 0) return;
 
         const firstElement = focusable[0];
         const lastElement = focusable[focusable.length - 1];
+
+        // Si el foco se perdió o está en el contenedor estático, reencauzar
+        if (!modalRef.current.contains(document.activeElement)) {
+          e.preventDefault();
+          firstElement.focus();
+          return;
+        }
 
         if (e.shiftKey) {
           if (document.activeElement === firstElement) {
@@ -114,7 +140,9 @@ export function Modal({
 
     return () => {
       clearTimeout(timer);
-      document.body.style.overflow = 'unset';
+      if (document.querySelectorAll('[role="dialog"]').length <= 1) {
+        document.body.style.overflow = 'unset';
+      }
       window.removeEventListener('keydown', handleKeyDown);
       previousActiveElement.current?.focus();
     };
@@ -135,7 +163,8 @@ export function Modal({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descId : undefined}
         data-testid={dataTestId}
         className={cn(
           'relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-elevated z-10 animate-in fade-in zoom-in-95 duration-200',
@@ -144,11 +173,11 @@ export function Modal({
       >
         <div className="flex items-start justify-between border-b border-slate-100 pb-4 mb-4">
           <div>
-            <h3 id="modal-title" className="text-base font-bold text-slate-900 tracking-tight">
+            <h3 id={titleId} className="text-base font-bold text-slate-900 tracking-tight">
               {title}
             </h3>
             {description && (
-              <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+              <p id={descId} className="text-xs text-slate-500 mt-0.5">{description}</p>
             )}
           </div>
           <button
@@ -156,7 +185,7 @@ export function Modal({
             data-modal-close-button="true"
             onClick={() => onCloseRef.current()}
             aria-label="Cerrar diálogo emergente"
-            className="h-9 w-9 sm:h-8 sm:w-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors -mr-1 -mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            className="h-9 w-9 sm:h-8 sm:w-8 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors -mr-1 -mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
           >
             <X className="h-4 w-4" />
           </button>

@@ -188,11 +188,11 @@ export function ModalTicketVenta({
           )}
 
           {/* Pie de Garantía Oficial */}
-          <div className="text-center pt-2 border-t border-dashed border-slate-300 text-[10.5px] text-slate-500 leading-tight space-y-0.5">
-            <p className="font-bold text-slate-700">*** GARANTÍA OFICIAL CENTRALPHONE ***</p>
+          <div className="text-center pt-2 border-t border-dashed border-slate-300 text-[10.5px] text-slate-600 leading-tight space-y-0.5">
+            <p className="font-bold text-slate-800">*** GARANTÍA OFICIAL CENTRALPHONE ***</p>
             <p>3 Meses en Dispositivos (Vence: {fechaFinGarantiaStr}).</p>
             <p>15 días en accesorios.</p>
-            <p className="text-[9.5px] text-slate-400">Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.</p>
+            <p className="text-[10px] text-slate-600">Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.</p>
           </div>
         </div>
 

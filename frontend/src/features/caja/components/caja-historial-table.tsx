@@ -162,11 +162,12 @@ export function CajaHistorialTable({
               variant="outline"
               size="sm"
               onClick={onResetFiltros}
+              aria-label="Restablecer todos los filtros de búsqueda"
               className="w-full h-9 text-xs flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900"
               title="Restablecer todos los filtros"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span className="sm:hidden lg:hidden">Limpiar</span>
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Restablecer</span>
             </Button>
           </div>
         </div>
@@ -178,14 +179,14 @@ export function CajaHistorialTable({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
-                <th className="py-3 px-4">Caja & Fechas</th>
-                <th className="py-3 px-4">Cajero / Sucursal</th>
-                <th className="py-3 px-4">Monto Inicial</th>
-                <th className="py-3 px-4">Saldo Teórico</th>
-                <th className="py-3 px-4">Conteo Físico Real</th>
-                <th className="py-3 px-4">Diferencia</th>
-                <th className="py-3 px-4">Justificación de Auditoría</th>
-                <th className="py-3 px-4 text-center">Acciones</th>
+                <th scope="col" className="py-3 px-4">Caja & Fechas</th>
+                <th scope="col" className="py-3 px-4">Cajero / Sucursal</th>
+                <th scope="col" className="py-3 px-4">Monto Inicial</th>
+                <th scope="col" className="py-3 px-4">Saldo Teórico</th>
+                <th scope="col" className="py-3 px-4">Conteo Físico Real</th>
+                <th scope="col" className="py-3 px-4">Diferencia</th>
+                <th scope="col" className="py-3 px-4">Justificación de Auditoría</th>
+                <th scope="col" className="py-3 px-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -300,8 +301,10 @@ export function CajaHistorialTable({
           </span>
 
           <div className="flex items-center gap-1.5 ml-2 border-l border-slate-200 pl-3">
-            <span className="text-slate-500">Filas:</span>
+            <label htmlFor="historial-limit-select" className="text-slate-500">Filas:</label>
             <select
+              id="historial-limit-select"
+              aria-label="Cantidad de filas por página"
               value={historialMeta.limit}
               onChange={(e) => {
                 const newLim = Number(e.target.value);

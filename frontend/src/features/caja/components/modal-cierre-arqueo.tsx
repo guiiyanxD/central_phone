@@ -82,6 +82,7 @@ export function ModalCierreArqueo({
             step="0.50"
             min="0"
             placeholder="0.00"
+            autoFocus
             value={conteoFisico || ''}
             onChange={(e) => setConteoFisico(parseFloat(e.target.value) || 0)}
             className="font-mono text-base font-bold"

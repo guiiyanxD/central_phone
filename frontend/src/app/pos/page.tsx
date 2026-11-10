@@ -72,6 +72,7 @@ export default function PosPage() {
   const [montoRecibidoBs, setMontoRecibidoBs] = useState<number | ''>('');
   const [montoEfectivoMixtoBs, setMontoEfectivoMixtoBs] = useState<number | ''>('');
   const [isSubmittingSale, setIsSubmittingSale] = useState(false);
+  const isSubmittingSaleRef = useRef(false);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [priceWarning, setPriceWarning] = useState<string | null>(null);
   const [completedSale, setCompletedSale] = useState<any | null>(null);
@@ -198,7 +199,7 @@ export default function PosPage() {
   // Atajos globales de teclado en mostrador (F2, F3, F4, F8, F9, Ctrl+Enter, Ctrl+Alt+C, Ctrl+Z) (ID-POS-003)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (modalQrOpen || completedSale) return;
+      if (modalQrOpen || completedSale || permutaModalOpen || modalInterSucursalOpen) return;
 
       if (e.key === 'F2') {
         e.preventDefault();
@@ -233,7 +234,7 @@ export default function PosPage() {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [modalQrOpen, completedSale]);
+  }, [modalQrOpen, completedSale, permutaModalOpen, modalInterSucursalOpen]);
 
   // Manejadores de Carrito
   const commitAddPhone = (disp: any, isInterSucursal = false) => {
@@ -522,7 +523,7 @@ export default function PosPage() {
         setTimeout(() => setScanFeedback(null), 3000);
       }
     },
-    enabled: !modalQrOpen && !completedSale && !modalInterSucursalOpen,
+    enabled: !modalQrOpen && !completedSale && !modalInterSucursalOpen && !permutaModalOpen,
   });
 
   // Manejador del input de búsqueda con Enter
@@ -579,16 +580,35 @@ export default function PosPage() {
 
   // Checkout y Confirmación
   const handleProcessCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isSubmittingSaleRef.current || isSubmittingSale) return;
+    isSubmittingSaleRef.current = true;
     setSaleError(null);
+
+    // Blindaje de Seguridad y Política Comercial: Validación obligatoria de piso de descuento (10% máximo para no administradores)
+    if (user?.rol !== 'ADMIN') {
+      for (const item of cart) {
+        if (item.precioSugeridoOriginal && item.precioSugeridoOriginal > 0) {
+          const pisoMinimo = Math.round(item.precioSugeridoOriginal * 0.9);
+          if (item.precioUnitarioBs < pisoMinimo) {
+            setSaleError(
+              `Política comercial: El precio de "${item.nombre}" (Bs ${item.precioUnitarioBs.toFixed(2)}) está por debajo del piso autorizado del 90% (Bs ${pisoMinimo.toFixed(2)}). Consulta con un Administrador.`
+            );
+            isSubmittingSaleRef.current = false;
+            return;
+          }
+        }
+      }
+    }
 
     if (!clienteNombre.trim()) {
       setSaleError('El nombre completo del cliente es obligatorio para registrar la venta y emitir la garantía.');
+      isSubmittingSaleRef.current = false;
       return;
     }
 
     if (!clienteTelefono.trim()) {
       setSaleError('El teléfono de contacto del cliente es obligatorio para el registro de garantía y contacto.');
+      isSubmittingSaleRef.current = false;
       return;
     }
 
@@ -601,20 +621,24 @@ export default function PosPage() {
       (!comprobanteRef || comprobanteRef.trim().length === 0)
     ) {
       setSaleError('Es obligatorio ingresar el número de referencia bancaria o comprobante para pagos por QR.');
+      isSubmittingSaleRef.current = false;
       return;
     }
 
     if (saldoACobrar > 0 && metodoPagoCodigo === 'MIXTO') {
       if (!montoEfectivoMixtoBs || Number(montoEfectivoMixtoBs) <= 0) {
         setSaleError('En pago mixto, debes ingresar el monto de anticipo en efectivo recibido.');
+        isSubmittingSaleRef.current = false;
         return;
       }
       if (Number(montoEfectivoMixtoBs) >= saldoACobrar) {
         setSaleError('En pago mixto, el anticipo en efectivo debe ser menor al saldo a cobrar (usa Efectivo puro).');
+        isSubmittingSaleRef.current = false;
         return;
       }
       if (!comprobanteRef || comprobanteRef.trim().length === 0) {
         setSaleError('En pago mixto, es obligatorio ingresar el número de comprobante QR del saldo.');
+        isSubmittingSaleRef.current = false;
         return;
       }
     }
@@ -630,6 +654,7 @@ export default function PosPage() {
           ? `Debes registrar el efectivo entregado por el cliente para calcular el vuelto (Saldo: Bs ${saldoACobrar.toFixed(2)}).`
           : `El efectivo entregado (Bs ${montoRecibidoBs}) es menor al saldo a cobrar (Bs ${saldoACobrar.toFixed(2)}).`
       );
+      isSubmittingSaleRef.current = false;
       return;
     }
 

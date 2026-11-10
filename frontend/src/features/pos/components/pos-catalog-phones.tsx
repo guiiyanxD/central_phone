@@ -53,7 +53,11 @@ export function PosCatalogPhones({
 
       {/* Feedback de escaneo de código de barras exitoso */}
       {scanFeedback && (
-        <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between animate-in fade-in duration-150">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between animate-in fade-in duration-150"
+        >
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
             {scanFeedback}
@@ -73,11 +77,14 @@ export function PosCatalogPhones({
             return (
               <div
                 key={d.id}
+                onClick={() => {
+                  if (!isAdded) onAddPhone(d);
+                }}
                 className={cn(
-                  'p-3 rounded-xl border transition-all text-xs flex flex-col justify-between bg-white',
+                  'p-3 rounded-xl border transition-all text-xs flex flex-col justify-between bg-white select-none',
                   isAdded
-                    ? 'border-slate-300 bg-slate-50/60 opacity-60'
-                    : 'border-slate-200 hover:border-slate-300 hover:shadow-subtle'
+                    ? 'border-slate-300 bg-slate-50/60 opacity-60 cursor-default'
+                    : 'border-slate-200 hover:border-slate-400 hover:shadow-subtle cursor-pointer active:scale-[0.99]'
                 )}
               >
                 <div>
