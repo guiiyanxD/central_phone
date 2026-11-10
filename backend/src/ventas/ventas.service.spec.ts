@@ -698,15 +698,27 @@ describe('VentasService', () => {
       prisma.venta.findUnique.mockResolvedValue({
         id: 7,
         totalVentaBs: 1000,
+        caja: { sucursalId: 1 },
         detalles: [
           { costoUnitarioBs: 700, cantidad: 1 },
         ],
       } as any);
 
-      const res = await service.findOne(7, 'VENDEDOR');
+      const res = await service.findOne(7, 'VENDEDOR', 1);
       expect((res as any).costoTotalBs).toBeUndefined();
       expect((res as any).gananciaNetaBs).toBeUndefined();
       expect((res.detalles[0] as any).costoUnitarioBs).toBeUndefined();
+    });
+
+    it('debe lanzar ForbiddenException si un VENDEDOR intenta consultar una venta de otra sucursal (BOLA / CENTRALPHONE-CONF-006)', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 8,
+        totalVentaBs: 1500,
+        caja: { sucursalId: 2 },
+        detalles: [],
+      } as any);
+
+      await expect(service.findOne(8, 'VENDEDOR', 1)).rejects.toThrow(ForbiddenException);
     });
   });
 

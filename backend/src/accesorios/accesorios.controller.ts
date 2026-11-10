@@ -89,6 +89,8 @@ export class AccesoriosController {
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
   async createAccesorio(@Body() dto: CreateAccesorioDto) {
     return this.accesoriosService.createAccesorio(dto);
   }

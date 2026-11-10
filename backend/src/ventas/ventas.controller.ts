@@ -63,10 +63,10 @@ export class VentasController {
     return this.ventasService.anularVenta(id, adminId, dto);
   }
 
-  // Listar ventas realizadas con ganancia en 3FN (sanitizado por rol)
+  // Listar ventas realizadas con ganancia en 3FN (sanitizado por rol y aislado por sucursal)
   @Get()
   async findAll(
-    @CurrentUser('rol') userRole: string,
+    @CurrentUser() user: any,
     @Query('cajaId') cajaId?: string,
     @Query('sucursalId') sucursalId?: string,
     @Query('estado') estado?: EstadoVenta,
@@ -75,16 +75,17 @@ export class VentasController {
       cajaId ? parseInt(cajaId, 10) : undefined,
       sucursalId ? parseInt(sucursalId, 10) : undefined,
       estado,
-      userRole,
+      user?.rol,
+      user?.sucursalId,
     );
   }
 
-  // Consultar recibo de venta individual (sanitizado por rol)
+  // Consultar recibo de venta individual (sanitizado por rol y aislado por sucursal)
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser('rol') userRole: string,
+    @CurrentUser() user: any,
   ) {
-    return this.ventasService.findOne(id, userRole);
+    return this.ventasService.findOne(id, user?.rol, user?.sucursalId);
   }
 }

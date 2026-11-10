@@ -1,4 +1,5 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RolUsuario } from '@prisma/client';
 
 export class RegisterDto {
@@ -18,6 +19,8 @@ export class RegisterDto {
   @IsOptional()
   rol?: RolUsuario;
 
+  @Type(() => Number)
+  @IsInt({ message: 'El ID de sucursal debe ser un número entero.' })
   @IsOptional()
   sucursalId?: number;
 }

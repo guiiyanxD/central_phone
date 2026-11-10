@@ -10,6 +10,7 @@ import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
 import { CondicionDispositivo, EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
+import { validateImagePayload } from '../common/utils/image-validator.util';
 import { VentaResponseMapper } from './mappers/venta-response.mapper';
 import { PaymentStrategyRegistry } from './strategies';
 
@@ -84,6 +85,11 @@ export class VentasService {
       throw new BadRequestException(
         'El carrito de venta debe contener al menos un teléfono o accesorio para procesar el cobro.'
       );
+    }
+
+    // Blindaje de Seguridad: Validación estricta de imagen de comprobante (Magic Bytes, MIME y Path Traversal)
+    if (dto.comprobanteImagenUrl) {
+      validateImagePayload(dto.comprobanteImagenUrl, 'comprobanteImagenUrl');
     }
 
     // Regla Inmutable 5: Cobro QR / Transferencia exige referencia bancaria
@@ -611,17 +617,23 @@ export class VentasService {
     });
   }
 
-  // 3. Consultar listado de ventas (con cálculo dinámico de ganancia neta en 3FN)
+  // 3. Consultar listado de ventas (con cálculo dinámico de ganancia neta en 3FN y aislamiento multi-sucursal)
   async findAll(
     cajaId?: number,
     sucursalId?: number,
     estado?: EstadoVenta,
     userRole?: string,
+    userSucursalId?: number,
   ) {
+    // CENTRALPHONE-CONF-006: Aislamiento Horizontal Multi-Sucursal (BOLA)
+    // Si el usuario no es ADMIN, se fuerza la consulta a la sucursal asignada del colaborador
+    const effectiveSucursalId =
+      userRole !== 'ADMIN' ? userSucursalId : sucursalId;
+
     const ventas = await this.prisma.venta.findMany({
       where: {
         ...(cajaId ? { cajaId } : {}),
-        ...(sucursalId ? { caja: { sucursalId } } : {}),
+        ...(effectiveSucursalId ? { caja: { sucursalId: effectiveSucursalId } } : {}),
         ...(estado ? { estado } : {}),
       },
       include: {
@@ -842,8 +854,8 @@ export class VentasService {
     };
   }
 
-  // 3. Consultar una venta individual (Ticket de Compra)
-  async findOne(id: number, userRole?: string) {
+  // 3. Consultar una venta individual (Ticket de Compra con Aislamiento BOLA)
+  async findOne(id: number, userRole?: string, userSucursalId?: number) {
     const venta = await this.prisma.venta.findUnique({
       where: { id },
       include: {
@@ -878,6 +890,19 @@ export class VentasService {
 
     if (!venta) {
       throw new NotFoundException(`La venta con ID ${id} no existe.`);
+    }
+
+    // CENTRALPHONE-CONF-006: Aislamiento Horizontal Multi-Sucursal (BOLA)
+    if (
+      userRole &&
+      userRole !== 'ADMIN' &&
+      userSucursalId &&
+      venta.caja?.sucursalId &&
+      venta.caja.sucursalId !== userSucursalId
+    ) {
+      throw new ForbiddenException(
+        'No tiene permisos para consultar ventas de otra sucursal.',
+      );
     }
 
     // Confidencialidad Financiera RBAC (CENTRALPHONE-CONF-001) y cálculo en 3FN
