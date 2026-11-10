@@ -39,6 +39,9 @@ export interface RegistrarGastoData {
 export interface CategoriaGastoItem {
   id: number;
   nombre: string;
+  _count?: {
+    gastosOperativos: number;
+  };
 }
 
 export interface UsuarioCajaItem {
@@ -114,6 +117,20 @@ export const cajaApi = {
     }),
   getCategoriasGasto: () =>
     request<CategoriaGastoItem[]>('/caja/categorias-gasto'),
+  crearCategoriaGasto: (data: { nombre: string }) =>
+    request<CategoriaGastoItem>('/caja/categorias-gasto', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  actualizarCategoriaGasto: (id: number, data: { nombre: string }) =>
+    request<CategoriaGastoItem>(`/caja/categorias-gasto/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  eliminarCategoriaGasto: (id: number) =>
+    request<any>(`/caja/categorias-gasto/${id}`, {
+      method: 'DELETE',
+    }),
   getUsuarios: (sucursalId?: number) => {
     const q = sucursalId ? `?sucursalId=${sucursalId}` : '';
     return request<UsuarioCajaItem[]>(`/caja/usuarios${q}`);

@@ -28,6 +28,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { CategoriasGastoCrud } from '@/features/administracion/components/categorias-gasto-crud';
 
 export default function AdministracionPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -434,6 +435,9 @@ export default function AdministracionPage() {
           </Card>
         </div>
       </div>
+
+      {/* Sección CRUD de Categorías de Egresos de Caja */}
+      <CategoriasGastoCrud />
     </div>
   );
 }

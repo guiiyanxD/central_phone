@@ -15,6 +15,8 @@ import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { CerrarCajaDto } from './dto/cerrar-caja.dto';
 import { RegistrarGastoDto } from './dto/registrar-gasto.dto';
 import { ActualizarGastoDto } from './dto/actualizar-gasto.dto';
+import { CrearCategoriaGastoDto } from './dto/crear-categoria-gasto.dto';
+import { ActualizarCategoriaGastoDto } from './dto/actualizar-categoria-gasto.dto';
 import { QueryHistorialDto } from './dto/query-historial.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -89,10 +91,35 @@ export class CajaController {
     return this.cajaService.eliminarGasto(gastoId, adminId);
   }
 
-  // Categorías de gastos operativos
+  // Categorías de gastos operativos (Listar con conteo)
   @Get('categorias-gasto')
   async getCategoriasGasto() {
     return this.cajaService.getCategoriasGasto();
+  }
+
+  // Crear nueva categoría de gasto (ADMIN y VENDEDOR)
+  @Post('categorias-gasto')
+  async crearCategoriaGasto(@Body() dto: CrearCategoriaGastoDto) {
+    return this.cajaService.crearCategoriaGasto(dto);
+  }
+
+  // Actualizar categoría de gasto (Exclusivo ADMIN)
+  @Patch('categorias-gasto/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async actualizarCategoriaGasto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ActualizarCategoriaGastoDto,
+  ) {
+    return this.cajaService.actualizarCategoriaGasto(id, dto);
+  }
+
+  // Eliminar categoría de gasto (Exclusivo ADMIN - protegido si tiene egresos)
+  @Delete('categorias-gasto/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async eliminarCategoriaGasto(@Param('id', ParseIntPipe) id: number) {
+    return this.cajaService.eliminarCategoriaGasto(id);
   }
 
   // Usuarios/Cajeros activos para filtros de auditoría

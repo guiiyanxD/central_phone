@@ -416,6 +416,90 @@ describe('CajaService', () => {
     });
   });
 
+  describe('crearCategoriaGasto', () => {
+    it('debe lanzar ConflictException si ya existe una categoría con el mismo nombre', async () => {
+      prisma.categoriaGasto.findFirst.mockResolvedValue({
+        id: 1,
+        nombre: 'Limpieza',
+      } as any);
+
+      await expect(
+        service.crearCategoriaGasto({ nombre: 'limpieza' })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe crear exitosamente la nueva categoría de gasto', async () => {
+      prisma.categoriaGasto.findFirst.mockResolvedValue(null);
+      prisma.categoriaGasto.create.mockResolvedValue({
+        id: 10,
+        nombre: 'Delivery y Envíos',
+      } as any);
+
+      const res = await service.crearCategoriaGasto({ nombre: 'Delivery y Envíos' });
+      expect(res.id).toBe(10);
+      expect(res.nombre).toBe('Delivery y Envíos');
+    });
+  });
+
+  describe('actualizarCategoriaGasto', () => {
+    it('debe lanzar NotFoundException si la categoría no existe', async () => {
+      prisma.categoriaGasto.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.actualizarCategoriaGasto(999, { nombre: 'Nueva' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar ConflictException si colisiona con el nombre de otra categoría', async () => {
+      prisma.categoriaGasto.findUnique.mockResolvedValue({ id: 2, nombre: 'Viejo' } as any);
+      prisma.categoriaGasto.findFirst.mockResolvedValue({ id: 1, nombre: 'Existente' } as any);
+
+      await expect(
+        service.actualizarCategoriaGasto(2, { nombre: 'Existente' })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe actualizar exitosamente el nombre de la categoría', async () => {
+      prisma.categoriaGasto.findUnique.mockResolvedValue({ id: 2, nombre: 'Viejo' } as any);
+      prisma.categoriaGasto.findFirst.mockResolvedValue(null);
+      prisma.categoriaGasto.update.mockResolvedValue({ id: 2, nombre: 'Actualizado' } as any);
+
+      const res = await service.actualizarCategoriaGasto(2, { nombre: 'Actualizado' });
+      expect(res.nombre).toBe('Actualizado');
+    });
+  });
+
+  describe('eliminarCategoriaGasto', () => {
+    it('debe lanzar NotFoundException si la categoría no existe', async () => {
+      prisma.categoriaGasto.findUnique.mockResolvedValue(null);
+
+      await expect(service.eliminarCategoriaGasto(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si la categoría tiene egresos vinculados (integridad)', async () => {
+      prisma.categoriaGasto.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Insumos',
+        _count: { gastosOperativos: 5 },
+      } as any);
+
+      await expect(service.eliminarCategoriaGasto(1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe eliminar la categoría exitosamente si tiene 0 egresos asociados', async () => {
+      prisma.categoriaGasto.findUnique.mockResolvedValue({
+        id: 1,
+        nombre: 'Categoría Vacía',
+        _count: { gastosOperativos: 0 },
+      } as any);
+      prisma.categoriaGasto.delete.mockResolvedValue({ id: 1 } as any);
+
+      const res = await service.eliminarCategoriaGasto(1);
+      expect(res.success).toBe(true);
+      expect(prisma.categoriaGasto.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+  });
+
   describe('getUsuariosCaja', () => {
     it('debe listar los usuarios activos filtrando por sucursal opcional', async () => {
       prisma.usuario.findMany.mockResolvedValue([

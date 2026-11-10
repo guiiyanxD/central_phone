@@ -10,6 +10,8 @@ import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { CerrarCajaDto } from './dto/cerrar-caja.dto';
 import { RegistrarGastoDto } from './dto/registrar-gasto.dto';
 import { ActualizarGastoDto } from './dto/actualizar-gasto.dto';
+import { CrearCategoriaGastoDto } from './dto/crear-categoria-gasto.dto';
+import { ActualizarCategoriaGastoDto } from './dto/actualizar-categoria-gasto.dto';
 import { QueryHistorialDto } from './dto/query-historial.dto';
 import { EstadoCaja, Prisma } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
@@ -624,8 +626,104 @@ export class CajaService {
   // 5. Categorías de Gastos Operativos
   async getCategoriasGasto() {
     return this.prisma.categoriaGasto.findMany({
+      include: {
+        _count: {
+          select: { gastosOperativos: true },
+        },
+      },
       orderBy: { nombre: 'asc' },
     });
+  }
+
+  // 5.1. Crear nueva categoría de gasto (ADMIN y VENDEDOR)
+  async crearCategoriaGasto(dto: CrearCategoriaGastoDto) {
+    const nombreNormalizado = dto.nombre.trim();
+    const existente = await this.prisma.categoriaGasto.findFirst({
+      where: {
+        nombre: { equals: nombreNormalizado, mode: 'insensitive' },
+      },
+    });
+
+    if (existente) {
+      throw new ConflictException(
+        `La categoría de gasto '${nombreNormalizado}' ya existe.`
+      );
+    }
+
+    return this.prisma.categoriaGasto.create({
+      data: { nombre: nombreNormalizado },
+      include: {
+        _count: {
+          select: { gastosOperativos: true },
+        },
+      },
+    });
+  }
+
+  // 5.2. Actualizar categoría de gasto (Exclusivo ADMIN)
+  async actualizarCategoriaGasto(id: number, dto: ActualizarCategoriaGastoDto) {
+    const cat = await this.prisma.categoriaGasto.findUnique({
+      where: { id },
+    });
+
+    if (!cat) {
+      throw new NotFoundException(`La categoría de gasto #${id} no existe.`);
+    }
+
+    const nombreNormalizado = dto.nombre.trim();
+    const clash = await this.prisma.categoriaGasto.findFirst({
+      where: {
+        id: { not: id },
+        nombre: { equals: nombreNormalizado, mode: 'insensitive' },
+      },
+    });
+
+    if (clash) {
+      throw new ConflictException(
+        `Ya existe otra categoría de gasto con el nombre '${nombreNormalizado}'.`
+      );
+    }
+
+    return this.prisma.categoriaGasto.update({
+      where: { id },
+      data: { nombre: nombreNormalizado },
+      include: {
+        _count: {
+          select: { gastosOperativos: true },
+        },
+      },
+    });
+  }
+
+  // 5.3. Eliminar categoría de gasto (Exclusivo ADMIN - Solo si tiene 0 egresos)
+  async eliminarCategoriaGasto(id: number) {
+    const cat = await this.prisma.categoriaGasto.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { gastosOperativos: true },
+        },
+      },
+    });
+
+    if (!cat) {
+      throw new NotFoundException(`La categoría de gasto #${id} no existe.`);
+    }
+
+    if (cat._count.gastosOperativos > 0) {
+      throw new BadRequestException(
+        `No se puede eliminar la categoría '${cat.nombre}' porque tiene ${cat._count.gastosOperativos} egreso(s) registrado(s) en caja. Debe mantenerla por integridad contable.`
+      );
+    }
+
+    await this.prisma.categoriaGasto.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      message: `Categoría de gasto '${cat.nombre}' eliminada exitosamente.`,
+    };
   }
 
   // 5.1. Usuarios/Cajeros activos para filtros de auditoría

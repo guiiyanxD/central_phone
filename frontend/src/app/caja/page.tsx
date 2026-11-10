@@ -423,6 +423,10 @@ export default function CajaDiariaPage() {
         isAdmin={isAdmin}
         rf={rf}
         isSavingGasto={isSavingGasto}
+        onCategoriaCreada={(nueva) => {
+          setCategoriasGasto((prev) => [...prev, nueva]);
+          setGastoCategoriaId(nueva.id);
+        }}
         onSubmit={handleRegistrarGasto}
       />
 
