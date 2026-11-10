@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Eye, RefreshCw, Smartphone, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatFolioTicket } from '@/lib/utils';
 
 interface CajaMovimientosTurnoProps {
   sessionData: any;
@@ -47,7 +48,7 @@ export function CajaMovimientosTurno({
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-slate-900 font-mono">
-                          #{v.comprobanteReferencia || v.id}
+                          #{formatFolioTicket(v.id)}
                         </span>
                         <span className="text-[10px] text-slate-400">
                           {new Date(v.fechaHora).toLocaleTimeString('es-BO', {

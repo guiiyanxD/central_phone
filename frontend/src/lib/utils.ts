@@ -67,3 +67,18 @@ export function formatCondicionDispositivo(condicion?: string | null): string {
       return condicion;
   }
 }
+
+/**
+ * Formatea el identificador correlativo de la venta en el folio estándar TK-000056.
+ * Ej: 1 -> "TK-000001", 56 -> "TK-000056"
+ */
+export function formatFolioTicket(id?: number | string | null): string {
+  if (id === null || id === undefined || id === '') return 'TK-000001';
+  const num = typeof id === 'number' ? id : parseInt(String(id), 10);
+  if (isNaN(num) || num <= 0) {
+    const str = String(id);
+    return str.startsWith('TK-') ? str : `TK-${str}`;
+  }
+  return `TK-${String(num).padStart(6, '0')}`;
+}
+

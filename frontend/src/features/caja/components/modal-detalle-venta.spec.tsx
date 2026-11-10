@@ -114,8 +114,9 @@ describe('ModalDetalleVenta', () => {
     );
 
     // Titulo y Estado
-    expect(screen.getByText(/Ticket de Venta #TK-101/i)).toBeDefined();
+    expect(screen.getByText(/Ticket de Venta #TK-000101/i)).toBeDefined();
     expect(screen.getByText('COMPLETADA')).toBeDefined();
+    expect(screen.getByText(/Ref: TK-101/i)).toBeDefined();
 
     // Vendedor y Cliente
     expect(screen.getByText('Carlos Vendedor')).toBeDefined();

@@ -4,7 +4,7 @@ import React from 'react';
 import { Ban, Eye } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, formatFolioTicket } from '@/lib/utils';
 import { TransaccionVentaReporte } from '../types';
 
 interface ReportesVentasTableProps {
@@ -64,8 +64,13 @@ export function ReportesVentasTable({
                 >
                   <td className="py-2.5 px-3">
                     <p className="font-semibold text-slate-900 font-mono">
-                      {t.comprobanteReferencia}
+                      #{formatFolioTicket(t.id)}
                     </p>
+                    {t.comprobanteReferencia && t.comprobanteReferencia !== formatFolioTicket(t.id) && (
+                      <p className="text-slate-500 text-[10px] font-mono truncate max-w-[130px]" title={t.comprobanteReferencia}>
+                        Ref: {t.comprobanteReferencia}
+                      </p>
+                    )}
                     <p className="text-slate-400 text-[10px]">
                       {new Date(t.fechaHora).toLocaleString('es-BO', {
                         dateStyle: 'short',

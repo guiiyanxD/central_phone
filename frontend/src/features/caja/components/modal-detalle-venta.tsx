@@ -21,7 +21,7 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatFolioTicket } from '@/lib/utils';
 import { printReceipt } from '@/features/pos/utils/receipt-printer';
 
 interface ModalDetalleVentaProps {
@@ -67,7 +67,7 @@ export function ModalDetalleVenta({
       title={
         <div className="flex items-center gap-2 text-slate-900 font-bold">
           <Receipt className="h-5 w-5 text-slate-800" />
-          <span>Ticket de Venta #{venta.comprobanteReferencia || venta.id}</span>
+          <span>Ticket de Venta #{formatFolioTicket(venta.id)}</span>
           <Badge
             variant={isAnulada ? 'destructive' : 'default'}
             className={cn(

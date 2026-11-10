@@ -4,6 +4,7 @@ import React from 'react';
 import { AlertTriangle, Info } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
+import { formatFolioTicket } from '@/lib/utils';
 import { TransaccionVentaReporte } from '../types';
 
 interface ModalAnularVentaProps {
@@ -34,7 +35,7 @@ export function ModalAnularVenta({
       title={
         <div className="flex items-center gap-2 text-rose-700">
           <AlertTriangle className="h-5 w-5" />
-          <span>Anular Venta #{ventaParaAnular?.comprobanteReferencia}</span>
+          <span>Anular Venta #{ventaParaAnular ? formatFolioTicket(ventaParaAnular.id) : ''}</span>
         </div>
       }
       className="max-w-lg"
@@ -52,7 +53,10 @@ export function ModalAnularVenta({
 
         {ventaParaAnular && (
           <div className="bg-slate-50 border border-slate-200 rounded p-2.5 space-y-1 font-mono text-[11px]">
-            <div><strong>Ticket:</strong> {ventaParaAnular.comprobanteReferencia}</div>
+            <div><strong>Ticket:</strong> #{formatFolioTicket(ventaParaAnular.id)}</div>
+            {ventaParaAnular.comprobanteReferencia && (
+              <div><strong>Ref. Pago:</strong> {ventaParaAnular.comprobanteReferencia}</div>
+            )}
             <div><strong>Vendedor:</strong> {ventaParaAnular.vendedor}</div>
             <div><strong>Total Venta:</strong> Bs {Number(ventaParaAnular.totalVentaBs || 0).toFixed(2)}</div>
             <div><strong>Ítems:</strong> {ventaParaAnular.itemsCount} productos</div>

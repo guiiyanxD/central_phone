@@ -1,3 +1,6 @@
+import { formatFolioTicket } from '@/lib/utils';
+export { formatFolioTicket };
+
 export function printReceipt(completedSale: any) {
   if (!completedSale) return;
 
@@ -163,13 +166,26 @@ export function printReceipt(completedSale: any) {
       </div>
     `;
 
+  const folioTicket = formatFolioTicket(completedSale.id);
+
+  const isMixto =
+    Number(completedSale.montoEfectivoBs) > 0 &&
+    Number(completedSale.montoDigitalBs) > 0;
+
+  const metodoPagoTexto = isMixto
+    ? 'Mixto (Efectivo + QR)'
+    : completedSale.metodoPago?.codigo === 'QR_SIMPLE' ||
+      completedSale.metodoPago?.codigo === 'QR_ESTATICO'
+    ? 'QR Oficial CentralPhone'
+    : completedSale.metodoPago?.nombre || 'Efectivo';
+
   doc.open();
   doc.write(`
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Ticket #${completedSale.comprobanteReferencia || completedSale.id}</title>
+        <title>Ticket #${folioTicket}</title>
         <style>
           @page {
             size: 80mm auto;
@@ -219,7 +235,7 @@ export function printReceipt(completedSale: any) {
 
         <div style="font-size: 10px;">
           <div style="display:flex;justify-content:space-between;">
-            <span>Ticket: <span class="bold">#${completedSale.comprobanteReferencia || completedSale.id}</span></span>
+            <span>Ticket: <span class="bold">#${folioTicket}</span></span>
             <span>${fechaHora}</span>
           </div>
           <div style="margin-top:2px;">
@@ -245,14 +261,14 @@ export function printReceipt(completedSale: any) {
         ${permutaHtml}
 
         <div style="font-size: 10px; margin-top: 2px;">
-          <span>Método de Pago: </span><span class="bold">${completedSale.metodoPago?.nombre || 'Efectivo'}</span>
+          <span>Método de Pago: </span><span class="bold">${metodoPagoTexto}</span>
         </div>
 
         <div class="divider"></div>
 
         <div class="footer">
           *** GARANTÍA OFICIAL CENTRALPHONE ***<br>
-          3 Meses en Dispositivos Apple (Válida hasta: ${fechaFinGarantiaStr}).<br>
+          3 Meses en Dispositivos (Válida hasta: ${fechaFinGarantiaStr}).<br>
           15 días en accesorios.<br>
           Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.<br>
           ¡Gracias por su preferencia!

@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, RefreshCw } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
+import { formatFolioTicket } from '@/lib/utils';
 
 interface ModalTicketVentaProps {
   sale: any;
@@ -37,8 +38,8 @@ export function ModalTicketVenta({
     permutaDisp?.variante?.modelo?.nombreModelo
       ? `${permutaDisp.variante.modelo.nombreModelo} ${permutaDisp.variante.color || ''} ${permutaDisp.variante.capacidadGb > 0 ? `${permutaDisp.variante.capacidadGb}GB` : ''}`
       : permutaSum?.modeloNombre
-      ? `${permutaSum.modeloNombre} ${permutaSum.varianteDetalle || ''}`
-      : 'iPhone';
+        ? `${permutaSum.modeloNombre} ${permutaSum.varianteDetalle || ''}`
+        : 'iPhone';
 
   const permutaImeiDisplay =
     permutaDisp?.imei1 || permutaSum?.imei1 || permutaDto?.imei1 || 'S/N';
@@ -55,12 +56,25 @@ export function ModalTicketVenta({
     year: 'numeric',
   });
 
+  const folioTicket = formatFolioTicket(sale.id);
+
+  const isMixto =
+    Number(sale.montoEfectivoBs) > 0 &&
+    Number(sale.montoDigitalBs) > 0;
+
+  const metodoPagoTexto = isMixto
+    ? 'Mixto (Efectivo + QR)'
+    : sale.metodoPago?.codigo === 'QR_SIMPLE' ||
+      sale.metodoPago?.codigo === 'QR_ESTATICO'
+    ? 'QR Oficial CentralPhone'
+    : sale.metodoPago?.nombre || 'Efectivo';
+
   return (
     <Modal
       isOpen={!!sale}
       onClose={onClose}
       title="Comprobante de Venta"
-      description={`Ticket #${sale.comprobanteReferencia}`}
+      description={`Ticket #${folioTicket}`}
     >
       <div className="space-y-4 pt-1">
         {/* Ticket Estilo Térmico Minimalista */}
@@ -71,7 +85,7 @@ export function ModalTicketVenta({
               {sale.caja?.sucursal?.nombre || 'Sucursal Principal'} • {sale.caja?.sucursal?.ciudad || 'Santa Cruz, Bolivia'}
             </p>
             <p className="text-[10px] text-slate-500 mt-1">
-              Ticket: {sale.comprobanteReferencia} •{' '}
+              Ticket: #{folioTicket} •{' '}
               {new Date(sale.fechaHora).toLocaleTimeString('es-BO')}
             </p>
           </div>
@@ -101,7 +115,7 @@ export function ModalTicketVenta({
             )}
             <p>
               <span className="text-slate-500">Método de Pago:</span>{' '}
-              {sale.metodoPago?.nombre}
+              {metodoPagoTexto}
             </p>
           </div>
 
@@ -176,7 +190,7 @@ export function ModalTicketVenta({
           {/* Pie de Garantía Oficial */}
           <div className="text-center pt-2 border-t border-dashed border-slate-300 text-[10.5px] text-slate-500 leading-tight space-y-0.5">
             <p className="font-bold text-slate-700">*** GARANTÍA OFICIAL CENTRALPHONE ***</p>
-            <p>3 Meses en Dispositivos Apple (Vence: {fechaFinGarantiaStr}).</p>
+            <p>3 Meses en Dispositivos (Vence: {fechaFinGarantiaStr}).</p>
             <p>15 días en accesorios.</p>
             <p className="text-[9.5px] text-slate-400">Imprescindible presentar este ticket y número de serie/IMEI intacto para reclamos.</p>
           </div>

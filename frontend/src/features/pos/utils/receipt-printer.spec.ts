@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { printReceipt } from './receipt-printer';
+import { printReceipt, formatFolioTicket } from './receipt-printer';
 
 describe('receipt-printer Utility', () => {
   beforeEach(() => {
@@ -11,15 +11,36 @@ describe('receipt-printer Utility', () => {
     vi.useRealTimers();
   });
 
+  describe('formatFolioTicket helper', () => {
+    it('debe formatear números secuenciales a 6 dígitos con prefijo TK-', () => {
+      expect(formatFolioTicket(1)).toBe('TK-000001');
+      expect(formatFolioTicket(56)).toBe('TK-000056');
+      expect(formatFolioTicket(101)).toBe('TK-000101');
+      expect(formatFolioTicket(999999)).toBe('TK-999999');
+    });
+
+    it('debe manejar entradas numéricas en string y valores nulos', () => {
+      expect(formatFolioTicket('56')).toBe('TK-000056');
+      expect(formatFolioTicket(null)).toBe('TK-000001');
+      expect(formatFolioTicket(undefined)).toBe('TK-000001');
+      expect(formatFolioTicket('')).toBe('TK-000001');
+    });
+
+    it('debe preservar prefijos si el id ya viniera formateado o como texto', () => {
+      expect(formatFolioTicket('TK-000088')).toBe('TK-000088');
+      expect(formatFolioTicket('ABC')).toBe('TK-ABC');
+    });
+  });
+
   it('debe manejar gracefully ventas nulas o indefinidas sin lanzar excepciones', () => {
     expect(() => printReceipt(null)).not.toThrow();
     expect(() => printReceipt(undefined)).not.toThrow();
   });
 
-  it('debe crear un iframe invisible e inyectar el HTML del ticket térmico con datos de seriales y garantía', () => {
+  it('debe inyectar el folio correlativo limpio (#TK-000101) y omitir la referencia bancaria del ticket impreso en pago QR', () => {
     const mockSale = {
       id: 101,
-      comprobanteReferencia: 'TK-101-ABCD',
+      comprobanteReferencia: '213543547657', // Código bancario real que NO debe salir en el ticket de papel
       fechaHora: '2026-10-22T14:30:00Z',
       totalVentaBs: 7500,
       usuario: { nombre: 'Javier Vendedor' },
@@ -34,7 +55,10 @@ describe('receipt-printer Utility', () => {
         telefono: '77334455',
         ciNit: '8877665 SC',
       },
-      metodoPago: { nombre: 'QR Oficial CentralPhone (BCP)' },
+      metodoPago: {
+        codigo: 'QR_SIMPLE',
+        nombre: 'QR Oficial CentralPhone (BCP)',
+      },
       detalles: [
         {
           tipoItem: 'DISPOSITIVO',
@@ -79,18 +103,26 @@ describe('receipt-printer Utility', () => {
     const content = iframe.contentDocument?.body.innerHTML || '';
     expect(content).toContain('CENTRALPHONE');
     expect(content).toContain('Sucursal Central Equipetrol');
-    expect(content).toContain('TK-101-ABCD');
+    
+    // Folio limpio correlativo
+    expect(content).toContain('Ticket: <span class="bold">#TK-000101</span>');
+    // Confidencialidad: NO debe imprimir el código de referencia bancaria en el ticket de papel
+    expect(content).not.toContain('213543547657');
+
+    // Mención limpia del método de pago QR Oficial
+    expect(content).toContain('Método de Pago: </span><span class="bold">QR Oficial CentralPhone</span>');
+
     expect(content).toContain('Carlos Mesa');
     expect(content).toContain('356987112233445');
     expect(content).toContain('F2LXYZ9988');
     expect(content).toContain('iPhone 15 Pro');
     expect(content).toContain('7500.00');
     expect(content).toContain('GARANTÍA OFICIAL CENTRALPHONE');
-    expect(content).toContain('3 Meses en Dispositivos Apple (Válida hasta:');
+    expect(content).toContain('3 Meses en Dispositivos (Válida hasta:');
     expect(content).toContain('15 días en accesorios');
   });
 
-  it('debe reflejar el crédito de permuta (Trade-In) y total cobrado en el ticket térmico', () => {
+  it('debe reflejar el crédito de permuta (Trade-In) y total cobrado en el ticket térmico con folio limpio', () => {
     const mockSaleWithTradeIn = {
       id: 102,
       comprobanteReferencia: 'TK-102-PERM',
@@ -109,7 +141,7 @@ describe('receipt-printer Utility', () => {
       usuario: { nombre: 'Vendedor Pos' },
       caja: { sucursal: { nombre: 'Central' } },
       cliente: { nombreCompleto: 'Ana Belen', telefono: '71122334' },
-      metodoPago: { nombre: 'Efectivo' },
+      metodoPago: { codigo: 'EFECTIVO', nombre: 'Efectivo' },
       detalles: [
         {
           tipoItem: 'DISPOSITIVO',
@@ -135,6 +167,7 @@ describe('receipt-printer Utility', () => {
     const iframe = iframes[iframes.length - 1];
     const content = iframe.contentDocument?.body.innerHTML || '';
 
+    expect(content).toContain('Ticket: <span class="bold">#TK-000102</span>');
     expect(content).toContain('*** RETOMA / PERMUTA DE CLIENTE ***');
     expect(content).toContain('iPhone 11 (Negro 128GB)');
     expect(content).toContain('358999887766554');
@@ -145,5 +178,26 @@ describe('receipt-printer Utility', () => {
     expect(content).toContain('- Bs 2000.00');
     expect(content).toContain('TOTAL COBRADO:');
     expect(content).toContain('4000.00');
+  });
+
+  it('debe mostrar mención de pago Mixto sin exponer el desglose de referencias en el ticket impreso', () => {
+    const mockSaleMixto = {
+      id: 103,
+      montoEfectivoBs: 4000,
+      montoDigitalBs: 2000,
+      comprobanteReferencia: 'MIXTO: Ef. Bs 4000.00 + QR Bs 2000.00 [Ref: 99887766]',
+      totalVentaBs: 6000,
+      metodoPago: { codigo: 'QR_SIMPLE', nombre: 'QR Oficial CentralPhone (BCP)' },
+    };
+
+    printReceipt(mockSaleMixto);
+
+    const iframes = document.querySelectorAll('iframe');
+    const iframe = iframes[iframes.length - 1];
+    const content = iframe.contentDocument?.body.innerHTML || '';
+
+    expect(content).toContain('Ticket: <span class="bold">#TK-000103</span>');
+    expect(content).toContain('Método de Pago: </span><span class="bold">Mixto (Efectivo + QR)</span>');
+    expect(content).not.toContain('99887766');
   });
 });
