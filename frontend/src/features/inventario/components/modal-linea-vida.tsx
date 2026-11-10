@@ -325,6 +325,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                 {isAdmin && data.dispositivo.inversionTotalBs !== undefined && (
                   <p className="text-[10px] text-slate-400 font-mono">
                     Inversión: Bs {data.dispositivo.inversionTotalBs.toFixed(2)}
+                    {data.dispositivo.costoUsd !== undefined ? ` ($ ${Number(data.dispositivo.costoUsd).toFixed(2)})` : ''}
                   </p>
                 )}
               </div>

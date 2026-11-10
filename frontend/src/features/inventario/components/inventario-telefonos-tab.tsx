@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,7 @@ interface InventarioTelefonosTabProps {
   setFechaHastaFilter: (val: string) => void;
   sucursalesList: any[];
   proveedoresList: any[];
+  tipoCambio?: number;
   onResetFiltros: () => void;
   onFetchDispositivos: (page?: number, limit?: number) => void;
   onSelectImeiForLifeline: (imei: string) => void;
@@ -74,6 +76,7 @@ export function InventarioTelefonosTab({
   setFechaHastaFilter,
   sucursalesList,
   proveedoresList,
+  tipoCambio = 6.96,
   onResetFiltros,
   onFetchDispositivos,
   onSelectImeiForLifeline,
@@ -237,12 +240,14 @@ export function InventarioTelefonosTab({
                 <th className="py-3 px-4">Modelo & Variante</th>
                 <th className="py-3 px-4">IMEI 1 / Serie</th>
                 <th className="py-3 px-4">Condición</th>
-                <th className="py-3 px-4">Proveedor / Recepción</th>
                 <th className="py-3 px-4">
-                  {isAdmin ? 'Costo / P. Sugerido' : 'Precio Sugerido'}
+                  {isAdmin ? 'Costo / P. Sugerido (Bs.)' : 'Precio Sugerido (Bs.)'}
                 </th>
-                <th className="py-3 px-4">Sucursal</th>
-                <th className="py-3 px-4 text-right">Estado</th>
+                <th className="py-3 px-4">
+                  {isAdmin ? 'Costo / P. Sugerido ($)' : 'Precio Sugerido ($)'}
+                </th>
+                <th className="py-3 px-4">Estado</th>
+                <th className="py-3 px-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -252,10 +257,10 @@ export function InventarioTelefonosTab({
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-36 mb-1" /><Skeleton className="h-3 w-20" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-28 mb-1" /><Skeleton className="h-3 w-16" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-5 w-16 rounded" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-24 mb-1" /><Skeleton className="h-3 w-16" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-20 mb-1" /><Skeleton className="h-3 w-16" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-24" /></td>
-                    <td className="py-3.5 px-4 text-right"><Skeleton className="h-5 w-20 ml-auto rounded-full" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-20 mb-1" /><Skeleton className="h-3 w-16" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                    <td className="py-3.5 px-4 text-right"><Skeleton className="h-7 w-16 ml-auto rounded" /></td>
                   </tr>
                 ))
               ) : dispositivos.length === 0 ? (
@@ -275,142 +280,177 @@ export function InventarioTelefonosTab({
                   </td>
                 </tr>
               ) : (
-                dispositivos.map((d: any) => (
-                  <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-semibold text-slate-900">
-                          {d.variante?.modelo?.nombreModelo || d.variante?.modelo?.nombre}
+                dispositivos.map((d: any) => {
+                  const tc = tipoCambio > 0 ? tipoCambio : 6.96;
+                  const costoUsd =
+                    d.costoUsd && Number(d.costoUsd) > 0
+                      ? Number(d.costoUsd)
+                      : Number(d.costoBs || 0) / tc;
+                  const gastosUsd = Number(d.gastosInvertidosBs || 0) / tc;
+                  const precioSugeridoUsd = Number(d.precioVentaSugeridoBs || 0) / tc;
+
+                  return (
+                    <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-slate-900">
+                            {d.variante?.modelo?.nombreModelo || d.variante?.modelo?.nombre}
+                          </p>
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">
+                            {d.variante?.modelo?.tipo || 'IPHONE'}
+                          </Badge>
+                        </div>
+                        <p className="text-slate-500 text-[11px] mt-0.5">
+                          {d.variante?.color} •{' '}
+                          {d.variante?.capacidadGb > 0
+                            ? d.variante?.capacidadGb >= 1024
+                              ? `${d.variante?.capacidadGb / 1024}TB`
+                              : `${d.variante?.capacidadGb}GB`
+                            : '0 GB'}{' '}
+                          • {d.variante?.tipoSim}
                         </p>
-                        <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">
-                          {d.variante?.modelo?.tipo || 'IPHONE'}
-                        </Badge>
-                      </div>
-                      <p className="text-slate-500 text-[11px] mt-0.5">
-                        {d.variante?.color} •{' '}
-                        {d.variante?.capacidadGb > 0
-                          ? d.variante?.capacidadGb >= 1024
-                            ? `${d.variante?.capacidadGb / 1024}TB`
-                            : `${d.variante?.capacidadGb}GB`
-                          : '0 GB'}{' '}
-                        • {d.variante?.tipoSim}
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono">
-                      <button
-                        type="button"
-                        onClick={() => onSelectImeiForLifeline(d.imei1 || d.numeroSerie)}
-                        className="group text-left inline-flex items-center gap-1.5 text-slate-900 font-semibold hover:text-slate-700 transition-colors"
-                        title="Consultar Línea de Vida Completa"
-                      >
-                        {d.imei1 ? (
-                          (() => {
-                            const { prefix, terminal } = getImeiTerminalParts(d.imei1);
-                            return (
-                              <span className="select-all">
-                                <span className="text-slate-500 font-normal">{prefix}</span>
-                                <strong className="font-bold text-slate-900 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
-                                  {terminal}
-                                </strong>
-                              </span>
-                            );
-                          })()
-                        ) : (
-                          <span>S/N: {d.numeroSerie}</span>
-                        )}
-                        <History className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-                      </button>
-                      <p className="text-slate-400 text-[10px] mt-0.5">
-                        {d.imei1 ? `Serie: ${d.numeroSerie}` : 'Equipo Serializado'}
-                        {d.imei2 && (
-                          <button
-                            type="button"
-                            onClick={() => onSelectImeiForLifeline(d.imei2)}
-                            className="ml-1 text-slate-500 hover:text-slate-900 hover:underline"
-                            title="Consultar Línea de Vida para IMEI 2"
-                          >
-                            | IMEI 2: {formatImeiChunks(d.imei2)}
-                          </button>
-                        )}
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={cn(
-                          'text-[10px] font-semibold px-2 py-0.5 rounded border font-mono',
-                          d.condicion === 'PERMUTA'
-                            ? 'bg-purple-100 text-purple-900 border-purple-300 font-bold'
-                            : d.condicion === 'NUEVO'
-                            ? 'bg-slate-900 text-white border-slate-900'
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        )}
-                      >
-                        {formatCondicionDispositivo(d.condicion)}
-                      </span>
-                      {d.porcentajeBateria && (
-                        <span className="block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded w-fit">
-                          {d.porcentajeBateria}% Bat
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <p className="font-semibold text-slate-800 flex items-center gap-1">
-                        <Truck className="h-3 w-3 text-slate-400 flex-shrink-0" />
-                        <span>{d.notaIngreso?.proveedor?.nombre || d.recepcionDetalle?.notaIngreso?.proveedor?.nombre || 'Mayorista Oficial'}</span>
-                      </p>
-                      <p className="text-slate-500 text-[10px] mt-0.5">
-                        Recibido: {d.notaIngreso?.fechaIngreso || d.recepcionDetalle?.notaIngreso?.fechaIngreso ? new Date(d.notaIngreso?.fechaIngreso || d.recepcionDetalle?.notaIngreso?.fechaIngreso).toLocaleDateString('es-BO') : 'S/F'}
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-800">
-                      {isAdmin ? (
-                        <>
-                          <p className="font-semibold text-slate-900">
-                            Bs {Number(d.costoBs || 0).toFixed(2)}
-                            {Number(d.gastosInvertidosBs || 0) > 0 && (
-                              <span className="text-purple-700 text-[10px] ml-1 font-bold">
-                                (+Bs {Number(d.gastosInvertidosBs).toFixed(2)})
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                            Sug: Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-semibold text-slate-900">
-                            Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
-                          </p>
-                          {Number(d.gastosInvertidosBs || 0) > 0 && (
-                            <p className="text-[10px] text-purple-700 font-medium mt-0.5">
-                              Gastos: Bs {Number(d.gastosInvertidosBs).toFixed(2)}
-                            </p>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono">
+                        <button
+                          type="button"
+                          onClick={() => onSelectImeiForLifeline(d.imei1 || d.numeroSerie)}
+                          className="group text-left inline-flex items-center gap-1.5 text-slate-900 font-semibold hover:text-slate-700 transition-colors"
+                          title="Consultar Línea de Vida Completa"
+                        >
+                          {d.imei1 ? (
+                            (() => {
+                              const { prefix, terminal } = getImeiTerminalParts(d.imei1);
+                              return (
+                                <span className="select-all">
+                                  <span className="text-slate-500 font-normal">{prefix}</span>
+                                  <strong className="font-bold text-slate-900 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
+                                    {terminal}
+                                  </strong>
+                                </span>
+                              );
+                            })()
+                          ) : (
+                            <span>S/N: {d.numeroSerie}</span>
                           )}
-                        </>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      <div className="flex items-center gap-1">
-                        <Building2 className="h-3 w-3 text-slate-400" />
-                        <span>{d.sucursal?.nombre}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <Badge
-                        variant={
-                          d.estadoInventario === 'DISPONIBLE' || d.estado === 'DISPONIBLE'
-                            ? 'success'
-                            : d.estadoInventario === 'VENDIDO' || d.estado === 'VENDIDO'
-                            ? 'secondary'
-                            : 'warning'
-                        }
-                      >
-                        {d.estadoInventario || d.estado}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))
+                          <History className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+                        </button>
+                        <p className="text-slate-400 text-[10px] mt-0.5">
+                          {d.imei1 ? `Serie: ${d.numeroSerie}` : 'Equipo Serializado'}
+                          {d.imei2 && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectImeiForLifeline(d.imei2)}
+                              className="ml-1 text-slate-500 hover:text-slate-900 hover:underline"
+                              title="Consultar Línea de Vida para IMEI 2"
+                            >
+                              | IMEI 2: {formatImeiChunks(d.imei2)}
+                            </button>
+                          )}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={cn(
+                            'text-[10px] font-semibold px-2 py-0.5 rounded border font-mono',
+                            d.condicion === 'PERMUTA'
+                              ? 'bg-purple-100 text-purple-900 border-purple-300 font-bold'
+                              : d.condicion === 'NUEVO'
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          )}
+                        >
+                          {formatCondicionDispositivo(d.condicion)}
+                        </span>
+                        {d.porcentajeBateria && (
+                          <span className="block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded w-fit">
+                            {d.porcentajeBateria}% Bat
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-800">
+                        {isAdmin ? (
+                          <>
+                            <p className="font-semibold text-slate-900">
+                              Bs {Number(d.costoBs || 0).toFixed(2)}
+                              {Number(d.gastosInvertidosBs || 0) > 0 && (
+                                <span className="text-purple-700 text-[10px] ml-1 font-bold">
+                                  (+Bs {Number(d.gastosInvertidosBs).toFixed(2)})
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Sug: Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-semibold text-slate-900">
+                              Bs {Number(d.precioVentaSugeridoBs || 0).toFixed(2)}
+                            </p>
+                            {Number(d.gastosInvertidosBs || 0) > 0 && (
+                              <p className="text-[10px] text-purple-700 font-medium mt-0.5">
+                                Gastos: Bs {Number(d.gastosInvertidosBs).toFixed(2)}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-800">
+                        {isAdmin ? (
+                          <>
+                            <p className="font-semibold text-emerald-950">
+                              $ {costoUsd.toFixed(2)}
+                              {gastosUsd > 0 && (
+                                <span className="text-purple-700 text-[10px] ml-1 font-bold">
+                                  (+$ {gastosUsd.toFixed(2)})
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Sug: $ {precioSugeridoUsd.toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-semibold text-emerald-950">
+                              $ {precioSugeridoUsd.toFixed(2)}
+                            </p>
+                            {gastosUsd > 0 && (
+                              <p className="text-[10px] text-purple-700 font-medium mt-0.5">
+                                Gastos: $ {gastosUsd.toFixed(2)}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={
+                            d.estadoInventario === 'DISPONIBLE' || d.estado === 'DISPONIBLE'
+                              ? 'success'
+                              : d.estadoInventario === 'VENDIDO' || d.estado === 'VENDIDO'
+                              ? 'secondary'
+                              : 'warning'
+                          }
+                        >
+                          {d.estadoInventario || d.estado}
+                        </Badge>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs text-slate-700 hover:text-slate-900 border-slate-200 hover:bg-slate-100 flex items-center gap-1.5 ml-auto"
+                          onClick={() => onSelectImeiForLifeline(d.imei1 || d.numeroSerie)}
+                          title="Ver información completa del dispositivo"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Detalle</span>
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

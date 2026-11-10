@@ -23,6 +23,7 @@ export default function InventarioPage() {
   const [proveedoresList, setProveedoresList] = useState<any[]>([]);
   const [sucursalesList, setSucursalesList] = useState<any[]>([]);
   const [categoriasList, setCategoriasList] = useState<any[]>([]);
+  const [tipoCambio, setTipoCambio] = useState<number>(6.96);
 
   // Estados de Dispositivos (Smartphones) con Paginación y Filtros Multi-Criterio
   const [dispositivos, setDispositivos] = useState<any[]>([]);
@@ -91,12 +92,17 @@ export default function InventarioPage() {
       api.sucursales.getAll().catch(() => []),
       api.accesorios.getCategorias().catch(() => []),
       api.modelos.getDispositivos({ condicion: 'PERMUTA', limit: 1 }).catch(() => null),
-    ]).then(([provs, sucs, cats, permRes]: any) => {
+      api.configuracion.get().catch(() => null),
+    ]).then(([provs, sucs, cats, permRes, conf]: any) => {
       setProveedoresList(provs);
       setSucursalesList(sucs);
       setCategoriasList(cats);
       if (permRes?.meta?.total !== undefined) {
         setPermutasCount(permRes.meta.total);
+      }
+      if (conf) {
+        const tc = Number(conf.tcParalelo || conf.tcOficial || 6.96);
+        if (tc > 0) setTipoCambio(tc);
       }
     });
   }, []);
@@ -285,6 +291,7 @@ export default function InventarioPage() {
           setFechaHastaFilter={setFechaHastaFilter}
           sucursalesList={sucursalesList}
           proveedoresList={proveedoresList}
+          tipoCambio={tipoCambio}
           onResetFiltros={handleResetFiltros}
           onFetchDispositivos={fetchDispositivos}
           onSelectImeiForLifeline={(imei) => setSelectedImeiForLifeline(imei)}
@@ -308,6 +315,7 @@ export default function InventarioPage() {
           setStockFilter={setLotesStock}
           categoriasList={categoriasList}
           sucursalesList={sucursalesList}
+          tipoCambio={tipoCambio}
           onResetFiltros={handleResetLotesFiltros}
           onFetchLotes={fetchLotes}
         />

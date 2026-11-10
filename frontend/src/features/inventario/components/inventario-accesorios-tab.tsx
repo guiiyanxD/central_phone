@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   Building2,
@@ -11,6 +11,7 @@ import {
   Headphones,
   Calendar,
   AlertCircle,
+  Eye,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { LoteAccesorioItem, LotesMeta } from '../types';
+import { ModalDetalleLoteAccesorio } from './modal-detalle-lote-accesorio';
 
 interface InventarioAccesoriosTabProps {
   lotes: LoteAccesorioItem[];
@@ -37,6 +39,7 @@ interface InventarioAccesoriosTabProps {
   setStockFilter: (val: string) => void;
   categoriasList: any[];
   sucursalesList: any[];
+  tipoCambio?: number;
   onResetFiltros: () => void;
   onFetchLotes: (page?: number, limit?: number) => void;
 }
@@ -57,16 +60,19 @@ export function InventarioAccesoriosTab({
   setStockFilter,
   categoriasList,
   sucursalesList,
+  tipoCambio = 6.96,
   onResetFiltros,
   onFetchLotes,
 }: InventarioAccesoriosTabProps) {
+  const [selectedLoteForDetail, setSelectedLoteForDetail] = useState<LoteAccesorioItem | null>(null);
+
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
     categoriaFilter !== 'TODAS' ||
     sucursalFilter !== 'TODAS' ||
     stockFilter !== 'TODOS';
 
-  const colSpanTotal = isAdmin ? 7 : 6;
+  const colSpanTotal = 6;
 
   return (
     <div className="space-y-4">
@@ -166,11 +172,14 @@ export function InventarioAccesoriosTab({
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
                 <th className="py-3 px-4">Accesorio Base</th>
                 <th className="py-3 px-4">Lote Diferenciador</th>
-                <th className="py-3 px-4">Sucursal</th>
-                {isAdmin && <th className="py-3 px-4 font-mono">Costo Adquisición</th>}
-                <th className="py-3 px-4 font-mono">Precio Sugerido</th>
+                <th className="py-3 px-4">
+                  {isAdmin ? 'Costo / P. Sugerido (Bs.)' : 'Precio Sugerido (Bs.)'}
+                </th>
+                <th className="py-3 px-4">
+                  {isAdmin ? 'Costo / P. Sugerido ($)' : 'Precio Sugerido ($)'}
+                </th>
                 <th className="py-3 px-4 text-center">Stock Actual</th>
-                <th className="py-3 px-4 text-right">Fecha Ingreso</th>
+                <th className="py-3 px-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -213,13 +222,9 @@ export function InventarioAccesoriosTab({
               ) : (
                 lotes.map((lote) => {
                   const stock = Number(lote.stockActual || 0);
-                  const fecha = lote.fechaIngreso
-                    ? new Date(lote.fechaIngreso).toLocaleDateString('es-ES', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      })
-                    : '-';
+                  const tc = tipoCambio > 0 ? tipoCambio : 6.96;
+                  const costoUsd = Number(lote.costoUnitarioBs || 0) / tc;
+                  const precioUsd = Number(lote.precioVentaBs || 0) / tc;
 
                   return (
                     <tr
@@ -241,21 +246,38 @@ export function InventarioAccesoriosTab({
                         {lote.nombreDiferenciador}
                       </td>
 
-                      <td className="py-3.5 px-4 text-slate-600">
-                        <div className="inline-flex items-center gap-1.5 text-xs text-slate-700">
-                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                          <span>{lote.sucursal?.nombre || 'Sin sucursal'}</span>
-                        </div>
+                      <td className="py-3.5 px-4 font-mono text-slate-800">
+                        {isAdmin && lote.costoUnitarioBs !== undefined ? (
+                          <>
+                            <p className="font-semibold text-slate-900">
+                              Bs {Number(lote.costoUnitarioBs || 0).toFixed(2)}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Sug: Bs {Number(lote.precioVentaBs || 0).toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="font-semibold text-slate-900">
+                            Bs {Number(lote.precioVentaBs || 0).toFixed(2)}
+                          </p>
+                        )}
                       </td>
 
-                      {isAdmin && (
-                        <td className="py-3.5 px-4 font-mono text-slate-600">
-                          Bs {Number(lote.costoUnitarioBs || 0).toFixed(2)}
-                        </td>
-                      )}
-
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-900">
-                        Bs {Number(lote.precioVentaBs || 0).toFixed(2)}
+                      <td className="py-3.5 px-4 font-mono text-slate-800">
+                        {isAdmin && lote.costoUnitarioBs !== undefined ? (
+                          <>
+                            <p className="font-semibold text-emerald-950">
+                              $ {costoUsd.toFixed(2)}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Sug: $ {precioUsd.toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="font-semibold text-emerald-950">
+                            $ {precioUsd.toFixed(2)}
+                          </p>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
@@ -273,11 +295,17 @@ export function InventarioAccesoriosTab({
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right text-slate-500 font-mono text-[11px]">
-                        <div className="inline-flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-slate-400" />
-                          <span>{fecha}</span>
-                        </div>
+                      <td className="py-3.5 px-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs text-slate-700 hover:text-slate-900 border-slate-200 hover:bg-slate-100 flex items-center gap-1.5 ml-auto"
+                          onClick={() => setSelectedLoteForDetail(lote)}
+                          title="Ver información completa del lote"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Detalle</span>
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -350,6 +378,15 @@ export function InventarioAccesoriosTab({
           </Button>
         </div>
       </div>
+
+      {/* Modal de Detalle Completo de Lote de Accesorio */}
+      <ModalDetalleLoteAccesorio
+        isOpen={Boolean(selectedLoteForDetail)}
+        onClose={() => setSelectedLoteForDetail(null)}
+        lote={selectedLoteForDetail}
+        isAdmin={isAdmin}
+        tipoCambio={tipoCambio}
+      />
     </div>
   );
 }
