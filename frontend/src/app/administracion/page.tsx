@@ -20,6 +20,7 @@ import {
   RefreshCw,
   DollarSign,
   AlertCircle,
+  Tags,
 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -28,7 +29,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { CategoriasGastoCrud } from '@/features/administracion/components/categorias-gasto-crud';
 
 export default function AdministracionPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -37,6 +37,7 @@ export default function AdministracionPage() {
   const [sucursales, setSucursales] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
+  const [categoriasCount, setCategoriasCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncingTc, setIsSyncingTc] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -68,16 +69,18 @@ export default function AdministracionPage() {
       if (user?.rol !== 'ADMIN') return;
       setIsLoading(true);
       try {
-        const [configData, sucData, usuariosData, provData] = await Promise.all([
+        const [configData, sucData, usuariosData, provData, catData] = await Promise.all([
           api.configuracion.get().catch(() => null),
           api.sucursales.getAll(true).catch(() => []),
           api.usuarios.getAll().catch(() => []),
           api.proveedores.getAll(true).catch(() => []),
+          api.caja.getCategoriasGasto().catch(() => []),
         ]);
         setConfig(configData);
         setSucursales(sucData);
         setUsuarios(usuariosData);
         setProveedores(provData);
+        setCategoriasCount(Array.isArray(catData) ? catData.length : 0);
       } catch (err) {
         console.error('Error al cargar datos administrativos', err);
       } finally {
@@ -433,11 +436,34 @@ export default function AdministracionPage() {
               </Link>
             </CardContent>
           </Card>
+
+          {/* 6. Categorías de Egresos de Caja */}
+          <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
+            <CardHeader className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
+                  <Tags className="h-5 w-5" />
+                </div>
+                <Badge variant="outline">{categoriasCount} Categorías</Badge>
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-900 group-hover:text-slate-800">
+                Categorías de Egresos de Caja
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-xs mt-1.5 leading-relaxed">
+                Catálogo de conceptos y clasificaciones para egresos operativos menores en tienda, con control de integridad contable y arqueos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <Link href="/administracion/categorias-gasto">
+                <Button className="w-full justify-between" variant="outline">
+                  <span>Administrar Categorías</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* Sección CRUD de Categorías de Egresos de Caja */}
-      <CategoriasGastoCrud />
     </div>
   );
 }
