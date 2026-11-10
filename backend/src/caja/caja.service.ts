@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { CerrarCajaDto } from './dto/cerrar-caja.dto';
 import { RegistrarGastoDto } from './dto/registrar-gasto.dto';
+import { ActualizarGastoDto } from './dto/actualizar-gasto.dto';
 import { QueryHistorialDto } from './dto/query-historial.dto';
 import { EstadoCaja, Prisma } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
@@ -170,6 +171,7 @@ export class CajaService {
         totalRecaudadoTotal,
         totalGastosEfectivo,
         totalGastosOtros,
+        totalGastosOperativos: roundMoney(totalGastosEfectivo + totalGastosOtros),
         totalPermutasBs,
         saldoEfectivoEnCaja,
         cantidadVentas: caja.ventas.filter((v) => v.estado !== 'ANULADA').length,
@@ -471,6 +473,151 @@ export class CajaService {
           usuario: { select: { id: true, nombre: true } },
         },
       });
+    });
+  }
+
+  // 4.1. Actualizar gasto operativo menor (Exclusivo ADMIN)
+  async actualizarGasto(gastoId: number, adminUserId: number, dto: ActualizarGastoDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const gasto = await tx.gastoOperativo.findUnique({
+        where: { id: gastoId },
+        include: {
+          caja: {
+            include: {
+              ventas: {
+                where: { estado: { not: 'ANULADA' } },
+                include: { metodoPago: true },
+              },
+              gastosOperativos: {
+                include: { metodoPago: true },
+              },
+              gastosDispositivo: {
+                where: { estado: 'ACTIVO', aplicoEnCaja: true },
+              },
+            },
+          },
+          metodoPago: true,
+          categoria: true,
+        },
+      });
+
+      if (!gasto) {
+        throw new NotFoundException(`El gasto #${gastoId} no existe.`);
+      }
+
+      if (gasto.caja.estado !== EstadoCaja.ABIERTA) {
+        throw new BadRequestException('No se pueden editar egresos de una caja cerrada.');
+      }
+
+      // Validar categoría si fue enviada
+      if (dto.categoriaId !== undefined) {
+        const cat = await tx.categoriaGasto.findUnique({ where: { id: dto.categoriaId } });
+        if (!cat) {
+          throw new NotFoundException(`La categoría de gasto #${dto.categoriaId} no existe.`);
+        }
+      }
+
+      // Validar método de pago si fue enviado
+      let targetMetodoPago = gasto.metodoPago;
+      if (dto.metodoPagoId !== undefined) {
+        const mp = await tx.metodoPago.findUnique({ where: { id: dto.metodoPagoId } });
+        if (!mp) {
+          throw new NotFoundException(`El método de pago #${dto.metodoPagoId} no existe.`);
+        }
+        targetMetodoPago = mp;
+      }
+
+      // Control de solvencia en caja si el gasto afecta gaveta de efectivo
+      const nuevoMonto = dto.montoBs !== undefined ? roundMoney(dto.montoBs) : Number(gasto.montoBs);
+      const nuevoAfectaEfectivo = this.paymentRegistry.impactsCashDrawer(targetMetodoPago.codigo);
+
+      if (nuevoAfectaEfectivo) {
+        // Calcular saldo disponible actual excluyendo este gasto específico
+        const montoInicial = roundMoney(gasto.caja.montoInicialEfectivo);
+        const ventasEfectivo = roundMoney(
+          gasto.caja.ventas.reduce((sum, v) => {
+            const montoTotal = Number(v.totalVentaBs) || 0;
+            const montoPermuta = Number(v.montoPermutaBs) || 0;
+            const saldoCobrado = roundMoney(Math.max(0, montoTotal - montoPermuta));
+
+            if (v.metodoPago.codigo === 'MIXTO') {
+              return sum + (Number(v.montoEfectivoBs) || 0);
+            }
+            if (this.paymentRegistry.impactsCashDrawer(v.metodoPago.codigo)) {
+              const efectivo =
+                v.montoEfectivoBs !== null && v.montoEfectivoBs !== undefined
+                  ? Number(v.montoEfectivoBs)
+                  : saldoCobrado;
+              return sum + efectivo;
+            }
+            return sum;
+          }, 0)
+        );
+
+        const otrosGastosOperativosEfectivo = roundMoney(
+          gasto.caja.gastosOperativos
+            .filter((g) => g.id !== gasto.id && this.paymentRegistry.impactsCashDrawer(g.metodoPago.codigo))
+            .reduce((sum, g) => sum + Number(g.montoBs), 0)
+        );
+
+        const gastosDispositivoEfectivo = roundMoney(
+          (gasto.caja.gastosDispositivo || [])
+            .filter((g) => g.aplicoEnCaja && g.estado === 'ACTIVO')
+            .reduce((sum, g) => sum + Number(g.costoBs), 0)
+        );
+
+        const totalEfectivoSinEsteGasto = roundMoney(
+          montoInicial + ventasEfectivo - otrosGastosOperativosEfectivo - gastosDispositivoEfectivo
+        );
+
+        if (nuevoMonto > totalEfectivoSinEsteGasto) {
+          throw new BadRequestException(
+            `Saldo en efectivo insuficiente en caja para cubrir el egreso modificado. Disponible: Bs ${totalEfectivoSinEsteGasto.toFixed(2)}, Requerido: Bs ${nuevoMonto.toFixed(2)}.`
+          );
+        }
+      }
+
+      return tx.gastoOperativo.update({
+        where: { id: gastoId },
+        data: {
+          ...(dto.categoriaId !== undefined ? { categoriaId: dto.categoriaId } : {}),
+          ...(dto.metodoPagoId !== undefined ? { metodoPagoId: dto.metodoPagoId } : {}),
+          ...(dto.montoBs !== undefined ? { montoBs: roundMoney(dto.montoBs) } : {}),
+          ...(dto.concepto !== undefined ? { concepto: dto.concepto.trim() } : {}),
+        },
+        include: {
+          categoria: true,
+          metodoPago: true,
+          usuario: { select: { id: true, nombre: true } },
+        },
+      });
+    });
+  }
+
+  // 4.2. Eliminar gasto operativo menor (Exclusivo ADMIN)
+  async eliminarGasto(gastoId: number, adminUserId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const gasto = await tx.gastoOperativo.findUnique({
+        where: { id: gastoId },
+        include: { caja: true },
+      });
+
+      if (!gasto) {
+        throw new NotFoundException(`El gasto #${gastoId} no existe.`);
+      }
+
+      if (gasto.caja.estado !== EstadoCaja.ABIERTA) {
+        throw new BadRequestException('No se pueden eliminar egresos de una caja cerrada.');
+      }
+
+      await tx.gastoOperativo.delete({
+        where: { id: gastoId },
+      });
+
+      return {
+        success: true,
+        message: `Egreso menor #${gastoId} eliminado exitosamente.`,
+      };
     });
   }
 

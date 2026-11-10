@@ -103,6 +103,15 @@ export const cajaApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  actualizarGasto: (gastoId: number, data: Partial<RegistrarGastoData>) =>
+    request<any>(`/caja/gastos/${gastoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  eliminarGasto: (gastoId: number) =>
+    request<any>(`/caja/gastos/${gastoId}`, {
+      method: 'DELETE',
+    }),
   getCategoriasGasto: () =>
     request<CategoriaGastoItem[]>('/caja/categorias-gasto'),
   getUsuarios: (sucursalId?: number) => {

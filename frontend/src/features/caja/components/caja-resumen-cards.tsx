@@ -48,7 +48,7 @@ export function CajaResumenCards({
             Bs {rf?.totalVentasEfectivo?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            {sessionData?.caja?.ventas?.filter((v: any) => v.metodoPago?.codigo === 'EFECTIVO')?.length || 0} tickets
+            {sessionData?.caja?.ventas?.filter((v: any) => v.estado !== 'ANULADA' && v.metodoPago?.codigo === 'EFECTIVO')?.length || 0} tickets
           </p>
         </CardContent>
       </Card>
@@ -66,7 +66,7 @@ export function CajaResumenCards({
             Bs {rf?.totalVentasDigitales?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            {sessionData?.caja?.ventas?.filter((v: any) => v.metodoPago?.codigo !== 'EFECTIVO')?.length || 0} transferencias
+            {sessionData?.caja?.ventas?.filter((v: any) => v.estado !== 'ANULADA' && v.metodoPago?.codigo !== 'EFECTIVO')?.length || 0} transferencias
           </p>
         </CardContent>
       </Card>
@@ -81,7 +81,7 @@ export function CajaResumenCards({
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <p className="text-2xl font-bold tracking-tight text-rose-700 mt-1">
-            -Bs {rf?.totalGastosOperativos?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+            -Bs {(rf?.totalGastosOperativos ?? rf?.totalGastosEfectivo ?? 0)?.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
             {sessionData?.caja?.gastosOperativos?.length || 0} egresos registrados

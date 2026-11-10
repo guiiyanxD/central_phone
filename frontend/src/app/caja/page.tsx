@@ -363,7 +363,11 @@ export default function CajaDiariaPage() {
             />
             <CajaMovimientosTurno
               sessionData={sessionData}
+              isAdmin={isAdmin}
+              isCajaAbierta={isCajaAbierta}
+              categoriasGasto={categoriasGasto}
               onSelectVenta={handleVerDetalleVenta}
+              onRefresh={fetchSesionActiva}
             />
           </div>
         ) : (

@@ -306,6 +306,116 @@ describe('CajaService', () => {
     });
   });
 
+  describe('actualizarGasto', () => {
+    it('debe lanzar NotFoundException si el gasto a actualizar no existe', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.actualizarGasto(999, 1, { concepto: 'Actualizado' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si la caja asociada al gasto está CERRADA', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue({
+        id: 5,
+        cajaId: 10,
+        caja: { id: 10, estado: EstadoCaja.CERRADA },
+        metodoPago: { id: 1, codigo: 'EFECTIVO' },
+        montoBs: 50,
+      } as any);
+
+      await expect(
+        service.actualizarGasto(5, 1, { concepto: 'Cambio' })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe lanzar BadRequestException si el monto incrementado excede el saldo en gaveta', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue({
+        id: 5,
+        cajaId: 10,
+        montoBs: 50,
+        metodoPago: { id: 1, codigo: 'EFECTIVO' },
+        caja: {
+          id: 10,
+          estado: EstadoCaja.ABIERTA,
+          montoInicialEfectivo: 100,
+          ventas: [],
+          gastosOperativos: [
+            { id: 5, montoBs: 50, metodoPago: { codigo: 'EFECTIVO' } },
+          ],
+          gastosDispositivo: [],
+        },
+      } as any);
+
+      // Saldo disponible sin el gasto actual es 100. Si pide 250, excede disponible
+      await expect(
+        service.actualizarGasto(5, 1, { montoBs: 250 })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe actualizar el gasto exitosamente cuando los datos son válidos y hay saldo disponible', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue({
+        id: 5,
+        cajaId: 10,
+        montoBs: 50,
+        metodoPago: { id: 1, codigo: 'EFECTIVO' },
+        caja: {
+          id: 10,
+          estado: EstadoCaja.ABIERTA,
+          montoInicialEfectivo: 200,
+          ventas: [],
+          gastosOperativos: [
+            { id: 5, montoBs: 50, metodoPago: { codigo: 'EFECTIVO' } },
+          ],
+          gastosDispositivo: [],
+        },
+      } as any);
+
+      prisma.gastoOperativo.update.mockResolvedValue({
+        id: 5,
+        montoBs: 80,
+        concepto: 'Compra de tóner corregida',
+      } as any);
+
+      const res = await service.actualizarGasto(5, 1, {
+        montoBs: 80,
+        concepto: 'Compra de tóner corregida',
+      });
+
+      expect(res.id).toBe(5);
+      expect(res.montoBs).toBe(80);
+    });
+  });
+
+  describe('eliminarGasto', () => {
+    it('debe lanzar NotFoundException si el gasto a eliminar no existe', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue(null);
+
+      await expect(service.eliminarGasto(999, 1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si la caja está CERRADA', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue({
+        id: 5,
+        caja: { id: 10, estado: EstadoCaja.CERRADA },
+      } as any);
+
+      await expect(service.eliminarGasto(5, 1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe eliminar el gasto exitosamente de una caja ABIERTA', async () => {
+      prisma.gastoOperativo.findUnique.mockResolvedValue({
+        id: 5,
+        caja: { id: 10, estado: EstadoCaja.ABIERTA },
+      } as any);
+      prisma.gastoOperativo.delete.mockResolvedValue({ id: 5 } as any);
+
+      const res = await service.eliminarGasto(5, 1);
+      expect(res.success).toBe(true);
+      expect(prisma.gastoOperativo.delete).toHaveBeenCalledWith({ where: { id: 5 } });
+    });
+  });
+
   describe('getUsuariosCaja', () => {
     it('debe listar los usuarios activos filtrando por sucursal opcional', async () => {
       prisma.usuario.findMany.mockResolvedValue([

@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -12,8 +14,11 @@ import { CajaService } from './caja.service';
 import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { CerrarCajaDto } from './dto/cerrar-caja.dto';
 import { RegistrarGastoDto } from './dto/registrar-gasto.dto';
+import { ActualizarGastoDto } from './dto/actualizar-gasto.dto';
 import { QueryHistorialDto } from './dto/query-historial.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RolUsuario } from '@prisma/client';
 
@@ -59,6 +64,29 @@ export class CajaController {
     @Body() dto: RegistrarGastoDto,
   ) {
     return this.cajaService.registrarGasto(id, user.id, user.sucursalId, dto, user.rol);
+  }
+
+  // Actualizar gasto operativo menor (Exclusivo ADMIN)
+  @Patch('gastos/:gastoId')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async actualizarGasto(
+    @Param('gastoId', ParseIntPipe) gastoId: number,
+    @CurrentUser('id') adminId: number,
+    @Body() dto: ActualizarGastoDto,
+  ) {
+    return this.cajaService.actualizarGasto(gastoId, adminId, dto);
+  }
+
+  // Eliminar gasto operativo menor (Exclusivo ADMIN)
+  @Delete('gastos/:gastoId')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async eliminarGasto(
+    @Param('gastoId', ParseIntPipe) gastoId: number,
+    @CurrentUser('id') adminId: number,
+  ) {
+    return this.cajaService.eliminarGasto(gastoId, adminId);
   }
 
   // Categorías de gastos operativos
