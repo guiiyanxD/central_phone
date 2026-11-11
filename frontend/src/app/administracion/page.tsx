@@ -462,6 +462,32 @@ export default function AdministracionPage() {
               </Link>
             </CardContent>
           </Card>
+
+          {/* 7. Márgenes y Precios Sugeridos */}
+          <Card className="hover:border-slate-300 hover:shadow-card transition-all duration-200 group flex flex-col justify-between">
+            <CardHeader className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <Badge variant="default">Precios y Márgenes</Badge>
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-900 group-hover:text-slate-800">
+                Márgenes y Precios Sugeridos
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-xs mt-1.5 leading-relaxed">
+                Definir el cálculo automático de precios sugeridos de venta (porcentaje o monto fijo) para equipos nuevos, seminuevos, accesorios y permutas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <Link href="/administracion/margenes">
+                <Button className="w-full justify-between" variant="outline">
+                  <span>Configurar Márgenes</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

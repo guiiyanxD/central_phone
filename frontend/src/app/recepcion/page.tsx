@@ -22,6 +22,11 @@ import { ModalConfirmarGuardado } from '@/features/recepcion/components/modal-co
 import { ModalAnularRecepcion } from '@/features/recepcion/components/modal-anular-recepcion';
 import { ModalCrearProveedorInline } from '@/features/recepcion/components/modal-crear-proveedor-inline';
 import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo/types';
+import { ReglaMargenPrecio, CategoriaMargen } from '@/lib/api/configuracion.api';
+import {
+  calcularPrecioSugeridoBs,
+  mapearCondicionACategoriaMargen,
+} from '@/lib/utils/pricing.util';
 
 export default function RecepcionMercaderiaPage() {
   const { user, activeSucursal } = useAuth();
@@ -133,24 +138,30 @@ export default function RecepcionMercaderiaPage() {
   const [nuevoAccNombre, setNuevoAccNombre] = useState<string>('');
   const [nuevoAccDescripcion, setNuevoAccDescripcion] = useState<string>('');
 
-  // Estados de UI
+  // Estados de UI y Reglas de Márgenes Centralizados
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notaCreada, setNotaCreada] = useState<any | null>(null);
   const [modalConfirmarOpen, setModalConfirmarOpen] = useState(false);
+  const [reglasMargen, setReglasMargen] = useState<ReglaMargenPrecio[]>([]);
+
+  const getReglaMargen = (categoria: CategoriaMargen) => {
+    return reglasMargen.find((r) => r.categoria === categoria) || null;
+  };
 
   // Cargar datos iniciales
   useEffect(() => {
     async function fetchMasterData() {
       setIsLoadingMaster(true);
       try {
-        const [provData, sucData, modData, accData, catData, tiposData] = await Promise.all([
+        const [provData, sucData, modData, accData, catData, tiposData, margenesData] = await Promise.all([
           api.proveedores.getAll(),
           api.sucursales.getAll(),
           api.modelos.getAll(),
           api.accesorios.getAll(),
           api.accesorios.getCategorias(),
           api.modelos.getTipos(),
+          api.configuracion.getMargenes().catch(() => []),
         ]);
         setProveedores(provData);
         setSucursales(sucData);
@@ -158,6 +169,7 @@ export default function RecepcionMercaderiaPage() {
         setAccesoriosCatalogo(accData);
         setCategoriasAccesorios(catData);
         setTiposDispositivo(tiposData);
+        setReglasMargen(Array.isArray(margenesData) ? margenesData : []);
 
         if (provData.length > 0) setProveedorId(provData[0].id);
         if (sucData.length > 0) {
@@ -443,9 +455,21 @@ export default function RecepcionMercaderiaPage() {
           const updated = { ...t, [field]: value };
           if (field === 'costoBs') {
             const numCosto = Number(value) || 0;
-            const prevCalculado = Math.round((Number(t.costoBs) || 0) * 1.15);
+            const cat = mapearCondicionACategoriaMargen(t.condicion);
+            const regla = getReglaMargen(cat);
+            const prevCalculado = calcularPrecioSugeridoBs(t.costoBs, regla, 0);
             if (!t.precioVentaSugeridoBs || t.precioVentaSugeridoBs === prevCalculado) {
-              updated.precioVentaSugeridoBs = Math.round(numCosto * 1.15);
+              updated.precioVentaSugeridoBs = calcularPrecioSugeridoBs(numCosto, regla, 0);
+            }
+          }
+          if (field === 'condicion') {
+            const oldCat = mapearCondicionACategoriaMargen(t.condicion);
+            const newCat = mapearCondicionACategoriaMargen(value);
+            const oldRegla = getReglaMargen(oldCat);
+            const newRegla = getReglaMargen(newCat);
+            const prevCalculado = calcularPrecioSugeridoBs(t.costoBs, oldRegla, 0);
+            if (!t.precioVentaSugeridoBs || t.precioVentaSugeridoBs === prevCalculado) {
+              updated.precioVentaSugeridoBs = calcularPrecioSugeridoBs(t.costoBs, newRegla, 0);
             }
           }
           if (field === 'varianteId' && typeof value === 'number') {
@@ -667,6 +691,14 @@ export default function RecepcionMercaderiaPage() {
           if (field === 'accesorioId' && value) {
             updated.nuevoAccesorio = undefined;
             updated.accesorioDisplay = undefined;
+          }
+          if (field === 'costoUnitarioBs') {
+            const numCosto = Number(value) || 0;
+            const regla = getReglaMargen('ACCESORIO');
+            const prevCalculado = calcularPrecioSugeridoBs(a.costoUnitarioBs, regla, 0);
+            if (!a.precioVentaBs || Number(a.precioVentaBs) === prevCalculado) {
+              updated.precioVentaBs = calcularPrecioSugeridoBs(numCosto, regla, 0);
+            }
           }
           return updated;
         }

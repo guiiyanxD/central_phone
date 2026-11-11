@@ -35,6 +35,30 @@ model ConfiguracionNegocio {
   @@map("configuracion_negocio")
 }
 
+enum CategoriaMargen {
+  DISPOSITIVO_NUEVO
+  DISPOSITIVO_USADO
+  ACCESORIO
+  PERMUTA
+}
+
+enum TipoAumentoMargen {
+  PORCENTAJE
+  ABSOLUTO
+}
+
+model ReglaMargenPrecio {
+  id              Int               @id @default(autoincrement())
+  categoria       CategoriaMargen   @unique
+  tipoAumento     TipoAumentoMargen @default(PORCENTAJE) @map("tipo_aumento")
+  valorBs         Decimal           @default(15.00) @map("valor_bs") @db.Decimal(10, 2)
+  tipoAumentoUsd  TipoAumentoMargen @default(PORCENTAJE) @map("tipo_aumento_usd")
+  valorUsd        Decimal           @default(15.00) @map("valor_usd") @db.Decimal(10, 2)
+  actualizadoEn   DateTime          @default(now()) @updatedAt @map("actualizado_en")
+
+  @@map("reglas_margen_precio")
+}
+
 model Sucursal {
   id        Int      @id @default(autoincrement())
   nombre    String   @db.VarChar(100)

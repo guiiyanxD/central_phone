@@ -26,6 +26,7 @@ backend/coverage/
 postgres_data/
 backups/
 *.sql
+!backend/prisma/migrations/**/*.sql
 uploads/*
 !uploads/qr/
 !uploads/qr/qr_oficial.png

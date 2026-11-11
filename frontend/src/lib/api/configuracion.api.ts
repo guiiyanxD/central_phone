@@ -24,6 +24,34 @@ export interface ConfiguracionResponse {
   };
 }
 
+export type CategoriaMargen =
+  | 'DISPOSITIVO_NUEVO'
+  | 'DISPOSITIVO_USADO'
+  | 'ACCESORIO'
+  | 'PERMUTA';
+
+export type TipoAumentoMargen = 'PORCENTAJE' | 'ABSOLUTO';
+
+export interface ReglaMargenPrecio {
+  id: number;
+  categoria: CategoriaMargen;
+  tipoAumento: TipoAumentoMargen;
+  valorBs: number;
+  tipoAumentoUsd: TipoAumentoMargen;
+  valorUsd: number;
+  actualizadoEn?: string;
+}
+
+export interface ActualizarReglasMargenPayload {
+  reglas: {
+    categoria: CategoriaMargen;
+    tipoAumento: TipoAumentoMargen;
+    valorBs: number;
+    tipoAumentoUsd?: TipoAumentoMargen;
+    valorUsd?: number;
+  }[];
+}
+
 export const configuracionApi = {
   get: () => request<ConfiguracionResponse>('/configuracion'),
   update: (data: any) =>
@@ -34,5 +62,11 @@ export const configuracionApi = {
   sincronizarTipoCambio: () =>
     request<ConfiguracionResponse>('/configuracion/tipo-cambio/sincronizar', {
       method: 'POST',
+    }),
+  getMargenes: () => request<ReglaMargenPrecio[]>('/configuracion/margenes'),
+  updateMargenes: (data: ActualizarReglasMargenPayload) =>
+    request<ReglaMargenPrecio[]>('/configuracion/margenes', {
+      method: 'PUT',
+      body: JSON.stringify(data),
     }),
 };

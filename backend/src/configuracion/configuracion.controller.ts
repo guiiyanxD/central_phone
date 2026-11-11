@@ -1,6 +1,7 @@
 import { Controller, Get, Put, Post, Body, UseGuards } from '@nestjs/common';
 import { ConfiguracionService } from './configuracion.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
+import { ActualizarReglasMargenDto } from './dto/actualizar-reglas-margen.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -11,6 +12,20 @@ import { RolUsuario } from '@prisma/client';
 @UseGuards(JwtAuthGuard)
 export class ConfiguracionController {
   constructor(private readonly configuracionService: ConfiguracionService) {}
+
+  // Consulta de reglas de márgenes de precios sugeridos (Vendedores y Administradores)
+  @Get('margenes')
+  async getMargenes() {
+    return this.configuracionService.getMargenes();
+  }
+
+  // Modificación de reglas de márgenes de precios sugeridos restringida a ADMIN
+  @Put('margenes')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async updateMargenes(@Body() dto: ActualizarReglasMargenDto) {
+    return this.configuracionService.updateMargenes(dto);
+  }
 
   // Lectura del QR oficial y parámetros (incluyendo TC) para Vendedores y Administradores
   @Get()

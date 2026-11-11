@@ -23,16 +23,27 @@ import { ModalConfirmarInterSucursal } from '@/features/pos/components/modal-con
 import { ModalPermutaCheckout } from '@/features/pos/components/modal-permuta-checkout';
 import { PermutaTradeInDto } from '@/lib/api/ventas.api';
 import { printReceipt } from '@/features/pos/utils/receipt-printer';
+import { ReglaMargenPrecio } from '@/lib/api/configuracion.api';
+import {
+  calcularPrecioSugeridoBs,
+  mapearCondicionACategoriaMargen,
+} from '@/lib/utils/pricing.util';
 
 export default function PosPage() {
   const { user, activeSucursal, setActiveSucursal } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
 
+  // Reglas de márgenes centralizados para fallbacks en mostrador
+  const [reglasMargen, setReglasMargen] = useState<ReglaMargenPrecio[]>([]);
+
   // Helper de cálculo unificado de precio sugerido
   const getPhoneDisplayPrice = (disp: any): number => {
-    return Number(disp.precioVentaSugeridoBs) > 0
-      ? Number(disp.precioVentaSugeridoBs)
-      : Math.round(Number(disp.costoBs || 0) * 1.15);
+    if (Number(disp.precioVentaSugeridoBs) > 0) {
+      return Number(disp.precioVentaSugeridoBs);
+    }
+    const cat = mapearCondicionACategoriaMargen(disp.condicion);
+    const regla = reglasMargen.find((r) => r.categoria === cat) || null;
+    return calcularPrecioSugeridoBs(disp.costoBs || 0, regla, 0);
   };
 
   // Estados de sesión de caja
@@ -117,7 +128,7 @@ export default function PosPage() {
         ? undefined
         : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
 
-      const [dispRes, accRes, configRes, modRes] = await Promise.all([
+      const [dispRes, accRes, configRes, modRes, margenesRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
           limit: 100,
@@ -126,11 +137,13 @@ export default function PosPage() {
         api.accesorios.getAll(undefined, targetSucursalId),
         api.configuracion.get(),
         api.modelos.getAll(),
+        api.configuracion.getMargenes().catch(() => []),
       ]);
       setDispositivos(Array.isArray(dispRes) ? dispRes : (dispRes?.data || []));
       setAccesorios(accRes);
       setConfiguracion(configRes);
       setModelos(modRes || []);
+      setReglasMargen(Array.isArray(margenesRes) ? margenesRes : []);
     } catch {
       // Manejar error silenciosamente
     } finally {

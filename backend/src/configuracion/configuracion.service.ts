@@ -7,8 +7,11 @@ import {
   BadGatewayException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CategoriaMargen, TipoAumentoMargen } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
+import { ActualizarReglasMargenDto } from './dto/actualizar-reglas-margen.dto';
+import { calcularPrecioSugeridoBs } from './pricing-calculator.util';
 import { validateImagePayload } from '../common/utils/image-validator.util';
 import { ImageOptimizerService } from '../common/services/image-optimizer.service';
 
@@ -24,6 +27,36 @@ export class ConfiguracionService implements OnModuleInit {
 
   async onModuleInit() {
     await this.ensureConfiguracionExists();
+    await this.ensureReglasMargenExists();
+  }
+
+  /**
+   * Garantiza que las reglas de margen de precio para cada categoría existan por defecto.
+   */
+  async ensureReglasMargenExists() {
+    const categorias: CategoriaMargen[] = [
+      CategoriaMargen.DISPOSITIVO_NUEVO,
+      CategoriaMargen.DISPOSITIVO_USADO,
+      CategoriaMargen.ACCESORIO,
+      CategoriaMargen.PERMUTA,
+    ];
+
+    for (const cat of categorias) {
+      const existe = await this.prisma.reglaMargenPrecio.findUnique({
+        where: { categoria: cat },
+      });
+      if (!existe) {
+        await this.prisma.reglaMargenPrecio.create({
+          data: {
+            categoria: cat,
+            tipoAumento: TipoAumentoMargen.PORCENTAJE,
+            valorBs: 15.0,
+            tipoAumentoUsd: TipoAumentoMargen.PORCENTAJE,
+            valorUsd: 15.0,
+          },
+        });
+      }
+    }
   }
 
   /**
@@ -251,5 +284,66 @@ export class ConfiguracionService implements OnModuleInit {
         `No se pudo conectar con el servicio externo de Tipo de Cambio: ${err.message}`,
       );
     }
+  }
+
+  /**
+   * Obtiene la lista completa de reglas de márgenes de precios sugeridos.
+   */
+  async getMargenes() {
+    await this.ensureReglasMargenExists();
+    return this.prisma.reglaMargenPrecio.findMany({
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  /**
+   * Obtiene la regla de margen para una categoría específica.
+   */
+  async getMargenPorCategoria(categoria: CategoriaMargen, client?: any) {
+    const db = client ?? this.prisma;
+    const regla = await db.reglaMargenPrecio.findUnique({
+      where: { categoria },
+    });
+    return regla;
+  }
+
+  /**
+   * Actualiza en lote las reglas de margen de ganancia configuradas.
+   */
+  async updateMargenes(dto: ActualizarReglasMargenDto) {
+    const operations = dto.reglas.map((regla) =>
+      this.prisma.reglaMargenPrecio.upsert({
+        where: { categoria: regla.categoria },
+        update: {
+          tipoAumento: regla.tipoAumento,
+          valorBs: regla.valorBs,
+          tipoAumentoUsd: regla.tipoAumentoUsd ?? TipoAumentoMargen.PORCENTAJE,
+          valorUsd: regla.valorUsd ?? regla.valorBs,
+        },
+        create: {
+          categoria: regla.categoria,
+          tipoAumento: regla.tipoAumento,
+          valorBs: regla.valorBs,
+          tipoAumentoUsd: regla.tipoAumentoUsd ?? TipoAumentoMargen.PORCENTAJE,
+          valorUsd: regla.valorUsd ?? regla.valorBs,
+        },
+      }),
+    );
+
+    await this.prisma.$transaction(operations);
+    return this.getMargenes();
+  }
+
+  /**
+   * Calcula el precio sugerido de venta en Bolivianos aplicando la regla centralizada de la categoría.
+   */
+  async calcularPrecioSugerido(
+    categoria: CategoriaMargen,
+    costoBaseBs: number | any,
+    gastosBs: number | any = 0,
+    client?: any,
+  ): Promise<number> {
+    const regla = await this.getMargenPorCategoria(categoria, client);
+    return calcularPrecioSugeridoBs(costoBaseBs, regla, gastosBs);
   }
 }

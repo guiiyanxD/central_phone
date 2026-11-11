@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Smartphone,
   User,
@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { api } from '@/lib/api';
+import { ReglaMargenPrecio } from '@/lib/api/configuracion.api';
+import { calcularPrecioSugeridoBs } from '@/lib/utils/pricing.util';
 
 interface GastoRow {
   id: string;
@@ -78,10 +80,24 @@ export function RecepcionPermutaForm({
 
   // Gastos iniciales opcionales
   const [gastos, setGastos] = useState<GastoRow[]>([]);
+  const [reglaPermuta, setReglaPermuta] = useState<ReglaMargenPrecio | null>(null);
 
   // Estados de validación y carga
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cargar regla de margen de permuta centralizada
+  useEffect(() => {
+    api.configuracion
+      .getMargenes()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const found = data.find((r) => r.categoria === 'PERMUTA');
+          if (found) setReglaPermuta(found);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Obtener las variantes del modelo de iPhone seleccionado
   const selectedModelo = iphoneModelos.find((m) => m.id === Number(selectedModeloId));
@@ -124,18 +140,20 @@ export function RecepcionPermutaForm({
     );
   };
 
-  // Cálculos financieros dinámicos en vivo
+  // Cálculos financieros dinámicos en vivo respetando regla centralizada
   const numericCostoBs = typeof costoBs === 'number' ? Math.max(0, costoBs) : 0;
   const sumaGastosActivos = gastos.reduce((sum, g) => {
     const val = typeof g.costoBs === 'number' ? Math.max(0, g.costoBs) : 0;
     return sum + val;
   }, 0);
 
-  // Regla inmutable: Margen del 15% sobre el precio de compra + suma de gastos sobre ese 15%
-  // Precio Sugerido = (Costo * 1.15) + Gastos
-  const gananciaBase15 = Math.round(numericCostoBs * 0.15 * 100) / 100;
-  const precioSugeridoCalculado = Math.round((numericCostoBs * 1.15 + sumaGastosActivos) * 100) / 100;
+  const precioSugeridoCalculado = calcularPrecioSugeridoBs(
+    numericCostoBs,
+    reglaPermuta,
+    sumaGastosActivos,
+  );
   const inversionTotalReal = Math.round((numericCostoBs + sumaGastosActivos) * 100) / 100;
+  const margenBrutoCalculado = Math.max(0, precioSugeridoCalculado - inversionTotalReal);
 
   // Envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
@@ -542,19 +560,23 @@ export function RecepcionPermutaForm({
             {/* Margen comercial base */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-medium">Margen Base Sugerido (15%):</span>
+                <span className="text-slate-600 font-medium">
+                  {reglaPermuta?.tipoAumento === 'ABSOLUTO'
+                    ? `Margen Centralizado (+Bs ${reglaPermuta.valorBs}):`
+                    : `Margen Centralizado (+${reglaPermuta?.valorBs ?? 15}%):`}
+                </span>
                 <span className="font-mono font-bold text-slate-900">
-                  + Bs {gananciaBase15.toFixed(2)}
+                  + Bs {margenBrutoCalculado.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-slate-200 mt-2">
                 <span className="text-slate-600 font-medium">Subtotal con Margen:</span>
                 <span className="font-mono font-bold text-emerald-700">
-                  Bs {(numericCostoBs + gananciaBase15).toFixed(2)}
+                  Bs {(numericCostoBs + margenBrutoCalculado).toFixed(2)}
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 mt-1">
-                Garantiza el 15% de rentabilidad mínima sobre el costo de adquisición.
+                Calculado mediante la regla centralizada de márgenes para permutas.
               </p>
             </div>
           </div>
@@ -702,7 +724,9 @@ export function RecepcionPermutaForm({
                 Resumen Financiero de la Permuta
               </h3>
               <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px]">
-                Margen Blindado 15%
+                {reglaPermuta?.tipoAumento === 'ABSOLUTO'
+                  ? `Margen Centralizado +Bs ${reglaPermuta.valorBs}`
+                  : `Margen Centralizado +${reglaPermuta?.valorBs ?? 15}%`}
               </Badge>
             </div>
 
@@ -715,9 +739,9 @@ export function RecepcionPermutaForm({
               </div>
 
               <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span className="text-slate-400 text-[11px]">Margen 15%:</span>
+                <span className="text-slate-400 text-[11px]">Margen Estimado:</span>
                 <p className="font-mono font-bold text-sm text-emerald-400">
-                  + Bs {gananciaBase15.toFixed(2)}
+                  + Bs {margenBrutoCalculado.toFixed(2)}
                 </p>
               </div>
 
@@ -739,7 +763,7 @@ export function RecepcionPermutaForm({
             <p className="text-[11px] text-slate-400 flex items-center gap-1.5 pt-1">
               <Info className="h-3.5 w-3.5 text-blue-400 shrink-0" />
               <span>
-                Fórmula de negocio: Precio Sugerido = (Costo Compra x 1.15) + Gastos Invertidos. Los gastos se recuperan íntegramente sobre la ganancia base.
+                Fórmula de negocio: Margen centralizado de permuta ({reglaPermuta?.tipoAumento === 'ABSOLUTO' ? `+Bs ${reglaPermuta.valorBs}` : `+${reglaPermuta?.valorBs ?? 15}%`}) sobre costo de compra + 100% de gastos de reparación.
               </span>
             </p>
           </div>

@@ -224,4 +224,68 @@ describe('ConfiguracionService', () => {
       );
     });
   });
+
+  describe('Márgenes de Precios Sugeridos', () => {
+    it('getMargenes debe retornar todas las reglas configuradas', async () => {
+      const mockReglas = [
+        {
+          id: 1,
+          categoria: 'DISPOSITIVO_NUEVO',
+          tipoAumento: 'PORCENTAJE',
+          valorBs: 15,
+        },
+        {
+          id: 2,
+          categoria: 'DISPOSITIVO_USADO',
+          tipoAumento: 'PORCENTAJE',
+          valorBs: 15,
+        },
+      ];
+      prisma.reglaMargenPrecio.findMany.mockResolvedValue(mockReglas as any);
+
+      const res = await service.getMargenes();
+      expect(res).toHaveLength(2);
+      expect(prisma.reglaMargenPrecio.findMany).toHaveBeenCalled();
+    });
+
+    it('updateMargenes debe actualizar las reglas mediante transacción', async () => {
+      const dto = {
+        reglas: [
+          {
+            categoria: 'DISPOSITIVO_NUEVO' as any,
+            tipoAumento: 'ABSOLUTO' as any,
+            valorBs: 200,
+            tipoAumentoUsd: 'PORCENTAJE' as any,
+            valorUsd: 15,
+          },
+        ],
+      };
+
+      prisma.reglaMargenPrecio.upsert.mockResolvedValue({ id: 1 } as any);
+      prisma.reglaMargenPrecio.findMany.mockResolvedValue([
+        {
+          id: 1,
+          categoria: 'DISPOSITIVO_NUEVO',
+          tipoAumento: 'ABSOLUTO',
+          valorBs: 200,
+        },
+      ] as any);
+
+      const res = await service.updateMargenes(dto);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(res[0].valorBs).toBe(200);
+    });
+
+    it('calcularPrecioSugerido debe calcular con la regla de la categoría', async () => {
+      prisma.reglaMargenPrecio.findUnique.mockResolvedValue({
+        id: 1,
+        categoria: 'ACCESORIO',
+        tipoAumento: 'ABSOLUTO',
+        valorBs: 30,
+      } as any);
+
+      const precio = await service.calcularPrecioSugerido('ACCESORIO' as any, 50, 0);
+      expect(precio).toBe(80); // 50 + 30 = 80
+    });
+  });
 });

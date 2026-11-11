@@ -4,21 +4,32 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
-import { CondicionDispositivo, EstadoCaja, EstadoInventario, EstadoVenta, TipoItemVenta } from '@prisma/client';
+import {
+  CategoriaMargen,
+  CondicionDispositivo,
+  EstadoCaja,
+  EstadoInventario,
+  EstadoVenta,
+  TipoItemVenta,
+} from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
 import { validateImagePayload } from '../common/utils/image-validator.util';
 import { VentaResponseMapper } from './mappers/venta-response.mapper';
 import { PaymentStrategyRegistry } from './strategies';
+import { calcularPrecioSugeridoBs } from '../configuracion/pricing-calculator.util';
 
 @Injectable()
 export class VentasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentRegistry: PaymentStrategyRegistry,
+    @Optional() private readonly configuracionService?: ConfiguracionService,
   ) {}
 
   // 1. Procesar Venta en Mostrador POS (US14, US15 con Transacción ACID e Invariantes)
@@ -416,8 +427,15 @@ export class VentasService {
           },
         });
 
-        // Crear Dispositivo recibido en permuta
-        const precioSugeridoBs = roundMoney(valorToma * 1.15); // margen base del 15%
+        // Crear Dispositivo recibido en permuta con margen de precio sugerido centralizado
+        const precioSugeridoBs = this.configuracionService
+          ? await this.configuracionService.calcularPrecioSugerido(
+              CategoriaMargen.PERMUTA,
+              valorToma,
+              0,
+              tx,
+            )
+          : calcularPrecioSugeridoBs(valorToma, null, 0);
         const nuevoDispositivo = await tx.dispositivo.create({
           data: {
             varianteId,

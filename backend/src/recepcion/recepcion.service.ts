@@ -5,8 +5,10 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
 import { UpdateNotaIngresoDto } from './dto/update-nota-ingreso.dto';
 import { AnularNotaIngresoDto } from './dto/anular-nota-ingreso.dto';
@@ -14,13 +16,46 @@ import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
 import { CreatePermutaDto } from './dto/create-permuta.dto';
 import { UpdatePermutaDto } from './dto/update-permuta.dto';
 import { roundMoney } from '../common/utils/money.util';
-import { CondicionDispositivo, EstadoInventario, EstadoVenta, Prisma } from '@prisma/client';
+import {
+  CategoriaMargen,
+  CondicionDispositivo,
+  EstadoInventario,
+  EstadoVenta,
+  Prisma,
+} from '@prisma/client';
+import {
+  calcularPrecioSugeridoBs,
+  mapearCondicionACategoriaMargen,
+} from '../configuracion/pricing-calculator.util';
 
 @Injectable()
 export class RecepcionService {
   private readonly logger = new Logger('RecepcionService');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly configuracionService?: ConfiguracionService,
+  ) {}
+
+  /**
+   * Helper centralizado para calcular precio sugerido respetando las reglas de margen.
+   */
+  private async calcularPrecioSugerido(
+    categoria: CategoriaMargen,
+    costoBaseBs: number | any,
+    gastosBs: number | any = 0,
+    tx?: any,
+  ): Promise<number> {
+    if (this.configuracionService) {
+      return this.configuracionService.calcularPrecioSugerido(
+        categoria,
+        costoBaseBs,
+        gastosBs,
+        tx,
+      );
+    }
+    return calcularPrecioSugeridoBs(costoBaseBs, null, gastosBs);
+  }
 
   async createNotaIngreso(dto: CreateNotaIngresoDto, usuarioId: number) {
     const {
@@ -201,17 +236,19 @@ export class RecepcionService {
           );
         }
 
+        const condicionDispositivo = d.condicion || CondicionDispositivo.NUEVO;
+        const catMargen = mapearCondicionACategoriaMargen(condicionDispositivo);
         const precioSugerido =
           d.precioVentaSugeridoBs !== undefined && d.precioVentaSugeridoBs !== null
             ? Number(d.precioVentaSugeridoBs)
-            : Math.round(Number(d.costoBs) * 1.15);
+            : await this.calcularPrecioSugerido(catMargen, d.costoBs, 0, tx);
 
         dispositivosParaCrear.push({
           varianteId: resolvedVarianteId,
           numeroSerie: d.numeroSerie.trim(),
           imei1: imei1Clean,
           imei2: d.imei2?.trim() || null,
-          condicion: d.condicion || CondicionDispositivo.NUEVO,
+          condicion: condicionDispositivo,
           costoBs: d.costoBs,
           costoUsd: d.costoUsd,
           precioVentaSugeridoBs: precioSugerido,
@@ -300,6 +337,18 @@ export class RecepcionService {
           );
         }
 
+        const precioVentaAccesorio =
+          acc.precioVentaBs !== undefined &&
+          acc.precioVentaBs !== null &&
+          Number(acc.precioVentaBs) > 0
+            ? acc.precioVentaBs
+            : await this.calcularPrecioSugerido(
+                CategoriaMargen.ACCESORIO,
+                acc.costoUnitarioBs,
+                0,
+                tx,
+              );
+
         await tx.loteAccesorio.create({
           data: {
             notaIngresoId: nota.id,
@@ -307,7 +356,7 @@ export class RecepcionService {
             accesorioId: resolvedAccesorioId,
             nombreDiferenciador: acc.nombreDiferenciador.trim(),
             costoUnitarioBs: acc.costoUnitarioBs,
-            precioVentaBs: acc.precioVentaBs,
+            precioVentaBs: precioVentaAccesorio,
             cantidadInicial: acc.cantidad,
             stockActual: acc.cantidad, // El stock inicial es igual a la cantidad ingresada
             activo: true,
@@ -954,10 +1003,12 @@ export class RecepcionService {
             );
           }
 
+          const condicionDispositivo = d.condicion || CondicionDispositivo.NUEVO;
+          const catMargen = mapearCondicionACategoriaMargen(condicionDispositivo);
           const precioSugerido =
             d.precioVentaSugeridoBs !== undefined && d.precioVentaSugeridoBs !== null
               ? Number(d.precioVentaSugeridoBs)
-              : Math.round(Number(d.costoBs) * 1.15);
+              : await this.calcularPrecioSugerido(catMargen, d.costoBs, 0, tx);
 
           if (d.id) {
             // Actualizar dispositivo existente
@@ -1288,12 +1339,17 @@ export class RecepcionService {
         throw new BadRequestException('El porcentaje de salud de batería debe estar entre 1% y 100%.');
       }
 
-      // 3. Cálculos Financieros: Margen base 15% sobre costo compra + suma de gastos iniciales
+      // 3. Cálculos Financieros: Margen centralizado sobre costo compra + suma de gastos iniciales
       const costoBs = roundMoney(dispositivo.costoBs);
       const sumaGastos = roundMoney(
         gastosIniciales.reduce((sum, g) => sum + (Number(g.costoBs) || 0), 0),
       );
-      const precioSugeridoBs = roundMoney((costoBs * 1.15) + sumaGastos);
+      const precioSugeridoBs = await this.calcularPrecioSugerido(
+        CategoriaMargen.PERMUTA,
+        costoBs,
+        sumaGastos,
+        tx,
+      );
 
       // 4. Crear Nota de Ingreso de tipo PERMUTA
       const nota = await tx.notaIngreso.create({
@@ -1483,7 +1539,12 @@ export class RecepcionService {
           const sumGastos = roundMoney(
             disp.gastos.reduce((s, g) => s + Number(g.costoBs), 0),
           );
-          updateData.precioVentaSugeridoBs = roundMoney((nuevoCosto * 1.15) + sumGastos);
+          updateData.precioVentaSugeridoBs = await this.calcularPrecioSugerido(
+            CategoriaMargen.PERMUTA,
+            nuevoCosto,
+            sumGastos,
+            tx,
+          );
 
           // Actualizar costo de la nota
           await tx.notaIngreso.update({

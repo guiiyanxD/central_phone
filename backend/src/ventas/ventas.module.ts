@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { VentasService } from './ventas.service';
 import { VentasController } from './ventas.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ConfiguracionModule } from '../configuracion/configuracion.module';
 import {
   CashPaymentStrategy,
   QrPaymentStrategy,
@@ -11,7 +12,7 @@ import {
 } from './strategies';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ConfiguracionModule],
   controllers: [VentasController],
   providers: [
     VentasService,

@@ -287,7 +287,7 @@ export function InventarioTelefonosTab({
                       ? Number(d.costoUsd)
                       : Number(d.costoBs || 0) / tc;
                   const gastosUsd = Number(d.gastosInvertidosBs || 0) / tc;
-                  // Regla comercial CentralPhone: 15% de margen sobre el costo de ingreso/inversión en USD
+                  // Proyección sugerida en USD (margen base 15% hasta activación operativa de USD)
                   const precioSugeridoUsd = (costoUsd + gastosUsd) * 1.15;
 
                   return (

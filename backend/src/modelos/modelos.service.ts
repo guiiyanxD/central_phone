@@ -5,8 +5,10 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
 import { UpdateModeloDto } from './dto/update-modelo.dto';
 import { CreateTipoDispositivoDto } from './dto/create-tipo-dispositivo.dto';
@@ -18,13 +20,45 @@ import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
 import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
 import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
 import { roundMoney } from '../common/utils/money.util';
-import { EstadoInventario, EstadoVenta, EstadoCaja } from '@prisma/client';
+import {
+  CategoriaMargen,
+  EstadoInventario,
+  EstadoVenta,
+  EstadoCaja,
+} from '@prisma/client';
+import {
+  calcularPrecioSugeridoBs,
+  mapearCondicionACategoriaMargen,
+} from '../configuracion/pricing-calculator.util';
 
 @Injectable()
 export class ModelosService {
   private readonly logger = new Logger('ModelosService');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly configuracionService?: ConfiguracionService,
+  ) {}
+
+  /**
+   * Helper centralizado para calcular precio sugerido respetando las reglas de margen.
+   */
+  private async calcularPrecioSugerido(
+    categoria: CategoriaMargen,
+    costoBaseBs: number | any,
+    gastosBs: number | any = 0,
+    tx?: any,
+  ): Promise<number> {
+    if (this.configuracionService) {
+      return this.configuracionService.calcularPrecioSugerido(
+        categoria,
+        costoBaseBs,
+        gastosBs,
+        tx,
+      );
+    }
+    return calcularPrecioSugeridoBs(costoBaseBs, null, gastosBs);
+  }
 
   // --- GESTIÓN DE TIPOS DE DISPOSITIVOS ---
   async findAllTiposDispositivo() {
@@ -978,7 +1012,13 @@ export class ModelosService {
       });
 
       const sumaGastos = gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0);
-      const nuevoPrecioSugerido = roundMoney(Number(dispositivo.costoBs) * 1.15 + sumaGastos);
+      const cat = mapearCondicionACategoriaMargen(dispositivo.condicion);
+      const nuevoPrecioSugerido = await this.calcularPrecioSugerido(
+        cat,
+        dispositivo.costoBs,
+        sumaGastos,
+        tx,
+      );
 
       await tx.dispositivo.update({
         where: { id: dispositivoId },
@@ -1080,8 +1120,12 @@ export class ModelosService {
       });
 
       const sumaGastos = gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0);
-      const nuevoPrecioSugerido = roundMoney(
-        Number(gasto.dispositivo.costoBs) * 1.15 + sumaGastos,
+      const cat = mapearCondicionACategoriaMargen(gasto.dispositivo.condicion);
+      const nuevoPrecioSugerido = await this.calcularPrecioSugerido(
+        cat,
+        gasto.dispositivo.costoBs,
+        sumaGastos,
+        tx,
       );
 
       await tx.dispositivo.update({
@@ -1159,8 +1203,12 @@ export class ModelosService {
       });
 
       const sumaGastos = gastosActivos.reduce((sum, g) => sum + Number(g.costoBs), 0);
-      const nuevoPrecioSugerido = roundMoney(
-        Number(gasto.dispositivo.costoBs) * 1.15 + sumaGastos,
+      const cat = mapearCondicionACategoriaMargen(gasto.dispositivo.condicion);
+      const nuevoPrecioSugerido = await this.calcularPrecioSugerido(
+        cat,
+        gasto.dispositivo.costoBs,
+        sumaGastos,
+        tx,
       );
 
       await tx.dispositivo.update({
