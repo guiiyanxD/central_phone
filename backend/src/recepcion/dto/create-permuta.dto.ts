@@ -111,4 +111,8 @@ export class CreatePermutaDto {
   @IsString()
   @IsOptional()
   observaciones?: string;
+
+  @IsDateString({}, { message: 'La fecha de ingreso debe ser una fecha válida (formato ISO).' })
+  @IsOptional()
+  fechaIngreso?: string;
 }

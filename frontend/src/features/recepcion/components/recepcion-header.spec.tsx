@@ -53,4 +53,22 @@ describe('RecepcionHeader - Tabs & Access Control', () => {
     rerender(<RecepcionHeader {...defaultProps} activeTab="historial" />);
     expect(screen.queryByText('1. Datos de Origen y Comprobante Mayorista')).toBeNull();
   });
+
+  it('debe mostrar el selector de fecha y el badge de ingreso histórico cuando la fecha es pasada', () => {
+    const setFechaIngreso = vi.fn();
+    const { rerender } = render(
+      <RecepcionHeader
+        {...defaultProps}
+        fechaIngreso="2025-01-01T10:00"
+        setFechaIngreso={setFechaIngreso}
+      />
+    );
+
+    expect(screen.getByText('Fecha de Recepción')).toBeDefined();
+    expect(screen.getByText('Ingreso Histórico')).toBeDefined();
+
+    const btnAhora = screen.getByText('Ahora');
+    fireEvent.click(btnAhora);
+    expect(setFechaIngreso).toHaveBeenCalled();
+  });
 });

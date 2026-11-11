@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsDateString,
   IsNumber,
   IsOptional,
   IsString,
@@ -25,6 +26,10 @@ export class UpdateNotaIngresoDto {
   @IsString()
   @IsOptional()
   observaciones?: string;
+
+  @IsDateString({}, { message: 'La fecha de ingreso debe ser una fecha válida (formato ISO).' })
+  @IsOptional()
+  fechaIngreso?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

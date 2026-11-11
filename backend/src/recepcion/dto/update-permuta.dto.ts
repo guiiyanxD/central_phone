@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -54,4 +55,8 @@ export class UpdatePermutaDto {
   @IsString()
   @IsOptional()
   observaciones?: string;
+
+  @IsDateString({}, { message: 'La fecha de ingreso debe ser una fecha válida (formato ISO).' })
+  @IsOptional()
+  fechaIngreso?: string;
 }

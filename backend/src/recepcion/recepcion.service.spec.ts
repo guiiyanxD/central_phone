@@ -357,6 +357,71 @@ describe('RecepcionService', () => {
         )
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('debe rechazar la creación si la fecha de ingreso es futura', async () => {
+      const fechaFutura = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      await expect(
+        service.createNotaIngreso(
+          {
+            ...baseDto,
+            fechaIngreso: fechaFutura,
+            dispositivos: [
+              {
+                varianteId: 1,
+                numeroSerie: 'F2LZ1234FUTU',
+                imei1: '354928110000001',
+                costoBs: 1000,
+                costoUsd: 140,
+              },
+            ],
+          },
+          usuarioId
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe crear la nota con fecha histórica válida', async () => {
+      const fechaHistorica = '2025-05-10T14:30:00.000Z';
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 1,
+        modelo: { tipo: 'IPHONE' },
+      } as any);
+      prisma.dispositivo.findUnique.mockResolvedValue(null);
+      prisma.notaIngreso.create.mockResolvedValue({ id: 99, fechaIngreso: new Date(fechaHistorica) } as any);
+      prisma.dispositivo.create.mockResolvedValue({ id: 101 } as any);
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 99,
+        fechaIngreso: new Date(fechaHistorica),
+        dispositivos: [],
+        lotesAccesorio: [],
+      } as any);
+
+      const res = await service.createNotaIngreso(
+        {
+          ...baseDto,
+          fechaIngreso: fechaHistorica,
+          dispositivos: [
+            {
+              varianteId: 1,
+              numeroSerie: 'HIST-SERIE-1',
+              imei1: '354928110000999',
+              costoBs: 1000,
+              costoUsd: 140,
+            },
+          ],
+        },
+        usuarioId
+      );
+
+      expect(prisma.notaIngreso.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            fechaIngreso: new Date(fechaHistorica),
+          }),
+        })
+      );
+      expect(res).toBeDefined();
+    });
   });
 
   describe('findOne', () => {
@@ -651,6 +716,65 @@ describe('RecepcionService', () => {
           usuarioId,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar la edición si la fecha de ingreso es futura', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'REGISTRADA',
+        sucursalId: 1,
+        proveedorId: 1,
+        dispositivos: [],
+        lotesAccesorio: [],
+      } as any);
+
+      const fechaFutura = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      await expect(
+        service.updateNotaIngreso(
+          10,
+          {
+            fechaIngreso: fechaFutura,
+          },
+          usuarioId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe actualizar la fecha de ingreso y sincronizar lotes de accesorios', async () => {
+      const fechaHistorica = '2025-06-15T10:00:00.000Z';
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 10,
+        estado: 'REGISTRADA',
+        sucursalId: 1,
+        proveedorId: 1,
+        dispositivos: [],
+        lotesAccesorio: [],
+      } as any);
+      prisma.dispositivo.findMany.mockResolvedValue([]);
+      prisma.loteAccesorio.findMany.mockResolvedValue([]);
+      prisma.notaIngreso.update.mockResolvedValue({ id: 10 } as any);
+      prisma.loteAccesorio.updateMany.mockResolvedValue({ count: 2 } as any);
+
+      await service.updateNotaIngreso(
+        10,
+        {
+          fechaIngreso: fechaHistorica,
+        },
+        usuarioId,
+      );
+
+      expect(prisma.notaIngreso.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: expect.objectContaining({
+            fechaIngreso: new Date(fechaHistorica),
+          }),
+        }),
+      );
+      expect(prisma.loteAccesorio.updateMany).toHaveBeenCalledWith({
+        where: { notaIngresoId: 10 },
+        data: { fechaIngreso: new Date(fechaHistorica) },
+      });
     });
   });
 

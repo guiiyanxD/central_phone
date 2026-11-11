@@ -77,4 +77,16 @@ describe('ModalConfirmarGuardado - Resumen Ejecutivo y Prevención de Guardado A
 
     expect(screen.getByText('Registrando en Inventario...')).toBeDefined();
   });
+
+  it('debe mostrar la fecha de recepción y badge histórico cuando se provee una fecha pasada', () => {
+    render(
+      <ModalConfirmarGuardado
+        {...defaultProps}
+        fechaIngreso="2025-01-15T14:30:00.000Z"
+      />
+    );
+
+    expect(screen.getByText('Fecha Recepción:')).toBeDefined();
+    expect(screen.getByText('Histórico')).toBeDefined();
+  });
 });

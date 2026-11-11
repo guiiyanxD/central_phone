@@ -78,6 +78,19 @@ export class RecepcionService {
     return calcularPrecioSugeridoUsd(costoBaseUsd, null, gastosUsd);
   }
 
+  private validarFechaIngreso(fechaIngresoStr?: string): Date | undefined {
+    if (!fechaIngresoStr) return undefined;
+    const fecha = new Date(fechaIngresoStr);
+    if (isNaN(fecha.getTime())) {
+      throw new BadRequestException('La fecha de recepción no es válida.');
+    }
+    // Tolerancia de 5 minutos respecto a la hora del servidor para desincronizaciones leves
+    if (fecha.getTime() > Date.now() + 5 * 60 * 1000) {
+      throw new BadRequestException('La fecha de recepción no puede ser una fecha futura.');
+    }
+    return fecha;
+  }
+
   async createNotaIngreso(dto: CreateNotaIngresoDto, usuarioId: number) {
     const {
       proveedorId,
@@ -87,6 +100,8 @@ export class RecepcionService {
       dispositivos = [],
       accesorios = [],
     } = dto;
+
+    const fechaEfectiva = this.validarFechaIngreso(dto.fechaIngreso);
 
     if (dispositivos.length === 0 && accesorios.length === 0) {
       throw new BadRequestException(
@@ -305,6 +320,7 @@ export class RecepcionService {
           numeroComprobante,
           totalCostoBs,
           observaciones,
+          ...(fechaEfectiva ? { fechaIngreso: fechaEfectiva } : {}),
         },
       });
 
@@ -391,6 +407,7 @@ export class RecepcionService {
             cantidadInicial: acc.cantidad,
             stockActual: acc.cantidad, // El stock inicial es igual a la cantidad ingresada
             activo: true,
+            ...(fechaEfectiva ? { fechaIngreso: fechaEfectiva } : {}),
           },
         });
       }
@@ -854,6 +871,8 @@ export class RecepcionService {
       accesorios,
     } = dto;
 
+    const fechaEfectiva = this.validarFechaIngreso(dto.fechaIngreso);
+
     if (proveedorId && proveedorId !== nota.proveedorId) {
       const prov = await this.prisma.proveedor.findUnique({ where: { id: proveedorId } });
       if (!prov) {
@@ -1202,6 +1221,7 @@ export class RecepcionService {
                 cantidadInicial: acc.cantidad,
                 stockActual: acc.cantidad,
                 activo: true,
+                fechaIngreso: fechaEfectiva || nota.fechaIngreso,
               },
             });
           }
@@ -1226,17 +1246,25 @@ export class RecepcionService {
         totalCostoBs += Number(l.costoUnitarioBs) * l.cantidadInicial;
       });
 
-      // 6. Actualizar cabecera de la Nota de Ingreso
+      // 6. Actualizar cabecera de la Nota de Ingreso y sincronizar lotes
       await tx.notaIngreso.update({
         where: { id },
         data: {
           ...(proveedorId ? { proveedorId } : {}),
           ...(sucursalId ? { sucursalId } : {}),
+          ...(fechaEfectiva ? { fechaIngreso: fechaEfectiva } : {}),
           numeroComprobante: numeroComprobante !== undefined ? numeroComprobante : nota.numeroComprobante,
           observaciones: observaciones !== undefined ? observaciones : nota.observaciones,
           totalCostoBs,
         },
       });
+
+      if (fechaEfectiva) {
+        await tx.loteAccesorio.updateMany({
+          where: { notaIngresoId: id },
+          data: { fechaIngreso: fechaEfectiva },
+        });
+      }
 
       this.logger.log(`Nota de Ingreso #${id} actualizada exitosamente por usuario ${usuarioId}.`);
     });
@@ -1261,6 +1289,8 @@ export class RecepcionService {
       gastosIniciales = [],
       observaciones,
     } = dto;
+
+    const fechaEfectiva = this.validarFechaIngreso(dto.fechaIngreso);
 
     if (userRol && userRol !== 'ADMIN' && userSucursalId && sucursalId !== userSucursalId) {
       throw new ForbiddenException(
@@ -1403,6 +1433,7 @@ export class RecepcionService {
           observaciones: observaciones?.trim() || null,
           totalCostoBs: costoBs,
           estado: 'REGISTRADA',
+          ...(fechaEfectiva ? { fechaIngreso: fechaEfectiva } : {}),
         },
       });
 
@@ -1607,6 +1638,14 @@ export class RecepcionService {
         await tx.notaIngreso.update({
           where: { id },
           data: { observaciones: dto.observaciones?.trim() || null },
+        });
+      }
+
+      if (dto.fechaIngreso !== undefined) {
+        const fechaEfectiva = this.validarFechaIngreso(dto.fechaIngreso);
+        await tx.notaIngreso.update({
+          where: { id },
+          data: { fechaIngreso: fechaEfectiva },
         });
       }
 

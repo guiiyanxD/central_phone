@@ -88,6 +88,14 @@ export default function RecepcionMercaderiaPage() {
   );
   const [numeroComprobante, setNumeroComprobante] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
+
+  const getNowDateTimeLocal = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const [fechaIngreso, setFechaIngreso] = useState<string>(getNowDateTimeLocal());
   const [modalCrearProveedorOpen, setModalCrearProveedorOpen] = useState(false);
 
   const handleProveedorCreado = (nuevoProveedor: any) => {
@@ -280,6 +288,16 @@ export default function RecepcionMercaderiaPage() {
       setSucursalId(nota.sucursalId);
       setNumeroComprobante(nota.numeroComprobante || '');
       setObservaciones(nota.observaciones || '');
+
+      if (nota.fechaIngreso) {
+        const d = new Date(nota.fechaIngreso);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        setFechaIngreso(
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+        );
+      } else {
+        setFechaIngreso(getNowDateTimeLocal());
+      }
 
       // Cargar dispositivos existentes
       if (nota.dispositivos && nota.dispositivos.length > 0) {
@@ -953,6 +971,7 @@ export default function RecepcionMercaderiaPage() {
         sucursalId: Number(sucursalId),
         numeroComprobante: numeroComprobante.trim() || undefined,
         observaciones: observaciones.trim() || undefined,
+        fechaIngreso: fechaIngreso ? new Date(fechaIngreso).toISOString() : undefined,
         dispositivos: telefonosValidos.map((t) => ({
           id: t.dbId,
           varianteId: t.varianteId ? Number(t.varianteId) : undefined,
@@ -1003,6 +1022,7 @@ export default function RecepcionMercaderiaPage() {
     setNotaCreada(null);
     setNumeroComprobante('');
     setObservaciones('');
+    setFechaIngreso(getNowDateTimeLocal());
     setTelefonos([
       {
         id: `tel-${Date.now()}`,
@@ -1071,6 +1091,8 @@ export default function RecepcionMercaderiaPage() {
         setNumeroComprobante={setNumeroComprobante}
         observaciones={observaciones}
         setObservaciones={setObservaciones}
+        fechaIngreso={fechaIngreso}
+        setFechaIngreso={setFechaIngreso}
         onOpenCrearProveedor={() => setModalCrearProveedorOpen(true)}
       />
 
@@ -1263,6 +1285,7 @@ export default function RecepcionMercaderiaPage() {
         sucursalNombre={sucursalNombreDisplay}
         numeroComprobante={numeroComprobante}
         observaciones={observaciones}
+        fechaIngreso={fechaIngreso}
         totalTelefonos={totalUnidadesTelefonos}
         totalAccesorios={totalUnidadesAccesorios}
         totalCostoBs={totalCostoNotaBs}

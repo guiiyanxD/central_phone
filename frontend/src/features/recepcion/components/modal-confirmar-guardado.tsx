@@ -9,6 +9,7 @@ import {
   Smartphone,
   Headphones,
   AlertTriangle,
+  CalendarClock,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ interface ModalConfirmarGuardadoProps {
   sucursalNombre: string;
   numeroComprobante?: string;
   observaciones?: string;
+  fechaIngreso?: string;
   totalTelefonos: number;
   totalAccesorios: number;
   totalCostoBs: number;
@@ -38,11 +40,32 @@ export function ModalConfirmarGuardado({
   sucursalNombre,
   numeroComprobante,
   observaciones,
+  fechaIngreso,
   totalTelefonos,
   totalAccesorios,
   totalCostoBs,
   totalCostoUsd,
 }: ModalConfirmarGuardadoProps) {
+  const esHistorico = React.useMemo(() => {
+    if (!fechaIngreso) return false;
+    const timeSelected = new Date(fechaIngreso).getTime();
+    if (isNaN(timeSelected)) return false;
+    return Date.now() - timeSelected > 60 * 60 * 1000;
+  }, [fechaIngreso]);
+
+  const fechaFormatted = React.useMemo(() => {
+    if (!fechaIngreso) return 'Ahora (fecha actual)';
+    const d = new Date(fechaIngreso);
+    if (isNaN(d.getTime())) return fechaIngreso;
+    return d.toLocaleString('es-BO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [fechaIngreso]);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -83,6 +106,21 @@ export function ModalConfirmarGuardado({
               Sucursal Destino:
             </span>
             <strong className="text-slate-900 font-semibold">{sucursalNombre || 'No seleccionada'}</strong>
+          </div>
+
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <span className="text-slate-500 flex items-center gap-1.5">
+              <CalendarClock className="h-3.5 w-3.5 text-slate-400" />
+              Fecha Recepción:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-slate-800">{fechaFormatted}</span>
+              {esHistorico && (
+                <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-700 px-1.5 py-0 font-medium">
+                  Histórico
+                </Badge>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">

@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { PackagePlus, History, Boxes, Truck, RefreshCw, Plus } from 'lucide-react';
+import { PackagePlus, History, Boxes, Truck, RefreshCw, Plus, CalendarClock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,8 @@ interface RecepcionHeaderProps {
   setNumeroComprobante: (val: string) => void;
   observaciones: string;
   setObservaciones: (val: string) => void;
+  fechaIngreso?: string;
+  setFechaIngreso?: (val: string) => void;
   onOpenCrearProveedor?: () => void;
 }
 
@@ -48,6 +50,8 @@ export function RecepcionHeader({
   setNumeroComprobante,
   observaciones,
   setObservaciones,
+  fechaIngreso,
+  setFechaIngreso,
   onOpenCrearProveedor,
 }: RecepcionHeaderProps) {
   const proveedorOptions: SearchableSelectOption[] = useMemo(() => {
@@ -64,6 +68,27 @@ export function RecepcionHeader({
       };
     });
   }, [proveedores]);
+
+  const maxDateTimeLocal = useMemo(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  }, []);
+
+  const esHistorico = useMemo(() => {
+    if (!fechaIngreso) return false;
+    const timeSelected = new Date(fechaIngreso).getTime();
+    if (isNaN(timeSelected)) return false;
+    return Date.now() - timeSelected > 60 * 60 * 1000;
+  }, [fechaIngreso]);
+
+  const handleSetAhora = () => {
+    if (!setFechaIngreso) return;
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setFechaIngreso(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Encabezado Principal */}
@@ -203,7 +228,7 @@ export function RecepcionHeader({
               Proveedor mayorista y sucursal donde ingresará la mercadería física.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label required className="mb-0">Proveedor Mayorista</Label>
@@ -252,7 +277,43 @@ export function RecepcionHeader({
               />
             </div>
 
-            <div className="sm:col-span-3">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="fechaIngresoInput" className="mb-0 flex items-center gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Fecha de Recepción</span>
+                </Label>
+                {setFechaIngreso && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 text-[10px] px-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium"
+                    onClick={handleSetAhora}
+                    title="Restablecer a la fecha y hora actual"
+                  >
+                    Ahora
+                  </Button>
+                )}
+              </div>
+              <Input
+                id="fechaIngresoInput"
+                type="datetime-local"
+                max={maxDateTimeLocal}
+                value={fechaIngreso || ''}
+                onChange={(e) => setFechaIngreso && setFechaIngreso(e.target.value)}
+                className="text-xs font-mono"
+              />
+              {esHistorico && (
+                <div className="mt-1 flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-700 px-1.5 py-0 font-medium">
+                    Ingreso Histórico
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-4">
               <Label>Observaciones de Recepción (Opcional)</Label>
               <Input
                 placeholder="Ej: Entrega recibida por encomienda, sin empaque dañado"

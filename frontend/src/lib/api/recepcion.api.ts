@@ -5,6 +5,7 @@ export interface CreateNotaIngresoData {
   sucursalId: number;
   numeroComprobante?: string;
   observaciones?: string;
+  fechaIngreso?: string;
   dispositivos?: Array<{
     id?: number;
     varianteId?: number;
@@ -69,6 +70,7 @@ export interface CreatePermutaData {
     fechaGasto?: string;
   }>;
   observaciones?: string;
+  fechaIngreso?: string;
 }
 
 export interface UpdatePermutaData {
@@ -86,6 +88,7 @@ export interface UpdatePermutaData {
     precioVentaSugeridoBs?: number;
   };
   observaciones?: string;
+  fechaIngreso?: string;
 }
 
 export interface NotaIngresoListItem {
