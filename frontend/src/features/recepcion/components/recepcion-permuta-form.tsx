@@ -100,6 +100,7 @@ export function RecepcionPermutaForm({
   const [imei1, setImei1] = useState('');
   const [imei2, setImei2] = useState('');
   const [porcentajeBateria, setPorcentajeBateria] = useState<number | ''>(85);
+  const [registro, setRegistro] = useState('');
   const [costoBs, setCostoBs] = useState<number | ''>('');
 
   // Gastos iniciales opcionales
@@ -247,6 +248,7 @@ export function RecepcionPermutaForm({
           imei1: imei1.trim(),
           imei2: imei2.trim() || undefined,
           porcentajeBateria: Number(porcentajeBateria),
+          detallesFisicos: registro.trim() || undefined,
           costoBs: numericCostoBs,
         },
         gastosIniciales: gastos.map((g) => ({
@@ -585,6 +587,28 @@ export function RecepcionPermutaForm({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Campo Registro: Situación de liberación del iPhone */}
+          <div className="pt-1">
+            <Label htmlFor="registroPermuta" className="text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
+                <span>Registro</span>
+                <span className="text-slate-400 font-normal text-[11px]">(Situación de liberación del iPhone)</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
+            </Label>
+            <Input
+              id="registroPermuta"
+              placeholder="Ej: Liberado de fábrica / Bloqueado AT&T / R-SIM / Homologado"
+              value={registro}
+              onChange={(e) => setRegistro(e.target.value)}
+              className="text-xs h-9"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Información de uso interno para determinar si el equipo está liberado o asociado a un operador.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">

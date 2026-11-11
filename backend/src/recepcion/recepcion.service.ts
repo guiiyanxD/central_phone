@@ -532,6 +532,7 @@ export class RecepcionService {
               imei1: true,
               imei2: true,
               porcentajeBateria: true,
+              detallesFisicos: true,
               costoBs: true,
               precioVentaSugeridoBs: true,
               estadoInventario: true,
@@ -1644,6 +1645,9 @@ export class RecepcionService {
         }
         if (dto.dispositivo.porcentajeBateria !== undefined) {
           updateData.porcentajeBateria = dto.dispositivo.porcentajeBateria;
+        }
+        if (dto.dispositivo.detallesFisicos !== undefined) {
+          updateData.detallesFisicos = dto.dispositivo.detallesFisicos?.trim() || null;
         }
         if (dto.dispositivo.costoBs !== undefined) {
           const nuevoCosto = roundMoney(dto.dispositivo.costoBs);

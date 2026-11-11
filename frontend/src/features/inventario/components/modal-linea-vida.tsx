@@ -302,6 +302,11 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                 <span>
                   <strong>Serie (S/N):</strong> {data.dispositivo.numeroSerie}
                 </span>
+                {data.dispositivo.detallesFisicos && (
+                  <span className="text-purple-300">
+                    <strong>Registro:</strong> {data.dispositivo.detallesFisicos}
+                  </span>
+                )}
               </div>
             </div>
 

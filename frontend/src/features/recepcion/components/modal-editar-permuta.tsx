@@ -7,6 +7,7 @@ import {
   Phone,
   Battery,
   CalendarClock,
+  ShieldCheck,
   AlertTriangle,
   CheckCircle2,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ export function ModalEditarPermuta({
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
   const [porcentajeBateria, setPorcentajeBateria] = useState<number>(100);
+  const [registro, setRegistro] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [fechaIngreso, setFechaIngreso] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,6 +46,7 @@ export function ModalEditarPermuta({
       setTelefonoCliente(permuta.proveedor?.telefono || '');
       const disp = permuta.dispositivos?.[0];
       setPorcentajeBateria(disp?.porcentajeBateria || 100);
+      setRegistro(disp?.detallesFisicos || '');
       setObservaciones(permuta.observaciones || '');
 
       if (permuta.fechaIngreso) {
@@ -87,6 +90,7 @@ export function ModalEditarPermuta({
         },
         dispositivo: {
           porcentajeBateria: Number(porcentajeBateria),
+          detallesFisicos: registro.trim() || undefined,
         },
         observaciones: observaciones.trim() || undefined,
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso).toISOString() : undefined,
@@ -212,6 +216,24 @@ export function ModalEditarPermuta({
             value={porcentajeBateria}
             onChange={(e) => setPorcentajeBateria(Number(e.target.value))}
             className="text-xs h-9 font-mono w-32"
+          />
+        </div>
+
+        {/* Registro (Situación de Liberación) */}
+        <div>
+          <Label htmlFor="editRegistro" className="text-xs mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
+              <span>Registro <span className="text-slate-400 font-normal">(Situación de liberación)</span></span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
+          </Label>
+          <Input
+            id="editRegistro"
+            value={registro}
+            onChange={(e) => setRegistro(e.target.value)}
+            placeholder="Ej: Liberado de fábrica / Bloqueado AT&T / R-SIM"
+            className="text-xs h-9"
           />
         </div>
 

@@ -998,5 +998,54 @@ describe('RecepcionService', () => {
         service.updatePermuta(50, {}, usuarioId, 'VENDEDOR', 1),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('debe persistir el campo de Registro (detallesFisicos) al crear una permuta', async () => {
+      await service.createPermuta(
+        {
+          ...basePermutaDto,
+          dispositivo: {
+            ...basePermutaDto.dispositivo,
+            detallesFisicos: 'Liberado de fábrica (Sin R-SIM)',
+          },
+        },
+        usuarioId,
+        1,
+      );
+
+      expect(prisma.dispositivo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          detallesFisicos: 'Liberado de fábrica (Sin R-SIM)',
+        }),
+      });
+    });
+
+    it('debe actualizar el campo de Registro (detallesFisicos) al editar una permuta', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 50,
+        sucursalId: 1,
+        estado: 'REGISTRADA',
+        dispositivos: [{ id: 1, estadoInventario: 'DISPONIBLE', detalleVentas: [], gastos: [] }],
+      } as any);
+      prisma.dispositivo.update.mockResolvedValue({ id: 1 } as any);
+
+      await service.updatePermuta(
+        50,
+        {
+          dispositivo: {
+            detallesFisicos: 'Liberado por IMEI AT&T',
+          },
+        },
+        usuarioId,
+        'ADMIN',
+        1,
+      );
+
+      expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          detallesFisicos: 'Liberado por IMEI AT&T',
+        }),
+      });
+    });
   });
 });

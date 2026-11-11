@@ -32,6 +32,7 @@ describe('RecepcionPermutasTable Component', () => {
           imei1: '354928110009999',
           imei2: '354928110008888',
           porcentajeBateria: 88,
+          detallesFisicos: 'Liberado de fábrica',
           costoBs: 2500,
           precioVentaSugeridoBs: 3200,
           estadoInventario: 'DISPONIBLE',
@@ -88,6 +89,7 @@ describe('RecepcionPermutasTable Component', () => {
     expect(screen.getByText('iPhone 14')).toBeDefined();
     expect(screen.getByText(/Azul • 128GB/)).toBeDefined();
     expect(screen.getByText('354928110009999')).toBeDefined();
+    expect(screen.getByText(/Reg: Liberado de fábrica/)).toBeDefined();
     expect(screen.getByText(/88%/)).toBeDefined();
     expect(screen.getByText(/2[.,]500[.,]00/)).toBeDefined();
     expect(screen.getByText(/3[.,]200[.,]00/)).toBeDefined();

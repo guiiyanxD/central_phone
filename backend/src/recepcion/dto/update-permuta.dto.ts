@@ -39,6 +39,10 @@ export class UpdateDispositivoPermutaDto {
   @Min(1, { message: 'El costo de compra en Bs debe ser mayor a 0.' })
   @IsOptional()
   costoBs?: number;
+
+  @IsString()
+  @IsOptional()
+  detallesFisicos?: string;
 }
 
 export class UpdatePermutaDto {

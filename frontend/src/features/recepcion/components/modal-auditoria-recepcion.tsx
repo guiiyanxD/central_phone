@@ -258,6 +258,11 @@ export function ModalAuditoriaRecepcion({
                                 <p className="text-[11px] text-slate-500">
                                   {d.variante?.color} • {d.variante?.capacidadGb > 0 ? `${d.variante?.capacidadGb} GB` : '0 GB'} ({d.variante?.tipoSim})
                                 </p>
+                                {d.detallesFisicos && (
+                                  <p className="text-[10px] text-slate-600 bg-slate-100 rounded px-1.5 py-0.5 mt-1 border border-slate-200 w-fit">
+                                    <span className="font-semibold text-slate-700">Registro:</span> {d.detallesFisicos}
+                                  </p>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 font-mono text-[11px]">
                                 <p className="text-slate-900 font-semibold">S/N: {d.numeroSerie}</p>

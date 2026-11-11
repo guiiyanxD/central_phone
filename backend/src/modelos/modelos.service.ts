@@ -608,6 +608,7 @@ export class ModelosService {
         numeroSerie: dispositivo.numeroSerie,
         condicion: dispositivo.condicion,
         porcentajeBateria: dispositivo.porcentajeBateria,
+        detallesFisicos: dispositivo.detallesFisicos,
         estadoInventario: dispositivo.estadoInventario,
         precioVentaSugeridoBs: Number(dispositivo.precioVentaSugeridoBs),
         costoBs: esAdmin ? Number(dispositivo.costoBs) : undefined,

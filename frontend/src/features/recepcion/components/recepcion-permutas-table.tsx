@@ -15,6 +15,7 @@ import {
   Battery,
   Building2,
   User,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -283,6 +284,15 @@ export function RecepcionPermutasTable({
                             <span className="text-[11px] text-slate-500">
                               {disp.variante?.color || ''} {capLabel ? `• ${capLabel}` : ''}
                             </span>
+                            {disp.detallesFisicos && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded mt-1 font-medium w-fit max-w-[220px] truncate"
+                                title={`Situación de Registro: ${disp.detallesFisicos}`}
+                              >
+                                <ShieldCheck className="h-3 w-3 text-slate-500 shrink-0" />
+                                <span className="truncate">Reg: {disp.detallesFisicos}</span>
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400 italic">Sin dispositivo</span>
