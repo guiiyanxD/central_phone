@@ -72,7 +72,7 @@ export function InventarioAccesoriosTab({
     sucursalFilter !== 'TODAS' ||
     stockFilter !== 'TODOS';
 
-  const colSpanTotal = 6;
+  const colSpanTotal = 5;
 
   return (
     <div className="space-y-4">
@@ -175,9 +175,11 @@ export function InventarioAccesoriosTab({
                 <th className="py-3 px-4">
                   {isAdmin ? 'Costo / P. Sugerido (Bs.)' : 'Precio Sugerido (Bs.)'}
                 </th>
+                {/* PRECIO SUGERIDO / COSTO EN USD - COMENTADO TEMPORALMENTE (LOS ACCESORIOS NO MANEJAN PRECIOS EN USD POR EL MOMENTO)
                 <th className="py-3 px-4">
                   {isAdmin ? 'Costo / P. Sugerido ($)' : 'Precio Sugerido ($)'}
                 </th>
+                */}
                 <th className="py-3 px-4 text-center">Stock Actual</th>
                 <th className="py-3 px-4 text-right">Acciones</th>
               </tr>
@@ -263,6 +265,7 @@ export function InventarioAccesoriosTab({
                         )}
                       </td>
 
+                      {/* PRECIO SUGERIDO / COSTO EN USD - COMENTADO TEMPORALMENTE (LOS ACCESORIOS NO MANEJAN PRECIOS EN USD POR EL MOMENTO)
                       <td className="py-3.5 px-4 font-mono text-slate-800">
                         {isAdmin && lote.costoUnitarioBs !== undefined ? (
                           <>
@@ -279,6 +282,7 @@ export function InventarioAccesoriosTab({
                           </p>
                         )}
                       </td>
+                      */}
 
                       <td className="py-3.5 px-4 text-center">
                         <span

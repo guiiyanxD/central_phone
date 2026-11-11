@@ -297,6 +297,7 @@ export function MargenesConfigForm() {
           const regla = reglasState[catMeta.categoria];
           const sim = simulaciones[catMeta.categoria];
           const Icon = catMeta.icon;
+          const isAccesorio = catMeta.categoria === 'ACCESORIO';
 
           // Cálculo en vivo para la simulación
           const precioSugeridoSimulado = calcularPrecioSugeridoBs(sim.costo, regla, sim.gastos);
@@ -403,25 +404,41 @@ export function MargenesConfigForm() {
                   </div>
                 </div>
 
-                {/* 2. SECCIÓN DÓLARES (OPERATIVO) */}
-                <div className="space-y-3 bg-slate-50/50 p-3.5 rounded-xl border border-dashed border-slate-300">
+                {/* 2. SECCIÓN DÓLARES (OPERATIVO PARA DISPOSITIVOS / READONLY PARA ACCESORIOS) */}
+                <div
+                  className={cn(
+                    'space-y-3 p-3.5 rounded-xl border border-dashed transition-all',
+                    isAccesorio
+                      ? 'bg-slate-100/60 border-slate-200'
+                      : 'bg-slate-50/50 border-slate-300',
+                  )}
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Coins className="h-4 w-4 text-emerald-600" />
+                      <Coins className={cn('h-4 w-4', isAccesorio ? 'text-slate-400' : 'text-emerald-600')} />
                       Margen en Dólares (USD)
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-300 font-medium">
-                      Operativo
-                    </Badge>
+                    {isAccesorio ? (
+                      <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-100 border-slate-300 font-medium">
+                        No aplica por el momento
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-300 font-medium">
+                        Operativo
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => handleFieldChange(catMeta.categoria, 'tipoAumentoUsd', 'PORCENTAJE')}
+                      disabled={isAccesorio}
+                      onClick={() => !isAccesorio && handleFieldChange(catMeta.categoria, 'tipoAumentoUsd', 'PORCENTAJE')}
                       className={cn(
                         'py-1.5 px-3 rounded-lg text-xs font-medium border flex items-center justify-center gap-1.5 transition-all',
-                        regla.tipoAumentoUsd === 'PORCENTAJE'
+                        isAccesorio
+                          ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed select-none'
+                          : regla.tipoAumentoUsd === 'PORCENTAJE'
                           ? 'bg-white border-slate-400 text-slate-800 shadow-xs'
                           : 'bg-transparent border-slate-200 text-slate-500 hover:bg-white',
                       )}
@@ -431,10 +448,13 @@ export function MargenesConfigForm() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleFieldChange(catMeta.categoria, 'tipoAumentoUsd', 'ABSOLUTO')}
+                      disabled={isAccesorio}
+                      onClick={() => !isAccesorio && handleFieldChange(catMeta.categoria, 'tipoAumentoUsd', 'ABSOLUTO')}
                       className={cn(
                         'py-1.5 px-3 rounded-lg text-xs font-medium border flex items-center justify-center gap-1.5 transition-all',
-                        regla.tipoAumentoUsd === 'ABSOLUTO'
+                        isAccesorio
+                          ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed select-none'
+                          : regla.tipoAumentoUsd === 'ABSOLUTO'
                           ? 'bg-white border-slate-400 text-slate-800 shadow-xs'
                           : 'bg-transparent border-slate-200 text-slate-500 hover:bg-white',
                       )}
@@ -450,20 +470,37 @@ export function MargenesConfigForm() {
                       min="0"
                       step={regla.tipoAumentoUsd === 'PORCENTAJE' ? '0.5' : '1'}
                       value={regla.valorUsd}
+                      readOnly={isAccesorio}
+                      disabled={isAccesorio}
                       onChange={(e) =>
+                        !isAccesorio &&
                         handleFieldChange(
                           catMeta.categoria,
                           'valorUsd',
                           parseFloat(e.target.value) || 0,
                         )
                       }
-                      className="pr-12 text-xs"
+                      className={cn(
+                        'pr-12 text-xs',
+                        isAccesorio && 'bg-slate-200/50 text-slate-400 cursor-not-allowed select-none border-slate-200',
+                      )}
                       placeholder={catMeta.placeholderUsd}
+                      title={
+                        isAccesorio
+                          ? 'Los accesorios operan exclusivamente en Bolivianos (Bs.) por el momento'
+                          : undefined
+                      }
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs font-medium text-slate-400">
                       {regla.tipoAumentoUsd === 'PORCENTAJE' ? '%' : '$'}
                     </div>
                   </div>
+
+                  {isAccesorio && (
+                    <p className="text-[10px] text-slate-500 italic">
+                      * Los accesorios operan exclusivamente en Bolivianos (Bs.) por el momento.
+                    </p>
+                  )}
                 </div>
 
                 {/* 3. SIMULADOR EN TIEMPO REAL */}

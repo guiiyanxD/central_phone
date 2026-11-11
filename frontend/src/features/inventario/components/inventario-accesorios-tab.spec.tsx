@@ -59,13 +59,14 @@ describe('InventarioAccesoriosTab Component', () => {
     onFetchLotes: vi.fn(),
   };
 
-  it('debe renderizar exactamente las 6 columnas requeridas y no saturar la tabla', () => {
+  it('debe renderizar exactamente las 5 columnas requeridas y mantener comentada la columna de USD', () => {
     render(<InventarioAccesoriosTab {...defaultProps} />);
 
     expect(screen.getByText('Accesorio Base')).toBeDefined();
     expect(screen.getByText('Lote Diferenciador')).toBeDefined();
     expect(screen.getByText('Costo / P. Sugerido (Bs.)')).toBeDefined();
-    expect(screen.getByText('Costo / P. Sugerido ($)')).toBeDefined();
+    // La columna USD está comentada para accesorios (no manejan precios en USD por el momento)
+    expect(screen.queryByText('Costo / P. Sugerido ($)')).toBeNull();
     expect(screen.getByText('Stock Actual')).toBeDefined();
     expect(screen.getByText('Acciones')).toBeDefined();
 
@@ -74,16 +75,16 @@ describe('InventarioAccesoriosTab Component', () => {
     expect(screen.queryByText('Fecha Ingreso')).toBeNull();
   });
 
-  it('debe mostrar los precios duales en Bs y USD calculados con el tipo de cambio', () => {
+  it('debe mostrar los precios en Bolivianos en la tabla y mantener comentados los precios en USD', () => {
     render(<InventarioAccesoriosTab {...defaultProps} tipoCambio={10} />);
 
     // En Bolivianos: Costo 60, Sugerido 120
     expect(screen.getByText(/Bs 60\.00/i)).toBeDefined();
     expect(screen.getByText(/Sug: Bs 120\.00/i)).toBeDefined();
 
-    // En Dólares: Costo 6.00 (60/10), Sugerido 12.00 (120/10)
-    expect(screen.getByText(/\$ 6\.00/i)).toBeDefined();
-    expect(screen.getByText(/Sug: \$ 12\.00/i)).toBeDefined();
+    // En Dólares: la columna en la tabla principal de accesorios está comentada
+    expect(screen.queryByText(/\$ 6\.00/i)).toBeNull();
+    expect(screen.queryByText(/Sug: \$ 12\.00/i)).toBeNull();
   });
 
   it('debe abrir el modal de detalle al hacer clic en el botón DETALLE', () => {
@@ -100,18 +101,16 @@ describe('InventarioAccesoriosTab Component', () => {
     expect(screen.getByText('Mayorista USA')).toBeDefined();
   });
 
-  it('debe ocultar costos de adquisición cuando isAdmin es false y rotular "Precio Sugerido"', () => {
+  it('debe ocultar costos de adquisición cuando isAdmin es false y rotular "Precio Sugerido (Bs.)" con USD comentado', () => {
     render(<InventarioAccesoriosTab {...defaultProps} isAdmin={false} tipoCambio={10} />);
 
     expect(screen.getByText('Precio Sugerido (Bs.)')).toBeDefined();
-    expect(screen.getByText('Precio Sugerido ($)')).toBeDefined();
+    expect(screen.queryByText('Precio Sugerido ($)')).toBeNull();
 
-    // No debe mostrar el costo de 60 Bs ni 6 $
+    // No debe mostrar el costo de 60 Bs
     expect(screen.queryByText(/Bs 60\.00/i)).toBeNull();
-    expect(screen.queryByText(/\$ 6\.00/i)).toBeNull();
 
-    // Solo debe mostrar el precio sugerido
+    // Solo debe mostrar el precio sugerido en Bs
     expect(screen.getByText(/Bs 120\.00/i)).toBeDefined();
-    expect(screen.getByText(/\$ 12\.00/i)).toBeDefined();
   });
 });
