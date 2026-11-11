@@ -21,6 +21,7 @@ export interface CreateNotaIngresoData {
     costoBs: number;
     costoUsd: number;
     precioVentaSugeridoBs?: number;
+    precioVentaSugeridoUsd?: number;
     porcentajeBateria?: number;
     detallesFisicos?: string | null;
   }>;
@@ -147,6 +148,7 @@ export interface NotaIngresoDetail {
     costoBs?: number | string;
     costoUsd?: number | string;
     precioVentaSugeridoBs: number | string;
+    precioVentaSugeridoUsd?: number | string;
     porcentajeBateria?: number | null;
     detallesFisicos?: string | null;
     estadoInventario: 'DISPONIBLE' | 'VENDIDO' | 'RESERVADO' | 'EN_GARANTIA' | 'DEFECTUOSO';

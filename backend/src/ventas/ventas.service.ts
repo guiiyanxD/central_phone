@@ -450,6 +450,7 @@ export class VentasService {
             costoBs: valorToma,
             costoUsd: 0,
             precioVentaSugeridoBs: precioSugeridoBs,
+            precioVentaSugeridoUsd: 0,
             estadoInventario: EstadoInventario.DISPONIBLE,
           },
         });

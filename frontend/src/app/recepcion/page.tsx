@@ -25,6 +25,7 @@ import { CategoriaAccesorioItem, TipoDispositivoItem } from '@/features/catalogo
 import { ReglaMargenPrecio, CategoriaMargen } from '@/lib/api/configuracion.api';
 import {
   calcularPrecioSugeridoBs,
+  calcularPrecioSugeridoUsd,
   mapearCondicionACategoriaMargen,
 } from '@/lib/utils/pricing.util';
 
@@ -109,6 +110,7 @@ export default function RecepcionMercaderiaPage() {
       costoBs: 0,
       costoUsd: 0,
       precioVentaSugeridoBs: 0,
+      precioVentaSugeridoUsd: 0,
     },
   ]);
 
@@ -310,6 +312,7 @@ export default function RecepcionMercaderiaPage() {
             costoBs: Number(d.costoBs || 0),
             costoUsd: Number(d.costoUsd || 0),
             precioVentaSugeridoBs: Number(d.precioVentaSugeridoBs || 0),
+            precioVentaSugeridoUsd: Number(d.precioVentaSugeridoUsd || 0),
           };
         });
         setTelefonos(mappedTelefonos);
@@ -325,6 +328,7 @@ export default function RecepcionMercaderiaPage() {
             costoBs: 0,
             costoUsd: 0,
             precioVentaSugeridoBs: 0,
+            precioVentaSugeridoUsd: 0,
           },
         ]);
       }
@@ -423,6 +427,7 @@ export default function RecepcionMercaderiaPage() {
       costoBs: source?.costoBs || 0,
       costoUsd: source?.costoUsd || 0,
       precioVentaSugeridoBs: source?.precioVentaSugeridoBs || 0,
+      precioVentaSugeridoUsd: source?.precioVentaSugeridoUsd || 0,
       numeroSerie: '',
       imei1: '',
       imei2: '',
@@ -462,6 +467,15 @@ export default function RecepcionMercaderiaPage() {
               updated.precioVentaSugeridoBs = calcularPrecioSugeridoBs(numCosto, regla, 0);
             }
           }
+          if (field === 'costoUsd') {
+            const numCostoUsd = Number(value) || 0;
+            const cat = mapearCondicionACategoriaMargen(t.condicion);
+            const regla = getReglaMargen(cat);
+            const prevCalculadoUsd = calcularPrecioSugeridoUsd(t.costoUsd, regla, 0);
+            if (!t.precioVentaSugeridoUsd || t.precioVentaSugeridoUsd === prevCalculadoUsd) {
+              updated.precioVentaSugeridoUsd = calcularPrecioSugeridoUsd(numCostoUsd, regla, 0);
+            }
+          }
           if (field === 'condicion') {
             const oldCat = mapearCondicionACategoriaMargen(t.condicion);
             const newCat = mapearCondicionACategoriaMargen(value);
@@ -470,6 +484,10 @@ export default function RecepcionMercaderiaPage() {
             const prevCalculado = calcularPrecioSugeridoBs(t.costoBs, oldRegla, 0);
             if (!t.precioVentaSugeridoBs || t.precioVentaSugeridoBs === prevCalculado) {
               updated.precioVentaSugeridoBs = calcularPrecioSugeridoBs(t.costoBs, newRegla, 0);
+            }
+            const prevCalculadoUsd = calcularPrecioSugeridoUsd(t.costoUsd, oldRegla, 0);
+            if (!t.precioVentaSugeridoUsd || t.precioVentaSugeridoUsd === prevCalculadoUsd) {
+              updated.precioVentaSugeridoUsd = calcularPrecioSugeridoUsd(t.costoUsd, newRegla, 0);
             }
           }
           if (field === 'varianteId' && typeof value === 'number') {
@@ -947,6 +965,7 @@ export default function RecepcionMercaderiaPage() {
           costoBs: Number(t.costoBs) || 0,
           costoUsd: Number(t.costoUsd) || 0,
           precioVentaSugeridoBs: Number(t.precioVentaSugeridoBs) || 0,
+          precioVentaSugeridoUsd: Number(t.precioVentaSugeridoUsd) || 0,
         })),
         accesorios: accesoriosValidos.map((a) => ({
           id: a.dbId,
@@ -995,6 +1014,7 @@ export default function RecepcionMercaderiaPage() {
         costoBs: 0,
         costoUsd: 0,
         precioVentaSugeridoBs: 0,
+        precioVentaSugeridoUsd: 0,
       },
     ]);
     setAccesorios([

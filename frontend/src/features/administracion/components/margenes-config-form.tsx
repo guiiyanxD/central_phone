@@ -403,15 +403,15 @@ export function MargenesConfigForm() {
                   </div>
                 </div>
 
-                {/* 2. SECCIÓN DÓLARES (INFORMATIVA / PREPARACIÓN) */}
+                {/* 2. SECCIÓN DÓLARES (OPERATIVO) */}
                 <div className="space-y-3 bg-slate-50/50 p-3.5 rounded-xl border border-dashed border-slate-300">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Coins className="h-4 w-4 text-slate-400" />
+                      <Coins className="h-4 w-4 text-emerald-600" />
                       Margen en Dólares (USD)
                     </span>
-                    <Badge variant="outline" className="text-[10px] text-slate-500 bg-white">
-                      Próximamente / Informativo
+                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-300 font-medium">
+                      Operativo
                     </Badge>
                   </div>
 

@@ -24,6 +24,7 @@ export interface TelefonoRow {
   costoBs: number;
   costoUsd: number;
   precioVentaSugeridoBs: number;
+  precioVentaSugeridoUsd?: number;
 }
 
 export interface AccesorioRow {

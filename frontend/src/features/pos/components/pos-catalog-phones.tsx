@@ -74,6 +74,12 @@ export function PosCatalogPhones({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1">
           {filteredPhones.map((d) => {
             const isAdded = cart.some((i) => i.dispositivoId === d.id);
+            const precioUsd =
+              Number(d.precioVentaSugeridoUsd || 0) > 0
+                ? Number(d.precioVentaSugeridoUsd)
+                : Number(d.costoUsd || 0) > 0
+                ? Math.ceil(Number(d.costoUsd) * 1.15)
+                : 0;
             return (
               <div
                 key={d.id}
@@ -151,7 +157,15 @@ export function PosCatalogPhones({
 
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
                   <span className="font-mono font-bold text-slate-900">
-                    Bs {getPhoneDisplayPrice(d).toFixed(2)}
+                    Bs. {getPhoneDisplayPrice(d).toFixed(2)}
+                    {precioUsd > 0 && (
+                      <>
+                        <span className="text-slate-400 font-normal mx-1">|</span>
+                        <span className="font-mono text-emerald-600 font-semibold">
+                          USD. {precioUsd.toFixed(2)}
+                        </span>
+                      </>
+                    )}
                   </span>
                   <Button
                     size="sm"

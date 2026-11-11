@@ -11,7 +11,10 @@ import { CategoriaMargen, TipoAumentoMargen } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
 import { ActualizarReglasMargenDto } from './dto/actualizar-reglas-margen.dto';
-import { calcularPrecioSugeridoBs } from './pricing-calculator.util';
+import {
+  calcularPrecioSugeridoBs,
+  calcularPrecioSugeridoUsd,
+} from './pricing-calculator.util';
 import { validateImagePayload } from '../common/utils/image-validator.util';
 import { ImageOptimizerService } from '../common/services/image-optimizer.service';
 
@@ -345,5 +348,18 @@ export class ConfiguracionService implements OnModuleInit {
   ): Promise<number> {
     const regla = await this.getMargenPorCategoria(categoria, client);
     return calcularPrecioSugeridoBs(costoBaseBs, regla, gastosBs);
+  }
+
+  /**
+   * Calcula el precio sugerido de venta en Dólares aplicando la regla centralizada de la categoría.
+   */
+  async calcularPrecioSugeridoUsd(
+    categoria: CategoriaMargen,
+    costoBaseUsd: number | any,
+    gastosUsd: number | any = 0,
+    client?: any,
+  ): Promise<number> {
+    const regla = await this.getMargenPorCategoria(categoria, client);
+    return calcularPrecioSugeridoUsd(costoBaseUsd, regla, gastosUsd);
   }
 }

@@ -287,8 +287,11 @@ export function InventarioTelefonosTab({
                       ? Number(d.costoUsd)
                       : Number(d.costoBs || 0) / tc;
                   const gastosUsd = Number(d.gastosInvertidosBs || 0) / tc;
-                  // Proyección sugerida en USD (margen base 15% hasta activación operativa de USD)
-                  const precioSugeridoUsd = (costoUsd + gastosUsd) * 1.15;
+                  // Precio sugerido en USD: utiliza el valor persistido en base de datos si existe, o cálculo fallback
+                  const precioSugeridoUsd =
+                    d.precioVentaSugeridoUsd && Number(d.precioVentaSugeridoUsd) > 0
+                      ? Number(d.precioVentaSugeridoUsd)
+                      : (costoUsd + gastosUsd) * 1.15;
 
                   return (
                     <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">

@@ -1,11 +1,47 @@
 import { describe, it, expect } from 'vitest';
-import { calcularPrecioSugeridoBs, mapearCondicionACategoriaMargen } from './pricing.util';
+import {
+  calcularPrecioSugeridoBs,
+  calcularPrecioSugeridoUsd,
+  mapearCondicionACategoriaMargen,
+} from './pricing.util';
 import { ReglaMargenPrecio } from '@/lib/api/configuracion.api';
 
 describe('pricing.util (Frontend)', () => {
   it('aplica fallback de 15% cuando la regla es nula o indefinida', () => {
     expect(calcularPrecioSugeridoBs(100, null)).toBe(115);
     expect(calcularPrecioSugeridoBs(100, undefined)).toBe(115);
+    expect(calcularPrecioSugeridoUsd(100, null)).toBe(115);
+    expect(calcularPrecioSugeridoUsd(100, undefined)).toBe(115);
+  });
+
+  it('retorna 0 si costo en USD es 0 o vacío sin gastos', () => {
+    expect(calcularPrecioSugeridoUsd(0, null)).toBe(0);
+    expect(calcularPrecioSugeridoUsd(null, null)).toBe(0);
+  });
+
+  it('redondea al entero superior con Math.ceil en USD', () => {
+    // 533.33 * 1.15 = 613.3295 -> 614
+    const reglaPorc: ReglaMargenPrecio = {
+      id: 1,
+      categoria: 'DISPOSITIVO_NUEVO',
+      tipoAumento: 'PORCENTAJE',
+      valorBs: 15,
+      tipoAumentoUsd: 'PORCENTAJE',
+      valorUsd: 15,
+    };
+    expect(calcularPrecioSugeridoUsd(533.33, reglaPorc)).toBe(614);
+  });
+
+  it('calcula correctamente aumento absoluto en USD', () => {
+    const reglaAbs: ReglaMargenPrecio = {
+      id: 2,
+      categoria: 'DISPOSITIVO_USADO',
+      tipoAumento: 'ABSOLUTO',
+      valorBs: 300,
+      tipoAumentoUsd: 'ABSOLUTO',
+      valorUsd: 50,
+    };
+    expect(calcularPrecioSugeridoUsd(400, reglaAbs)).toBe(450);
   });
 
   it('redondea al entero superior con Math.ceil', () => {

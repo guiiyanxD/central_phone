@@ -56,3 +56,41 @@ export function calcularPrecioSugeridoBs(
 
   return Math.ceil(baseConMargen) + gastos;
 }
+
+/**
+ * Calcula el precio sugerido de venta en Dólares (USD).
+ * Aplica la regla configurada en USD (tipoAumentoUsd y valorUsd) sobre el costo en dólares.
+ * Aplica Math.ceil para redondear al entero superior más cercano (sin centavos fraccionarios).
+ * Si el costo en USD es 0 o vacío, retorna 0.
+ */
+export function calcularPrecioSugeridoUsd(
+  costoBaseUsd: number | string | any,
+  regla?: ReglaMargenCalculationInput | null,
+  gastosUsd: number | string | any = 0,
+): number {
+  const base = Number(costoBaseUsd) || 0;
+  const gastos = Number(gastosUsd) || 0;
+
+  if (base <= 0) {
+    return gastos > 0 ? Math.ceil(gastos) : 0;
+  }
+
+  if (!regla) {
+    return Math.ceil(base * 1.15) + gastos;
+  }
+
+  const tipoAumento = regla.tipoAumentoUsd ?? TipoAumentoMargen.PORCENTAJE;
+  const valor = Number(
+    regla.valorUsd !== undefined && regla.valorUsd !== null ? regla.valorUsd : regla.valorBs,
+  ) || 0;
+  let baseConMargen: number;
+
+  if (tipoAumento === TipoAumentoMargen.ABSOLUTO) {
+    baseConMargen = base + valor;
+  } else {
+    baseConMargen = base * (1 + valor / 100);
+  }
+
+  return Math.ceil(baseConMargen) + gastos;
+}
+

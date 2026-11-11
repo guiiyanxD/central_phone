@@ -337,6 +337,25 @@ export function RecepcionTelefonosTable({
                   />
                 </div>
 
+                {/* Precio Venta Sugerido en Bs */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor={`tel-precio-bs-${t.id}`} required>P. Venta Sugerido (Bs)</Label>
+                    <span className="text-[10px] text-slate-500 font-mono">auto</span>
+                  </div>
+                  <Input
+                    id={`tel-precio-bs-${t.id}`}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={t.precioVentaSugeridoBs || ''}
+                    onChange={(e) =>
+                      onUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
+                    }
+                  />
+                </div>
+
                 {/* Costo en USD */}
                 <div>
                   <Label htmlFor={`tel-costo-usd-${t.id}`} required>Costo Unitario ($ USD)</Label>
@@ -353,27 +372,27 @@ export function RecepcionTelefonosTable({
                   />
                 </div>
 
-                {/* Precio Venta Sugerido en Bs */}
+                {/* Precio Venta Sugerido en USD */}
                 <div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`tel-precio-bs-${t.id}`} required>P. Venta Sugerido (Bs)</Label>
-                    <span className="text-[10px] text-slate-500 font-mono">+15% auto</span>
+                    <Label htmlFor={`tel-precio-usd-${t.id}`} required>P. Venta Sugerido ($ USD)</Label>
+                    <span className="text-[10px] text-emerald-600 font-mono font-medium">auto</span>
                   </div>
                   <Input
-                    id={`tel-precio-bs-${t.id}`}
+                    id={`tel-precio-usd-${t.id}`}
                     type="number"
                     step="0.01"
                     min="0"
                     placeholder="0.00"
-                    value={t.precioVentaSugeridoBs || ''}
+                    value={t.precioVentaSugeridoUsd || ''}
                     onChange={(e) =>
-                      onUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
+                      onUpdateTelefono(t.id, 'precioVentaSugeridoUsd', parseFloat(e.target.value) || 0)
                     }
                   />
                 </div>
 
                 {/* Detalles Físicos / Observaciones */}
-                <div className="md:col-span-3">
+                <div className="md:col-span-4">
                   <Label htmlFor={`tel-detalles-${t.id}`}>Detalles Físicos / Observaciones (Opcional)</Label>
                   <Input
                     id={`tel-detalles-${t.id}`}

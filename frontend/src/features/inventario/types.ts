@@ -15,6 +15,7 @@ export interface DispositivoItem {
   costoBs: number | string;
   costoUsd: number | string;
   precioVentaSugeridoBs?: number | string | null;
+  precioVentaSugeridoUsd?: number | string | null;
   sucursalId: number;
   sucursal?: {
     id: number;

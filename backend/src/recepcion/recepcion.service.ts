@@ -25,6 +25,7 @@ import {
 } from '@prisma/client';
 import {
   calcularPrecioSugeridoBs,
+  calcularPrecioSugeridoUsd,
   mapearCondicionACategoriaMargen,
 } from '../configuracion/pricing-calculator.util';
 
@@ -38,7 +39,7 @@ export class RecepcionService {
   ) {}
 
   /**
-   * Helper centralizado para calcular precio sugerido respetando las reglas de margen.
+   * Helper centralizado para calcular precio sugerido en Bs respetando las reglas de margen.
    */
   private async calcularPrecioSugerido(
     categoria: CategoriaMargen,
@@ -55,6 +56,26 @@ export class RecepcionService {
       );
     }
     return calcularPrecioSugeridoBs(costoBaseBs, null, gastosBs);
+  }
+
+  /**
+   * Helper centralizado para calcular precio sugerido en USD respetando las reglas de margen.
+   */
+  private async calcularPrecioSugeridoUsd(
+    categoria: CategoriaMargen,
+    costoBaseUsd: number | any,
+    gastosUsd: number | any = 0,
+    tx?: any,
+  ): Promise<number> {
+    if (this.configuracionService) {
+      return this.configuracionService.calcularPrecioSugeridoUsd(
+        categoria,
+        costoBaseUsd,
+        gastosUsd,
+        tx,
+      );
+    }
+    return calcularPrecioSugeridoUsd(costoBaseUsd, null, gastosUsd);
   }
 
   async createNotaIngreso(dto: CreateNotaIngresoDto, usuarioId: number) {
@@ -174,6 +195,7 @@ export class RecepcionService {
         costoBs: number;
         costoUsd: number;
         precioVentaSugeridoBs: number;
+        precioVentaSugeridoUsd: number;
         porcentajeBateria?: number | null;
         detallesFisicos?: string | null;
       }> = [];
@@ -243,6 +265,13 @@ export class RecepcionService {
             ? Number(d.precioVentaSugeridoBs)
             : await this.calcularPrecioSugerido(catMargen, d.costoBs, 0, tx);
 
+        const precioSugeridoUsd =
+          d.precioVentaSugeridoUsd !== undefined && d.precioVentaSugeridoUsd !== null
+            ? Number(d.precioVentaSugeridoUsd)
+            : Number(d.costoUsd) > 0
+            ? await this.calcularPrecioSugeridoUsd(catMargen, d.costoUsd, 0, tx)
+            : 0;
+
         dispositivosParaCrear.push({
           varianteId: resolvedVarianteId,
           numeroSerie: d.numeroSerie.trim(),
@@ -252,6 +281,7 @@ export class RecepcionService {
           costoBs: d.costoBs,
           costoUsd: d.costoUsd,
           precioVentaSugeridoBs: precioSugerido,
+          precioVentaSugeridoUsd: precioSugeridoUsd,
           porcentajeBateria: d.porcentajeBateria ? Number(d.porcentajeBateria) : null,
           detallesFisicos: d.detallesFisicos?.trim() || null,
         });
@@ -292,6 +322,7 @@ export class RecepcionService {
             costoBs: disp.costoBs,
             costoUsd: disp.costoUsd,
             precioVentaSugeridoBs: disp.precioVentaSugeridoBs,
+            precioVentaSugeridoUsd: disp.precioVentaSugeridoUsd,
             porcentajeBateria: disp.porcentajeBateria,
             detallesFisicos: disp.detallesFisicos,
             estadoInventario: EstadoInventario.DISPONIBLE,
@@ -1010,6 +1041,13 @@ export class RecepcionService {
               ? Number(d.precioVentaSugeridoBs)
               : await this.calcularPrecioSugerido(catMargen, d.costoBs, 0, tx);
 
+          const precioSugeridoUsd =
+            d.precioVentaSugeridoUsd !== undefined && d.precioVentaSugeridoUsd !== null
+              ? Number(d.precioVentaSugeridoUsd)
+              : Number(d.costoUsd) > 0
+              ? await this.calcularPrecioSugeridoUsd(catMargen, d.costoUsd, 0, tx)
+              : 0;
+
           if (d.id) {
             // Actualizar dispositivo existente
             const dispDb = nota.dispositivos.find((item) => item.id === d.id);
@@ -1021,6 +1059,7 @@ export class RecepcionService {
                 where: { id: d.id },
                 data: {
                   precioVentaSugeridoBs: precioSugerido,
+                  precioVentaSugeridoUsd: precioSugeridoUsd,
                 },
               });
             } else {
@@ -1036,6 +1075,7 @@ export class RecepcionService {
                   costoBs: d.costoBs,
                   costoUsd: d.costoUsd,
                   precioVentaSugeridoBs: precioSugerido,
+                  precioVentaSugeridoUsd: precioSugeridoUsd,
                 },
               });
             }
@@ -1055,6 +1095,7 @@ export class RecepcionService {
                 costoBs: d.costoBs,
                 costoUsd: d.costoUsd,
                 precioVentaSugeridoBs: precioSugerido,
+                precioVentaSugeridoUsd: precioSugeridoUsd,
                 estadoInventario: EstadoInventario.DISPONIBLE,
               },
             });
@@ -1380,6 +1421,7 @@ export class RecepcionService {
           costoBs,
           costoUsd: 0,
           precioVentaSugeridoBs: precioSugeridoBs,
+          precioVentaSugeridoUsd: 0,
           estadoInventario: EstadoInventario.DISPONIBLE,
         },
       });
