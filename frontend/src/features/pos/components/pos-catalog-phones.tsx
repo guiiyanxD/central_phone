@@ -172,7 +172,10 @@ export function PosCatalogPhones({
                     variant={isAdded ? 'outline' : 'default'}
                     className="h-8 text-xs px-3 font-semibold"
                     disabled={isAdded}
-                    onClick={() => onAddPhone(d)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhone(d);
+                    }}
                   >
                     {isAdded ? 'En Carrito' : '+ Agregar'}
                   </Button>

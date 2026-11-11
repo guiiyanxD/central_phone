@@ -81,7 +81,10 @@ export function PosCatalogAccessories({
                   size="sm"
                   className="h-8 text-xs px-3 font-semibold"
                   disabled={lote.stockActual <= 0}
-                  onClick={() => onAddAccessory(acc, lote)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddAccessory(acc, lote);
+                  }}
                 >
                   + Agregar
                 </Button>

@@ -251,37 +251,48 @@ export default function PosPage() {
 
   // Manejadores de Carrito
   const commitAddPhone = (disp: any, isInterSucursal = false) => {
-    if (cart.some((item) => item.dispositivoId === disp.id)) {
+    let alreadyInCart = false;
+    setCart((prev) => {
+      if (prev.some((item) => item.dispositivoId === disp.id)) {
+        alreadyInCart = true;
+        return prev;
+      }
+      const precioSugerido = getPhoneDisplayPrice(disp);
+
+      const newItem: CartItem = {
+        cartId: `tel-${disp.id}`,
+        tipo: 'DISPOSITIVO',
+        dispositivoId: disp.id,
+        nombre: disp.variante?.modelo?.nombreModelo,
+        subtitulo: `${disp.variante?.color} • ${
+          disp.variante?.capacidadGb > 0
+            ? disp.variante?.capacidadGb >= 1024
+              ? `${disp.variante?.capacidadGb / 1024}TB`
+              : `${disp.variante?.capacidadGb}GB`
+            : '0 GB'
+        } [${disp.condicion === 'PERMUTA' ? 'P' : disp.condicion}]`,
+        imei: disp.imei1 || undefined,
+        serie: disp.numeroSerie,
+        cantidad: 1,
+        precioUnitarioBs: precioSugerido,
+        precioSugeridoOriginal: precioSugerido,
+        sucursalId: disp.sucursalId,
+        sucursalNombre: disp.sucursal?.nombre,
+        isInterSucursal,
+      };
+
+      return [...prev, newItem];
+    });
+
+    if (alreadyInCart) {
       playScanErrorSound();
-      setScanFeedback(`El equipo ${disp.variante?.modelo?.nombreModelo} (${disp.imei1 || disp.numeroSerie}) ya está en el ticket.`);
+      setScanFeedback(
+        `El equipo ${disp.variante?.modelo?.nombreModelo} (${disp.imei1 || disp.numeroSerie}) ya está en el ticket.`
+      );
       setTimeout(() => setScanFeedback(null), 3000);
       return;
     }
-    const precioSugerido = getPhoneDisplayPrice(disp);
 
-    const newItem: CartItem = {
-      cartId: `tel-${disp.id}`,
-      tipo: 'DISPOSITIVO',
-      dispositivoId: disp.id,
-      nombre: disp.variante?.modelo?.nombreModelo,
-      subtitulo: `${disp.variante?.color} • ${
-        disp.variante?.capacidadGb > 0
-          ? disp.variante?.capacidadGb >= 1024
-            ? `${disp.variante?.capacidadGb / 1024}TB`
-            : `${disp.variante?.capacidadGb}GB`
-          : '0 GB'
-      } [${disp.condicion === 'PERMUTA' ? 'P' : disp.condicion}]`,
-      imei: disp.imei1 || undefined,
-      serie: disp.numeroSerie,
-      cantidad: 1,
-      precioUnitarioBs: precioSugerido,
-      precioSugeridoOriginal: precioSugerido,
-      sucursalId: disp.sucursalId,
-      sucursalNombre: disp.sucursal?.nombre,
-      isInterSucursal,
-    };
-
-    setCart((prev) => [...prev, newItem]);
     playScanBeep();
   };
 
@@ -309,18 +320,20 @@ export default function PosPage() {
   };
 
   const commitAddAccessory = (acc: any, lote: any, isInterSucursal = false) => {
-    const existing = cart.find((item) => item.loteAccesorioId === lote.id);
-    if (existing) {
-      if (existing.cantidad < lote.stockActual) {
-        setCart(
-          cart.map((item) =>
-            item.loteAccesorioId === lote.id
-              ? { ...item, cantidad: item.cantidad + 1 }
-              : item
-          )
-        );
+    let stockReached = false;
+    setCart((prev) => {
+      const existingIndex = prev.findIndex((item) => item.loteAccesorioId === lote.id);
+      if (existingIndex >= 0) {
+        const existing = prev[existingIndex];
+        if (existing.cantidad < lote.stockActual) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...existing, cantidad: existing.cantidad + 1 };
+          return updated;
+        }
+        stockReached = true;
+        return prev;
       }
-    } else {
+
       const newItem: CartItem = {
         cartId: `acc-${lote.id}`,
         tipo: 'ACCESORIO',
@@ -335,8 +348,17 @@ export default function PosPage() {
         sucursalNombre: lote.sucursal?.nombre,
         isInterSucursal,
       };
-      setCart((prev) => [...prev, newItem]);
+
+      return [...prev, newItem];
+    });
+
+    if (stockReached) {
+      playScanErrorSound();
+      setScanFeedback(`Stock máximo alcanzado para ${acc.nombre} (${lote.nombreDiferenciador}).`);
+      setTimeout(() => setScanFeedback(null), 3000);
+      return;
     }
+
     playScanBeep();
   };
 
@@ -394,8 +416,8 @@ export default function PosPage() {
   };
 
   const handleUpdateQuantity = (cartId: string, delta: number) => {
-    setCart(
-      cart
+    setCart((prev) =>
+      prev
         .map((item) => {
           if (item.cartId === cartId) {
             const nuevaCant = item.cantidad + delta;
@@ -411,8 +433,8 @@ export default function PosPage() {
 
   const handleUpdatePrice = (cartId: string, newPrice: number) => {
     setPriceWarning(null);
-    setCart(
-      cart.map((item) =>
+    setCart((prev) =>
+      prev.map((item) =>
         item.cartId === cartId ? { ...item, precioUnitarioBs: newPrice } : item
       )
     );
@@ -420,40 +442,52 @@ export default function PosPage() {
 
   const handleValidatePriceFloor = (cartId: string) => {
     setPriceWarning(null);
-    const item = cart.find((i) => i.cartId === cartId);
-    if (!item) return;
+    setCart((prev) => {
+      const item = prev.find((i) => i.cartId === cartId);
+      if (!item) return prev;
 
-    if (user?.rol !== 'ADMIN' && item.precioSugeridoOriginal && item.precioSugeridoOriginal > 0) {
-      const pisoMinimo = Math.round(item.precioSugeridoOriginal * 0.9);
-      if (item.precioUnitarioBs < pisoMinimo) {
-        setPriceWarning(
-          `Política Comercial: Como vendedor no puedes reducir el precio de "${item.nombre}" por debajo de Bs ${pisoMinimo.toFixed(2)} (máx 10% de descuento). Se ha reajustado al piso permitido.`
-        );
-        setCart(
-          cart.map((i) => (i.cartId === cartId ? { ...i, precioUnitarioBs: pisoMinimo } : i))
-        );
+      if (user?.rol !== 'ADMIN' && item.precioSugeridoOriginal && item.precioSugeridoOriginal > 0) {
+        const pisoMinimo = Math.round(item.precioSugeridoOriginal * 0.9);
+        if (item.precioUnitarioBs < pisoMinimo) {
+          setPriceWarning(
+            `Política Comercial: Como vendedor no puedes reducir el precio de "${item.nombre}" por debajo de Bs ${pisoMinimo.toFixed(2)} (máx 10% de descuento). Se ha reajustado al piso permitido.`
+          );
+          return prev.map((i) => (i.cartId === cartId ? { ...i, precioUnitarioBs: pisoMinimo } : i));
+        }
       }
-    }
+      return prev;
+    });
   };
 
   const handleRemoveFromCart = (cartId: string) => {
-    const itemToRemove = cart.find((item) => item.cartId === cartId);
-    if (!itemToRemove) return;
+    let removedItem: CartItem | null = null;
+    setCart((prev) => {
+      const itemToRemove = prev.find((item) => item.cartId === cartId);
+      if (!itemToRemove) return prev;
+      removedItem = itemToRemove;
+      return prev.filter((item) => item.cartId !== cartId);
+    });
 
-    setCart(cart.filter((item) => item.cartId !== cartId));
-    setLastRemovedItem(itemToRemove);
-    setUndoToastVisible(true);
+    if (removedItem) {
+      setLastRemovedItem(removedItem);
+      setUndoToastVisible(true);
 
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    undoTimerRef.current = setTimeout(() => {
-      setUndoToastVisible(false);
-      setLastRemovedItem(null);
-    }, 5000);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => {
+        setUndoToastVisible(false);
+        setLastRemovedItem(null);
+      }, 5000);
+    }
   };
 
   const handleUndoRemove = () => {
     if (!lastRemovedItem) return;
-    setCart((prev) => [...prev, lastRemovedItem]);
+    setCart((prev) => {
+      if (lastRemovedItem && lastRemovedItem.dispositivoId && prev.some((i) => i.dispositivoId === lastRemovedItem.dispositivoId)) {
+        return prev;
+      }
+      return [...prev, lastRemovedItem];
+    });
     setUndoToastVisible(false);
     setLastRemovedItem(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
