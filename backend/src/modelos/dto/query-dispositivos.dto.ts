@@ -51,6 +51,15 @@ export class QueryDispositivosDto {
   nombreProducto?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  capacidadGb?: number;
+
+  @IsOptional()
+  @IsString()
+  tipoSim?: string;
+
+  @IsOptional()
   @IsString()
   fechaDesde?: string;
 

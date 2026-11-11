@@ -228,6 +228,86 @@ describe('ModelosService', () => {
       );
     });
 
+    it('debe filtrar por capacidad de memoria (ej: 128gb o 1tb) en busqueda general', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ busqueda: '128gb' }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { variante: { capacidadGb: 128 } },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+
+      await service.findDispositivos({ busqueda: '1tb' }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { variante: { capacidadGb: 1024 } },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it('debe filtrar por conectividad / tipoSim (ej: esim) en busqueda general', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ busqueda: 'esim' }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { variante: { tipoSim: { contains: 'esim', mode: 'insensitive' } } },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it('debe filtrar por combinacion multi-termino (ej: 13 128gb esim)', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ busqueda: '13 128gb esim' }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { variante: { capacidadGb: 128 } },
+                ]),
+              }),
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { variante: { tipoSim: { contains: 'esim', mode: 'insensitive' } } },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
     it('debe filtrar por proveedor a través de notaIngreso', async () => {
       prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
       prisma.dispositivo.count.mockResolvedValue(1);

@@ -28,6 +28,7 @@ import {
   calcularPrecioSugeridoBs,
   mapearCondicionACategoriaMargen,
 } from '@/lib/utils/pricing.util';
+import { matchesDispositivoQuery } from '@/lib/utils/search.util';
 
 export default function PosPage() {
   const { user, activeSucursal, setActiveSucursal } = useAuth();
@@ -510,15 +511,7 @@ export default function PosPage() {
   // Filtrado optimizado de teléfonos y accesorios con useMemo (FRONT-P0-03)
   const filteredPhones = useMemo(() => {
     if (!searchPhone.trim()) return dispositivos;
-    const q = searchPhone.toLowerCase();
-    return dispositivos.filter((d) => {
-      return (
-        (d.imei1 && d.imei1.toLowerCase().includes(q)) ||
-        (d.numeroSerie && d.numeroSerie.toLowerCase().includes(q)) ||
-        (d.variante?.modelo?.nombreModelo && d.variante.modelo.nombreModelo.toLowerCase().includes(q)) ||
-        (d.variante?.color && d.variante.color.toLowerCase().includes(q))
-      );
-    });
+    return dispositivos.filter((d) => matchesDispositivoQuery(d, searchPhone));
   }, [dispositivos, searchPhone]);
 
   const regularPhones = useMemo(() => {

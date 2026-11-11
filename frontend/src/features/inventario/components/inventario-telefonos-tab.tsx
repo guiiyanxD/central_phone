@@ -91,8 +91,8 @@ export function InventarioTelefonosTab({
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <Input
               className="pl-9 pr-8 h-9 text-xs"
-              placeholder="Buscar por IMEI, Serie, Modelo o Color..."
-              aria-label="Buscar dispositivos por IMEI, Serie, Modelo o Color"
+              placeholder="Buscar por IMEI, Serie, Modelo, Color, 128GB/1TB, eSIM..."
+              aria-label="Buscar dispositivos por IMEI, Serie, Modelo, Color, Capacidad o SIM"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

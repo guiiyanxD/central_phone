@@ -39,9 +39,9 @@ export function PosCatalogPhones({
         <Input
           ref={inputSearchRef}
           autoFocus
-          aria-label="Escanear o tipear IMEI 1, Serie o Modelo"
+          aria-label="Escanear o tipear IMEI, Serie, Modelo, Capacidad o SIM"
           className="pl-9 pr-24 text-xs font-mono"
-          placeholder="Escanear o tipear IMEI 1, Serie o Modelo..."
+          placeholder="Escanear IMEI/Serie o buscar por Modelo, 128GB/1TB, eSIM..."
           value={searchPhone}
           onChange={(e) => setSearchPhone(e.target.value)}
           onKeyDown={onSearchKeyDown}

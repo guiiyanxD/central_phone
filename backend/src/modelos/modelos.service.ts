@@ -20,6 +20,7 @@ import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
 import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
 import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
 import { roundMoney } from '../common/utils/money.util';
+import { parseCapacidadBusqueda } from '../common/utils/search-query.util';
 import {
   CategoriaMargen,
   EstadoInventario,
@@ -357,35 +358,73 @@ export class ModelosService {
       });
     }
 
-    // 8. Búsqueda general 'busqueda'
-    if (query.busqueda && query.busqueda.trim()) {
-      const q = query.busqueda.trim();
+    // 8. Búsqueda específica directa por capacidadGb y tipoSim
+    if (query.capacidadGb !== undefined && query.capacidadGb !== null) {
       andConditions.push({
-        OR: [
-          { imei1: { contains: q, mode: 'insensitive' } },
-          { imei2: { contains: q, mode: 'insensitive' } },
-          { numeroSerie: { contains: q, mode: 'insensitive' } },
+        variante: {
+          capacidadGb: Number(query.capacidadGb),
+        },
+      });
+    }
+
+    if (query.tipoSim && query.tipoSim.trim()) {
+      andConditions.push({
+        variante: {
+          tipoSim: { contains: query.tipoSim.trim(), mode: 'insensitive' },
+        },
+      });
+    }
+
+    // 9. Búsqueda general 'busqueda' (soporta IMEI, Serie, Modelo, Color, Proveedor, Capacidad y Conectividad multi-término)
+    if (query.busqueda && query.busqueda.trim()) {
+      // Normalizar unidades de almacenamiento separadas con espacio (ej: "128 gb" -> "128gb", "1 tb" -> "1tb")
+      const normalizedBusqueda = query.busqueda.trim().replace(/(\d+)\s+(gb|tb|g)\b/gi, '$1$2');
+      const terms = normalizedBusqueda.split(/\s+/).filter(Boolean);
+
+      for (const term of terms) {
+        const termOrConditions: any[] = [
+          { imei1: { contains: term, mode: 'insensitive' } },
+          { imei2: { contains: term, mode: 'insensitive' } },
+          { numeroSerie: { contains: term, mode: 'insensitive' } },
           {
             variante: {
               modelo: {
-                nombreModelo: { contains: q, mode: 'insensitive' },
+                nombreModelo: { contains: term, mode: 'insensitive' },
               },
             },
           },
           {
             variante: {
-              color: { contains: q, mode: 'insensitive' },
+              color: { contains: term, mode: 'insensitive' },
+            },
+          },
+          {
+            variante: {
+              tipoSim: { contains: term, mode: 'insensitive' },
             },
           },
           {
             notaIngreso: {
               proveedor: {
-                nombre: { contains: q, mode: 'insensitive' },
+                nombre: { contains: term, mode: 'insensitive' },
               },
             },
           },
-        ],
-      });
+        ];
+
+        const parsedCapacidad = parseCapacidadBusqueda(term);
+        if (parsedCapacidad !== null) {
+          termOrConditions.push({
+            variante: {
+              capacidadGb: parsedCapacidad,
+            },
+          });
+        }
+
+        andConditions.push({
+          OR: termOrConditions,
+        });
+      }
     }
 
     if (andConditions.length > 0) {
