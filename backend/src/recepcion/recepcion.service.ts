@@ -499,6 +499,19 @@ export class RecepcionService {
         { numeroComprobante: { contains: term, mode: 'insensitive' } },
         { observaciones: { contains: term, mode: 'insensitive' } },
         { proveedor: { nombre: { contains: term, mode: 'insensitive' } } },
+        { proveedor: { telefono: { contains: term, mode: 'insensitive' } } },
+        {
+          dispositivos: {
+            some: {
+              OR: [
+                { numeroSerie: { contains: term, mode: 'insensitive' } },
+                { imei1: { contains: term, mode: 'insensitive' } },
+                { imei2: { contains: term, mode: 'insensitive' } },
+                { variante: { modelo: { nombreModelo: { contains: term, mode: 'insensitive' } } } },
+              ],
+            },
+          },
+        },
       ];
     }
 
@@ -509,9 +522,32 @@ export class RecepcionService {
         take: limit,
         orderBy: { fechaIngreso: 'desc' },
         include: {
-          proveedor: { select: { id: true, nombre: true } },
+          proveedor: { select: { id: true, nombre: true, telefono: true } },
           sucursal: { select: { id: true, nombre: true } },
           usuario: { select: { id: true, nombre: true } },
+          dispositivos: {
+            select: {
+              id: true,
+              numeroSerie: true,
+              imei1: true,
+              imei2: true,
+              porcentajeBateria: true,
+              costoBs: true,
+              precioVentaSugeridoBs: true,
+              estadoInventario: true,
+              variante: {
+                select: {
+                  id: true,
+                  color: true,
+                  capacidadGb: true,
+                  tipoSim: true,
+                  modelo: {
+                    select: { id: true, nombreModelo: true },
+                  },
+                },
+              },
+            },
+          },
           _count: {
             select: {
               dispositivos: true,
@@ -526,6 +562,11 @@ export class RecepcionService {
     if (userRole && userRole !== 'ADMIN') {
       data.forEach((item: any) => {
         delete item.totalCostoBs;
+        if (item.dispositivos) {
+          item.dispositivos.forEach((d: any) => {
+            delete d.costoBs;
+          });
+        }
       });
     }
 

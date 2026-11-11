@@ -15,8 +15,8 @@ import { cn } from '@/lib/utils';
 
 interface RecepcionHeaderProps {
   isAdmin?: boolean;
-  activeTab: 'nuevo' | 'historial';
-  setActiveTab: (tab: 'nuevo' | 'historial') => void;
+  activeTab: 'nuevo' | 'historial-mayorista' | 'historial-permutas';
+  setActiveTab: (tab: 'nuevo' | 'historial-mayorista' | 'historial-permutas') => void;
   modoRecepcion: 'MAYORISTA' | 'PERMUTA';
   setModoRecepcion: (modo: 'MAYORISTA' | 'PERMUTA') => void;
   proveedores: any[];
@@ -116,7 +116,7 @@ export function RecepcionHeader({
       {/* Tabs Principales de Recepción */}
       <Tabs
         value={activeTab}
-        onValueChange={(val) => setActiveTab(val as 'nuevo' | 'historial')}
+        onValueChange={(val) => setActiveTab(val as 'nuevo' | 'historial-mayorista' | 'historial-permutas')}
       >
         <TabsList variant="line" className="w-full justify-start pb-2">
           <TabsTrigger value="nuevo" variant="line">
@@ -124,10 +124,16 @@ export function RecepcionHeader({
             <span>Nueva Recepción</span>
           </TabsTrigger>
           {isAdmin && (
-            <TabsTrigger value="historial" variant="line">
-              <History className="h-3.5 w-3.5 mr-1" />
-              <span>Historial de Recepciones</span>
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="historial-mayorista" variant="line">
+                <Truck className="h-3.5 w-3.5 mr-1" />
+                <span>Historial Mayorista</span>
+              </TabsTrigger>
+              <TabsTrigger value="historial-permutas" variant="line">
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                <span>Historial de Permutas</span>
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
       </Tabs>

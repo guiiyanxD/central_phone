@@ -539,6 +539,38 @@ describe('RecepcionService', () => {
         })
       );
     });
+
+    it('debe filtrar exclusivamente por tipoIngreso: PERMUTA y retornar dispositivos', async () => {
+      prisma.notaIngreso.findMany.mockResolvedValue([
+        {
+          id: 50,
+          tipoIngreso: 'PERMUTA',
+          proveedor: { id: 1, nombre: 'Cliente Juan', telefono: '77889900' },
+          dispositivos: [
+            {
+              id: 1,
+              numeroSerie: 'SN-PERMUTA-1',
+              imei1: '354928110000001',
+              costoBs: 2500,
+              variante: { color: 'Titanio', capacidadGb: 128, modelo: { nombreModelo: 'iPhone 15' } },
+            },
+          ],
+        },
+      ] as any);
+      prisma.notaIngreso.count.mockResolvedValue(1);
+
+      const res = await service.findAll({ tipoIngreso: 'PERMUTA' }, 'ADMIN');
+
+      expect(prisma.notaIngreso.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tipoIngreso: 'PERMUTA',
+          }),
+        }),
+      );
+      expect(res.data[0].tipoIngreso).toBe('PERMUTA');
+      expect(res.data[0].proveedor.telefono).toBe('77889900');
+    });
   });
 
   describe('anularNotaIngreso', () => {

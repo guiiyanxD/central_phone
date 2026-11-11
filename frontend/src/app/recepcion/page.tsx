@@ -17,6 +17,8 @@ import { ModalCrearVarianteInline } from '@/features/recepcion/components/modal-
 import { ModalCrearAccesorioInline } from '@/features/recepcion/components/modal-crear-accesorio-inline';
 import { ModalConfirmacionIngreso } from '@/features/recepcion/components/modal-confirmacion-ingreso';
 import { RecepcionHistorialTable } from '@/features/recepcion/components/recepcion-historial-table';
+import { RecepcionPermutasTable } from '@/features/recepcion/components/recepcion-permutas-table';
+import { ModalEditarPermuta } from '@/features/recepcion/components/modal-editar-permuta';
 import { ModalAuditoriaRecepcion } from '@/features/recepcion/components/modal-auditoria-recepcion';
 import { ModalConfirmarGuardado } from '@/features/recepcion/components/modal-confirmar-guardado';
 import { ModalAnularRecepcion } from '@/features/recepcion/components/modal-anular-recepcion';
@@ -32,7 +34,7 @@ import {
 export default function RecepcionMercaderiaPage() {
   const { user, activeSucursal } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
-  const [activeTab, setActiveTab] = useState<'nuevo' | 'historial'>('nuevo');
+  const [activeTab, setActiveTab] = useState<'nuevo' | 'historial-mayorista' | 'historial-permutas'>('nuevo');
   const [modoRecepcion, setModoRecepcion] = useState<'MAYORISTA' | 'PERMUTA'>('MAYORISTA');
 
   // Estados de datos maestros
@@ -68,6 +70,32 @@ export default function RecepcionMercaderiaPage() {
   const [filtroRecFechaHasta, setFiltroRecFechaHasta] = useState<string>('');
   const [filtroRecSearch, setFiltroRecSearch] = useState<string>('');
   const [searchRecDebounce, setSearchRecDebounce] = useState<string>('');
+
+  // Estados de Historial de Permutas
+  const [permutasList, setPermutasList] = useState<any[]>([]);
+  const [permutasMeta, setPermutasMeta] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  }>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+  const [isLoadingPermutas, setIsLoadingPermutas] = useState(false);
+  const [filtroPermutaSucursalId, setFiltroPermutaSucursalId] = useState<string>('TODAS');
+  const [filtroPermutaFechaDesde, setFiltroPermutaFechaDesde] = useState<string>('');
+  const [filtroPermutaFechaHasta, setFiltroPermutaFechaHasta] = useState<string>('');
+  const [filtroPermutaSearch, setFiltroPermutaSearch] = useState<string>('');
+  const [searchPermutaDebounce, setSearchPermutaDebounce] = useState<string>('');
+  const [modalEditarPermutaOpen, setModalEditarPermutaOpen] = useState(false);
+  const [permutaParaEditar, setPermutaParaEditar] = useState<any | null>(null);
 
   // Modales de Auditoría
   const [modalRecDetalleOpen, setModalRecDetalleOpen] = useState(false);
@@ -208,6 +236,11 @@ export default function RecepcionMercaderiaPage() {
     return () => clearTimeout(handler);
   }, [filtroRecSearch]);
 
+  useEffect(() => {
+    const handler = setTimeout(() => setSearchPermutaDebounce(filtroPermutaSearch), 400);
+    return () => clearTimeout(handler);
+  }, [filtroPermutaSearch]);
+
   const fetchRecepciones = async (page = 1, customLimit?: number) => {
     if (!isAdmin) return;
     setIsLoadingRecepciones(true);
@@ -216,6 +249,7 @@ export default function RecepcionMercaderiaPage() {
       const res = await api.recepcion.getNotasIngreso({
         page,
         limit,
+        tipoIngreso: 'MAYORISTA',
         sucursalId: filtroRecSucursalId !== 'TODAS' ? Number(filtroRecSucursalId) : undefined,
         proveedorId: filtroRecProveedorId !== 'TODOS' ? Number(filtroRecProveedorId) : undefined,
         fechaDesde: filtroRecFechaDesde || undefined,
@@ -239,7 +273,7 @@ export default function RecepcionMercaderiaPage() {
   };
 
   useEffect(() => {
-    if (isAdmin && activeTab === 'historial') {
+    if (isAdmin && activeTab === 'historial-mayorista') {
       fetchRecepciones(1);
     }
   }, [
@@ -251,6 +285,70 @@ export default function RecepcionMercaderiaPage() {
     filtroRecFechaHasta,
     searchRecDebounce,
   ]);
+
+  const fetchPermutas = async (page = 1, customLimit?: number) => {
+    if (!isAdmin) return;
+    setIsLoadingPermutas(true);
+    try {
+      const limit = customLimit || permutasMeta.limit;
+      const res = await api.recepcion.getNotasIngreso({
+        page,
+        limit,
+        tipoIngreso: 'PERMUTA',
+        sucursalId: filtroPermutaSucursalId !== 'TODAS' ? Number(filtroPermutaSucursalId) : undefined,
+        fechaDesde: filtroPermutaFechaDesde || undefined,
+        fechaHasta: filtroPermutaFechaHasta || undefined,
+        search: searchPermutaDebounce.trim() || undefined,
+      });
+      setPermutasList(res.data || []);
+      setPermutasMeta({
+        total: res.meta?.total || 0,
+        page: res.meta?.page || 1,
+        limit: res.meta?.limit || limit,
+        totalPages: res.meta?.totalPages || 1,
+        hasNextPage: res.meta?.hasNextPage || false,
+        hasPrevPage: res.meta?.hasPrevPage || false,
+      });
+    } catch {
+      // Silencioso
+    } finally {
+      setIsLoadingPermutas(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'historial-permutas') {
+      fetchPermutas(1);
+    }
+  }, [
+    activeTab,
+    isAdmin,
+    filtroPermutaSucursalId,
+    filtroPermutaFechaDesde,
+    filtroPermutaFechaHasta,
+    searchPermutaDebounce,
+  ]);
+
+  const handleResetFiltrosPermutas = () => {
+    setFiltroPermutaSearch('');
+    setSearchPermutaDebounce('');
+    setFiltroPermutaSucursalId('TODAS');
+    setFiltroPermutaFechaDesde('');
+    setFiltroPermutaFechaHasta('');
+  };
+
+  const handleOpenEditarPermuta = (permutaId: number) => {
+    const found = permutasList.find((p) => p.id === permutaId);
+    if (found) {
+      setPermutaParaEditar(found);
+      setModalEditarPermutaOpen(true);
+    } else {
+      api.recepcion.getNotaIngresoById(permutaId).then((nota) => {
+        setPermutaParaEditar(nota);
+        setModalEditarPermutaOpen(true);
+      });
+    }
+  };
 
   const handleOpenRecDetalle = async (recepcionId: number) => {
     setIsLoadingRecDetalle(true);
@@ -406,11 +504,19 @@ export default function RecepcionMercaderiaPage() {
     setIsAnulando(true);
     setErrorMessage(null);
     try {
-      await api.recepcion.anularNotaIngreso(notaParaAnular.id, { motivo });
+      if (notaParaAnular.tipoIngreso === 'PERMUTA') {
+        await api.recepcion.anularPermuta(notaParaAnular.id, { motivo });
+      } else {
+        await api.recepcion.anularNotaIngreso(notaParaAnular.id, { motivo });
+      }
       setAnularModalOpen(false);
       setNotaParaAnular(null);
       setSuccessFeedback(`Nota de Ingreso #${notaParaAnular.id} anulada correctamente.`);
-      fetchRecepciones(recepcionesMeta.page);
+      if (activeTab === 'historial-mayorista') {
+        fetchRecepciones(recepcionesMeta.page);
+      } else if (activeTab === 'historial-permutas') {
+        fetchPermutas(permutasMeta.page);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al anular la nota de ingreso.');
     } finally {
@@ -1065,8 +1171,9 @@ export default function RecepcionMercaderiaPage() {
         notaCreada={notaCreada}
         onReset={handleResetForm}
         onGoToHistorial={() => {
+          const tab = notaCreada.tipoIngreso === 'PERMUTA' ? 'historial-permutas' : 'historial-mayorista';
           handleResetForm();
-          setActiveTab('historial');
+          setActiveTab(tab);
         }}
         isAdmin={isAdmin}
       />
@@ -1247,8 +1354,8 @@ export default function RecepcionMercaderiaPage() {
         </>
       )}
 
-      {/* TAB 2: HISTORIAL Y AUDITORÍA DE RECEPCIONES (SOLO ADMIN) */}
-      {isAdmin && activeTab === 'historial' && (
+      {/* TAB 2: HISTORIAL MAYORISTA (SOLO ADMIN) */}
+      {isAdmin && activeTab === 'historial-mayorista' && (
         <RecepcionHistorialTable
           filtroRecSearch={filtroRecSearch}
           setFiltroRecSearch={setFiltroRecSearch}
@@ -1270,6 +1377,31 @@ export default function RecepcionMercaderiaPage() {
           onFetchRecepciones={fetchRecepciones}
           onOpenRecDetalle={handleOpenRecDetalle}
           onStartEdit={handleStartEdit}
+          onOpenAnularModal={handleOpenAnularModal}
+          isAdmin={isAdmin}
+        />
+      )}
+
+      {/* TAB 3: HISTORIAL DE PERMUTAS (SOLO ADMIN) */}
+      {isAdmin && activeTab === 'historial-permutas' && (
+        <RecepcionPermutasTable
+          filtroSearch={filtroPermutaSearch}
+          setFiltroSearch={setFiltroPermutaSearch}
+          filtroSucursalId={filtroPermutaSucursalId}
+          setFiltroSucursalId={setFiltroPermutaSucursalId}
+          filtroFechaDesde={filtroPermutaFechaDesde}
+          setFiltroFechaDesde={setFiltroPermutaFechaDesde}
+          filtroFechaHasta={filtroPermutaFechaHasta}
+          setFiltroFechaHasta={setFiltroPermutaFechaHasta}
+          sucursalesList={sucursales}
+          onResetFiltros={handleResetFiltrosPermutas}
+          permutasList={permutasList}
+          isLoading={isLoadingPermutas}
+          meta={permutasMeta}
+          setMeta={setPermutasMeta}
+          onFetchPermutas={fetchPermutas}
+          onOpenDetalle={handleOpenRecDetalle}
+          onStartEdit={handleOpenEditarPermuta}
           onOpenAnularModal={handleOpenAnularModal}
           isAdmin={isAdmin}
         />
@@ -1323,6 +1455,20 @@ export default function RecepcionMercaderiaPage() {
         isOpen={modalCrearProveedorOpen}
         onClose={() => setModalCrearProveedorOpen(false)}
         onProveedorCreado={handleProveedorCreado}
+      />
+
+      {/* MODAL DE EDICIÓN DE PERMUTA */}
+      <ModalEditarPermuta
+        isOpen={modalEditarPermutaOpen}
+        onClose={() => {
+          setModalEditarPermutaOpen(false);
+          setPermutaParaEditar(null);
+        }}
+        permuta={permutaParaEditar}
+        onSuccess={() => {
+          setSuccessFeedback('Permuta actualizada con éxito.');
+          fetchPermutas(permutasMeta.page);
+        }}
       />
     </div>
   );

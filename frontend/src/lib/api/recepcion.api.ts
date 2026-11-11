@@ -111,6 +111,26 @@ export interface NotaIngresoListItem {
     dispositivos: number;
     lotesAccesorio: number;
   };
+  dispositivos?: Array<{
+    id: number;
+    numeroSerie: string;
+    imei1?: string | null;
+    imei2?: string | null;
+    porcentajeBateria?: number | null;
+    costoBs?: number | string;
+    precioVentaSugeridoBs?: number | string;
+    estadoInventario?: string;
+    variante?: {
+      id: number;
+      color: string;
+      capacidadGb: number;
+      tipoSim?: string;
+      modelo: {
+        id: number;
+        nombreModelo: string;
+      };
+    };
+  }>;
 }
 
 export interface NotasIngresoPaginatedResponse {

@@ -27,30 +27,39 @@ describe('RecepcionHeader - Tabs & Access Control', () => {
     expect(screen.getByText('Nueva Recepción')).toBeDefined();
   });
 
-  it('NO debe mostrar la pestaña "Historial de Recepciones" si el usuario no es ADMIN', () => {
+  it('NO debe mostrar las pestañas de historial si el usuario no es ADMIN', () => {
     render(<RecepcionHeader {...defaultProps} isAdmin={false} />);
-    expect(screen.queryByText('Historial de Recepciones')).toBeNull();
+    expect(screen.queryByText('Historial Mayorista')).toBeNull();
+    expect(screen.queryByText('Historial de Permutas')).toBeNull();
   });
 
-  it('debe mostrar la pestaña "Historial de Recepciones" si el usuario es ADMIN', () => {
+  it('debe mostrar las pestañas "Historial Mayorista" y "Historial de Permutas" si el usuario es ADMIN', () => {
     render(<RecepcionHeader {...defaultProps} isAdmin={true} />);
-    expect(screen.getByText('Historial de Recepciones')).toBeDefined();
+    expect(screen.getByText('Historial Mayorista')).toBeDefined();
+    expect(screen.getByText('Historial de Permutas')).toBeDefined();
   });
 
-  it('debe cambiar de pestaña cuando se hace click en Historial', () => {
+  it('debe cambiar de pestaña cuando se hace click en Historial Mayorista o Historial de Permutas', () => {
     const setActiveTab = vi.fn();
     render(<RecepcionHeader {...defaultProps} isAdmin={true} setActiveTab={setActiveTab} />);
     
-    const historialTab = screen.getByText('Historial de Recepciones');
-    fireEvent.click(historialTab);
-    expect(setActiveTab).toHaveBeenCalledWith('historial');
+    const mayoristaTab = screen.getByText('Historial Mayorista');
+    fireEvent.click(mayoristaTab);
+    expect(setActiveTab).toHaveBeenCalledWith('historial-mayorista');
+
+    const permutasTab = screen.getByText('Historial de Permutas');
+    fireEvent.click(permutasTab);
+    expect(setActiveTab).toHaveBeenCalledWith('historial-permutas');
   });
 
   it('debe mostrar el formulario de datos de origen solo cuando activeTab es "nuevo"', () => {
     const { rerender } = render(<RecepcionHeader {...defaultProps} activeTab="nuevo" modoRecepcion="MAYORISTA" />);
     expect(screen.getByText('1. Datos de Origen y Comprobante Mayorista')).toBeDefined();
 
-    rerender(<RecepcionHeader {...defaultProps} activeTab="historial" />);
+    rerender(<RecepcionHeader {...defaultProps} activeTab="historial-mayorista" />);
+    expect(screen.queryByText('1. Datos de Origen y Comprobante Mayorista')).toBeNull();
+
+    rerender(<RecepcionHeader {...defaultProps} activeTab="historial-permutas" />);
     expect(screen.queryByText('1. Datos de Origen y Comprobante Mayorista')).toBeNull();
   });
 

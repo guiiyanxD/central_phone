@@ -189,10 +189,10 @@ export function RecepcionHistorialTable({
           <div className="flex items-center gap-2">
             <Truck className="h-4 w-4 text-slate-900" />
             <h2 className="text-sm font-bold text-slate-900">
-              Historial de Notas de Ingreso
+              Historial de Notas de Ingreso Mayoristas
             </h2>
             <Badge variant="outline" className="text-[10px] bg-slate-50 border-slate-300 text-slate-700">
-              Auditoría de Inventario Valorizado
+              Auditoría Mayorista
             </Badge>
           </div>
           <span className="text-xs text-slate-500 font-mono">
