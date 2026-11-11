@@ -125,12 +125,12 @@ export function MargenesConfigForm() {
     },
   });
 
-  // Simulation inputs
+  // Simulation inputs predeterminados en 0 para gastos/reparaciones
   const [simulaciones, setSimulaciones] = useState<Record<CategoriaMargen, { costo: number; gastos: number }>>({
     DISPOSITIVO_NUEVO: { costo: 5000, gastos: 0 },
-    DISPOSITIVO_USADO: { costo: 3200, gastos: 100 },
+    DISPOSITIVO_USADO: { costo: 3200, gastos: 0 },
     ACCESORIO: { costo: 40, gastos: 0 },
-    PERMUTA: { costo: 2000, gastos: 150 },
+    PERMUTA: { costo: 2000, gastos: 0 },
   });
 
   useEffect(() => {
@@ -493,13 +493,22 @@ export function MargenesConfigForm() {
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-600 block mb-1">
-                        Gastos / Rep. (Bs)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] text-slate-600 block">
+                          Gastos / Rep. (Bs)
+                        </label>
+                        {catMeta.categoria === 'DISPOSITIVO_NUEVO' && (
+                          <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-tight">
+                            No Aplica
+                          </span>
+                        )}
+                      </div>
                       <Input
                         type="number"
                         min="0"
-                        value={sim.gastos}
+                        value={catMeta.categoria === 'DISPOSITIVO_NUEVO' ? 0 : sim.gastos}
+                        readOnly={catMeta.categoria === 'DISPOSITIVO_NUEVO'}
+                        disabled={catMeta.categoria === 'DISPOSITIVO_NUEVO'}
                         onChange={(e) =>
                           handleSimulacionChange(
                             catMeta.categoria,
@@ -507,7 +516,17 @@ export function MargenesConfigForm() {
                             parseFloat(e.target.value) || 0,
                           )
                         }
-                        className="h-8 text-xs bg-white"
+                        className={cn(
+                          'h-8 text-xs',
+                          catMeta.categoria === 'DISPOSITIVO_NUEVO'
+                            ? 'bg-slate-200/70 text-slate-400 cursor-not-allowed select-none border-slate-300'
+                            : 'bg-white',
+                        )}
+                        title={
+                          catMeta.categoria === 'DISPOSITIVO_NUEVO'
+                            ? 'Los dispositivos nuevos no registran gastos ni reparaciones'
+                            : undefined
+                        }
                       />
                     </div>
                   </div>
