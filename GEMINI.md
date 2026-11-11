@@ -100,3 +100,16 @@ Este documento establece las directrices arquitectónicas, de seguridad y de neg
 4. **Principio de No Destrucción para Agentes de Inteligencia Artificial**:
    * Ningún agente de IA debe sugerir, ejecutar ni generar planes que incluyan el borrado de bases de datos, eliminación de volúmenes o truncado de tablas (`TRUNCATE`, `DROP DATABASE`, `DROP TABLE`).
    * Ante cualquier situación que requiera saneamiento de datos, el agente debe detenerse y solicitar confirmación explícita previa por escrito al usuario.
+
+---
+
+## 🌿 11. Flujo Inmutable de Trabajo en Git (Branching, Pruebas y Merge a Main)
+
+1. **Creación Obligatoria de Rama al Iniciar**:
+   * Ante cualquier nueva implementación, requerimiento, refactorización o corrección, es estrictamente obligatorio crear y cambiar a una rama nueva de trabajo (`feature/...` o `fix/...`) antes de modificar cualquier archivo de código.
+   * Queda prohibido realizar implementaciones directas sobre la rama `main`.
+2. **Ejecución Obligatoria de Quality Gates (100% Tests)**:
+   * Antes de fusionar o integrar cambios en `main`, es obligatorio ejecutar y validar la aprobación total de las suites de prueba (`npm test` en backend y `npm run test` en frontend), verificando que no existan regresiones, fallos de compilación ni errores de linting.
+3. **Commit Semántico y Merge a `main`**:
+   * Tras la verificación exitosa de todos los tests, se debe consolidar el trabajo mediante commits descriptivos y estructurados bajo Conventional Commits.
+   * Finalmente, se debe fusionar (merge) la rama de la implementación hacia la rama `main`, dejándola limpia y lista para el siguiente ciclo.
