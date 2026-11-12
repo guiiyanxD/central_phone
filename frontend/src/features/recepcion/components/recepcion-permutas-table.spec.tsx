@@ -78,14 +78,11 @@ describe('RecepcionPermutasTable Component', () => {
     isAdmin: true,
   };
 
-  it('debe renderizar los datos del iPhone, cliente, batería y comprobante', () => {
+  it('debe renderizar los datos del iPhone, batería, IMEI, costos y fecha DD/MM/YYYY', () => {
     render(<RecepcionPermutasTable {...defaultProps} />);
 
     expect(screen.getByText('#ING-101')).toBeDefined();
     expect(screen.getByText('PERMUTA')).toBeDefined();
-    expect(screen.getByText('PERM-001')).toBeDefined();
-    expect(screen.getByText('Carlos Mamani')).toBeDefined();
-    expect(screen.getByText('78912345')).toBeDefined();
     expect(screen.getByText('iPhone 14')).toBeDefined();
     expect(screen.getByText(/Azul • 128GB/)).toBeDefined();
     expect(screen.getByText('354928110009999')).toBeDefined();
@@ -93,6 +90,7 @@ describe('RecepcionPermutasTable Component', () => {
     expect(screen.getByText(/88%/)).toBeDefined();
     expect(screen.getByText(/2[.,]500[.,]00/)).toBeDefined();
     expect(screen.getByText(/3[.,]200[.,]00/)).toBeDefined();
+    expect(screen.getByText('10/11/2026')).toBeDefined();
   });
 
   it('debe permitir invocar las acciones de Detalle, Editar y Anular', () => {

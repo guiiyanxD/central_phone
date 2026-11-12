@@ -82,3 +82,14 @@ export function formatFolioTicket(id?: number | string | null): string {
   return `TK-${String(num).padStart(6, '0')}`;
 }
 
+/**
+ * Formatea una fecha en formato corto estándar DD/MM/YYYY sin hora.
+ */
+export function formatFechaDDMMYYYY(fechaStr: string | Date | null | undefined): string {
+  if (!fechaStr) return '-';
+  const d = new Date(fechaStr);
+  if (isNaN(d.getTime())) return '-';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+

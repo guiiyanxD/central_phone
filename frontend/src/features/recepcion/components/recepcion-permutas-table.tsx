@@ -11,10 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Smartphone,
-  Phone,
   Battery,
-  Building2,
-  User,
   ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +21,7 @@ import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { formatFechaDDMMYYYY } from '@/lib/utils';
 
 interface RecepcionPermutasTableProps {
   filtroSearch: string;
@@ -179,15 +177,12 @@ export function RecepcionPermutasTable({
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold">
-                <th className="py-3 px-4">Nota / Estado</th>
-                <th className="py-3 px-4">Fecha y Hora</th>
-                <th className="py-3 px-4">Cliente Particular</th>
-                <th className="py-3 px-4">iPhone Recibido</th>
-                <th className="py-3 px-4">IMEI / Serie</th>
+                <th className="py-3 px-4">Código / Nota</th>
+                <th className="py-3 px-4 min-w-[280px]">iPhone Recibido</th>
                 <th className="py-3 px-4 text-center">Batería</th>
-                <th className="py-3 px-4 text-right">Inversión (Bs)</th>
-                <th className="py-3 px-4 text-right">P. Sugerido (Bs)</th>
-                <th className="py-3 px-4">Sucursal</th>
+                <th className="py-3 px-4">IMEI / Serie</th>
+                <th className="py-3 px-4 text-right">Costo y P. Sugerido (Bs)</th>
+                <th className="py-3 px-4">Fecha</th>
                 <th className="py-3 px-4 text-center">Acciones</th>
               </tr>
             </thead>
@@ -196,20 +191,17 @@ export function RecepcionPermutasTable({
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-24" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-28" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-32" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-24" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-44" /></td>
                     <td className="py-3.5 px-4 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
-                    <td className="py-3.5 px-4 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
-                    <td className="py-3.5 px-4 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-28" /></td>
+                    <td className="py-3.5 px-4 text-right"><Skeleton className="h-4 w-24 ml-auto" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
                     <td className="py-3.5 px-4 text-center"><Skeleton className="h-7 w-20 mx-auto rounded" /></td>
                   </tr>
                 ))
               ) : permutasList.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-500">
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
                     <RefreshCw className="h-8 w-8 mx-auto text-purple-300 mb-2" />
                     <p className="font-semibold text-slate-700">No se encontraron permutas registradas con los filtros seleccionados.</p>
                     <p className="text-slate-400 text-[11px] mt-0.5">Prueba modificando el rango de fechas o el término de búsqueda.</p>
@@ -225,68 +217,54 @@ export function RecepcionPermutasTable({
                         ? `${capGb / 1024}TB`
                         : `${capGb}GB`
                       : '';
+                  const simLabel = disp?.variante?.tipoSim ? ` • ${disp.variante.tipoSim}` : '';
                   const totalCosto = Number(rec.totalCostoBs || disp?.costoBs || 0);
                   const precioSugerido = Number(disp?.precioVentaSugeridoBs || 0);
                   const isSold = disp?.estadoInventario === 'VENDIDO';
 
                   return (
                     <tr key={rec.id} className="hover:bg-slate-50/60 transition-colors">
+                      {/* 1. Código / Nota */}
                       <td className="py-3 px-4 font-mono font-semibold text-slate-900 whitespace-nowrap">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <span>#ING-{rec.id}</span>
-                            {rec.estado === 'ANULADA' ? (
-                              <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-200 text-rose-700 font-semibold">
-                                ANULADA
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-200 text-purple-700 font-semibold">
-                                PERMUTA
-                              </Badge>
-                            )}
-                          </div>
-                          {rec.numeroComprobante && (
-                            <span className="text-[11px] text-slate-500 font-mono font-normal">
-                              {rec.numeroComprobante}
-                            </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>#ING-{rec.id}</span>
+                          {rec.estado === 'ANULADA' ? (
+                            <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-200 text-rose-700 font-semibold">
+                              ANULADA
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-200 text-purple-700 font-semibold">
+                              PERMUTA
+                            </Badge>
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                        {new Date(rec.fechaIngreso).toLocaleString('es-BO', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900">
-                            {rec.proveedor?.nombre || 'Particular'}
-                          </span>
-                          {rec.proveedor?.telefono && (
-                            <a
-                              href={`tel:${rec.proveedor.telefono}`}
-                              className="text-[11px] text-slate-500 hover:text-slate-800 font-mono flex items-center gap-1"
-                            >
-                              <Phone className="h-3 w-3 text-slate-400" />
-                              {rec.proveedor.telefono}
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
+
+                      {/* 2. iPhone Recibido (2da posición, jerarquía destacada) */}
+                      <td className="py-3 px-4 min-w-[280px]">
                         {disp ? (
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-slate-900 flex items-center gap-1">
-                              <Smartphone className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                              {disp.variante?.modelo?.nombreModelo || 'iPhone'}
-                            </span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 flex items-center gap-1">
+                                <Smartphone className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                                {disp.variante?.modelo?.nombreModelo || 'iPhone'}
+                              </span>
+                              {isSold ? (
+                                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 font-semibold">
+                                  VENDIDO
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 font-medium">
+                                  DISPONIBLE
+                                </Badge>
+                              )}
+                            </div>
                             <span className="text-[11px] text-slate-500">
-                              {disp.variante?.color || ''} {capLabel ? `• ${capLabel}` : ''}
+                              {disp.variante?.color || ''} {capLabel ? `• ${capLabel}` : ''}{simLabel}
                             </span>
                             {disp.detallesFisicos && (
                               <span
-                                className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded mt-1 font-medium w-fit max-w-[220px] truncate"
+                                className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-medium w-fit max-w-[260px] truncate"
                                 title={`Situación de Registro: ${disp.detallesFisicos}`}
                               >
                                 <ShieldCheck className="h-3 w-3 text-slate-500 shrink-0" />
@@ -298,23 +276,9 @@ export function RecepcionPermutasTable({
                           <span className="text-slate-400 italic">Sin dispositivo</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 font-mono text-[11px]">
-                        {disp ? (
-                          <div className="flex flex-col">
-                            <span className="text-slate-900 font-medium">
-                              {disp.imei1 || disp.numeroSerie}
-                            </span>
-                            {disp.imei2 && (
-                              <span className="text-slate-400 text-[10px]">
-                                SIM2: {disp.imei2}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-center">
+
+                      {/* 3. Batería */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         {disp?.porcentajeBateria !== undefined && disp?.porcentajeBateria !== null ? (
                           <Badge
                             variant="outline"
@@ -333,32 +297,56 @@ export function RecepcionPermutasTable({
                           <span className="text-slate-400">-</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
-                        {isAdmin ? (
-                          `Bs ${totalCosto.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        ) : (
-                          <span className="text-slate-400">•••</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-semibold text-purple-900 whitespace-nowrap">
-                        {precioSugerido > 0 ? (
-                          `Bs ${precioSugerido.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+                      {/* 4. IMEI / Serie */}
+                      <td className="py-3 px-4 font-mono text-[11px] whitespace-nowrap">
+                        {disp ? (
+                          <div className="flex flex-col">
+                            <span className="text-slate-900 font-medium">
+                              {disp.imei1 || disp.numeroSerie}
+                            </span>
+                            {disp.numeroSerie && disp.imei1 && (
+                              <span className="text-slate-500 text-[10px]">
+                                SN: {disp.numeroSerie}
+                              </span>
+                            )}
+                            {disp.imei2 && (
+                              <span className="text-slate-400 text-[10px]">
+                                SIM2: {disp.imei2}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-slate-400">-</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-slate-900 flex items-center gap-1">
-                            <Building2 className="h-3 w-3 text-slate-400" />
-                            {rec.sucursal?.nombre}
-                          </span>
-                          <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                            <User className="h-2.5 w-2.5 text-slate-400" />
-                            {rec.usuario?.nombre}
-                          </span>
+
+                      {/* 5. Costo y P. Sugerido (Bs) unificados */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <div className="flex flex-col items-end gap-0.5 font-mono">
+                          {isAdmin ? (
+                            <span className="text-xs font-bold text-slate-900">
+                              Bs {totalCosto.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">•••</span>
+                          )}
+                          {precioSugerido > 0 ? (
+                            <span className="text-[11px] font-semibold text-emerald-600">
+                              Sug: Bs {precioSugerido.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">-</span>
+                          )}
                         </div>
                       </td>
+
+                      {/* 6. Fecha DD/MM/YYYY */}
+                      <td className="py-3 px-4 text-slate-600 font-mono whitespace-nowrap">
+                        {formatFechaDDMMYYYY(rec.fechaIngreso)}
+                      </td>
+
+                      {/* 7. Acciones */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -371,40 +359,44 @@ export function RecepcionPermutasTable({
                             <Eye className="h-3.5 w-3.5" />
                             <span className="hidden sm:inline">Detalle</span>
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2 text-xs gap-1 border-amber-300 text-amber-700 hover:text-white hover:bg-amber-600 hover:border-amber-600 transition-all shadow-xs disabled:opacity-40 disabled:pointer-events-none"
-                            disabled={rec.estado === 'ANULADA' || isSold}
-                            onClick={() => onStartEdit && onStartEdit(rec.id)}
-                            title={
-                              rec.estado === 'ANULADA'
-                                ? 'Una permuta anulada no puede editarse'
-                                : isSold
-                                ? 'El dispositivo ya fue vendido, no puede editarse'
-                                : 'Editar Permuta'
-                            }
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Editar</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2 text-xs gap-1 border-rose-200 text-rose-700 hover:text-white hover:bg-rose-600 hover:border-rose-600 transition-all shadow-xs disabled:opacity-40 disabled:pointer-events-none"
-                            disabled={rec.estado === 'ANULADA' || isSold}
-                            onClick={() => onOpenAnularModal && onOpenAnularModal(rec)}
-                            title={
-                              rec.estado === 'ANULADA'
-                                ? 'Esta permuta ya fue anulada'
-                                : isSold
-                                ? 'No se puede anular porque el dispositivo ya fue vendido'
-                                : 'Anular Permuta'
-                            }
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Anular</span>
-                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs gap-1 border-amber-300 text-amber-700 hover:text-white hover:bg-amber-600 hover:border-amber-600 transition-all shadow-xs disabled:opacity-40 disabled:pointer-events-none"
+                                disabled={rec.estado === 'ANULADA' || isSold}
+                                onClick={() => onStartEdit && onStartEdit(rec.id)}
+                                title={
+                                  rec.estado === 'ANULADA'
+                                    ? 'Una permuta anulada no puede editarse'
+                                    : isSold
+                                    ? 'El dispositivo ya fue vendido, no puede editarse'
+                                    : 'Editar Permuta'
+                                }
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Editar</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs gap-1 border-rose-200 text-rose-700 hover:text-white hover:bg-rose-600 hover:border-rose-600 transition-all shadow-xs disabled:opacity-40 disabled:pointer-events-none"
+                                disabled={rec.estado === 'ANULADA' || isSold}
+                                onClick={() => onOpenAnularModal && onOpenAnularModal(rec)}
+                                title={
+                                  rec.estado === 'ANULADA'
+                                    ? 'Esta permuta ya fue anulada'
+                                    : isSold
+                                    ? 'No se puede anular porque el dispositivo ya fue vendido'
+                                    : 'Anular Permuta'
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Anular</span>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -27,12 +27,16 @@ export function ModalAuditoriaRecepcion({
       onClose={onClose}
       title={
         recepcionDetalleData
-          ? `Auditoría Financiera: Nota de Ingreso #ING-${recepcionDetalleData.id}`
+          ? recepcionDetalleData.tipoIngreso === 'PERMUTA'
+            ? `Auditoría de Permuta: Nota #ING-${recepcionDetalleData.id}`
+            : `Auditoría Financiera: Nota de Ingreso #ING-${recepcionDetalleData.id}`
           : 'Detalle Financiero de Recepción'
       }
       description={
         recepcionDetalleData
-          ? `Comprobante: ${recepcionDetalleData.numeroComprobante || 'S/N'} • Proveedor: ${recepcionDetalleData.proveedor?.nombre} • Sucursal: ${recepcionDetalleData.sucursal?.nombre}`
+          ? `Comprobante: ${recepcionDetalleData.numeroComprobante || 'S/N'} • ${
+              recepcionDetalleData.tipoIngreso === 'PERMUTA' ? 'Cliente Particular' : 'Proveedor'
+            }: ${recepcionDetalleData.proveedor?.nombre} • Sucursal: ${recepcionDetalleData.sucursal?.nombre}`
           : 'Cargando información valorizada de la mercadería...'
       }
       className="max-w-5xl max-h-[92vh] flex flex-col p-6 overflow-hidden"
@@ -93,7 +97,9 @@ export function ModalAuditoriaRecepcion({
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                 <div className="flex flex-wrap items-center gap-4 text-slate-600">
                   <div>
-                    <span className="text-slate-400">Proveedor:</span>{' '}
+                    <span className="text-slate-400">
+                      {recepcionDetalleData.tipoIngreso === 'PERMUTA' ? 'Cliente Particular:' : 'Proveedor:'}
+                    </span>{' '}
                     <strong className="text-slate-900">{recepcionDetalleData.proveedor?.nombre}</strong>
                     {recepcionDetalleData.proveedor?.telefono && ` (${recepcionDetalleData.proveedor.telefono})`}
                   </div>

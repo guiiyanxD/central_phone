@@ -17,6 +17,7 @@ import { AutocompleteInput, AutocompleteOption } from '@/components/ui/autocompl
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { formatFechaDDMMYYYY } from '@/lib/utils';
 
 interface RecepcionHistorialTableProps {
   filtroRecSearch: string;
@@ -214,13 +215,10 @@ export function RecepcionHistorialTable({
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold">
                 <th className="py-3 px-4">Código / Nota</th>
-                <th className="py-3 px-4">Fecha y Hora</th>
-                <th className="py-3 px-4">Sucursal</th>
-                <th className="py-3 px-4">Proveedor</th>
-                <th className="py-3 px-4">Nro Comprobante</th>
+                <th className="py-3 px-4">Fecha</th>
+                <th className="py-3 px-4">Proveedor Mayorista</th>
                 <th className="py-3 px-4 text-center">Ítems Ingresados</th>
                 <th className="py-3 px-4 text-right">Inversión Total (Bs)</th>
-                <th className="py-3 px-4">Receptor</th>
                 <th className="py-3 px-4 text-center">Acciones</th>
               </tr>
             </thead>
@@ -228,20 +226,17 @@ export function RecepcionHistorialTable({
               {isLoadingRecepciones ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-16" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-28" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-24" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-28" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-28" /></td>
                     <td className="py-3.5 px-4 text-center"><Skeleton className="h-4 w-24 mx-auto" /></td>
                     <td className="py-3.5 px-4 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
                     <td className="py-3.5 px-4 text-center"><Skeleton className="h-7 w-24 mx-auto rounded" /></td>
                   </tr>
                 ))
               ) : recepcionesList.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     <Truck className="h-8 w-8 mx-auto text-slate-300 mb-2" />
                     <p className="font-semibold text-slate-700">No se encontraron recepciones con los filtros seleccionados.</p>
                     <p className="text-slate-400 text-[11px] mt-0.5">Prueba cambiando el rango de fechas, sucursal o proveedor.</p>
@@ -258,15 +253,6 @@ export function RecepcionHistorialTable({
                       <td className="py-3 px-4 font-mono font-semibold text-slate-900 whitespace-nowrap">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span>#ING-{rec.id}</span>
-                          {rec.tipoIngreso === 'PERMUTA' ? (
-                            <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-200 text-purple-700 font-semibold">
-                              Permuta
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] bg-blue-50 border-blue-200 text-blue-700 font-medium">
-                              Mayorista
-                            </Badge>
-                          )}
                           {rec.estado === 'ANULADA' ? (
                             <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-200 text-rose-700 font-semibold">
                               ANULADA
@@ -278,22 +264,13 @@ export function RecepcionHistorialTable({
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                        {new Date(rec.fechaIngreso).toLocaleString('es-BO', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-slate-900">{rec.sucursal?.nombre}</span>
+                      <td className="py-3 px-4 text-slate-600 font-mono whitespace-nowrap">
+                        {formatFechaDDMMYYYY(rec.fechaIngreso)}
                       </td>
                       <td className="py-3 px-4">
                         <Badge variant="outline" className="font-semibold bg-slate-50 border-slate-200 text-slate-800">
                           {rec.proveedor?.nombre}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-600">
-                        {rec.numeroComprobante || <span className="text-slate-400 italic">S/N</span>}
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <span className="font-semibold text-slate-900">{dispCount}</span>{' '}
@@ -304,9 +281,6 @@ export function RecepcionHistorialTable({
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
                         Bs {totalCosto.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                        {rec.usuario?.nombre || 'Desconocido'}
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
