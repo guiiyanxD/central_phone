@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Headphones, Plus, Trash2, Sparkles } from 'lucide-react';
+import { Headphones, Plus, Trash2, Sparkles, Coins } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -166,9 +166,11 @@ export function RecepcionAccesoriosTable({
                 />
               </div>
 
-              {/* Cantidad */}
-              <div>
-                <Label htmlFor={`acc-cantidad-${a.id}`} required>Cantidad</Label>
+              {/* Cantidad (1 columna) */}
+              <div className="sm:col-span-1 space-y-1">
+                <Label htmlFor={`acc-cantidad-${a.id}`} className="text-xs font-semibold text-slate-700" required>
+                  Cantidad
+                </Label>
                 <Input
                   id={`acc-cantidad-${a.id}`}
                   type="number"
@@ -178,47 +180,73 @@ export function RecepcionAccesoriosTable({
                   onChange={(e) =>
                     onUpdateAccesorio(a.id, 'cantidad', parseInt(e.target.value, 10) || 0)
                   }
+                  className="h-11 text-sm font-bold font-mono text-slate-900"
                 />
               </div>
 
-              {/* Costo Unitario Bs */}
-              <div className="sm:col-span-2">
-                <Label htmlFor={`acc-costo-${a.id}`} required>Costo Unitario (Bs)</Label>
-                <Input
-                  id={`acc-costo-${a.id}`}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={a.costoUnitarioBs || ''}
-                  onChange={(e) =>
-                    onUpdateAccesorio(
-                      a.id,
-                      'costoUnitarioBs',
-                      parseFloat(e.target.value) || 0
-                    )
-                  }
-                />
-              </div>
-
-              {/* Precio Venta Sugerido Bs */}
-              <div className="sm:col-span-2">
-                <Label htmlFor={`acc-precio-${a.id}`} required>Precio Venta Sugerido (Bs)</Label>
-                <Input
-                  id={`acc-precio-${a.id}`}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={a.precioVentaBs || ''}
-                  onChange={(e) =>
-                    onUpdateAccesorio(
-                      a.id,
-                      'precioVentaBs',
-                      parseFloat(e.target.value) || 0
-                    )
-                  }
-                />
+              {/* Bloque Financiero en Bolivianos (4 columnas) con mayor jerarquía y 44px (h-11) */}
+              <div className="sm:col-span-4 p-3 bg-blue-50/50 border border-blue-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between pb-1 border-b border-blue-100">
+                  <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                    <Coins className="h-4 w-4 text-blue-700" />
+                    Valores en Bolivianos (Bs)
+                  </span>
+                  <span className="text-[10px] font-semibold text-blue-700 bg-blue-100/70 border border-blue-200 px-1.5 py-0.5 rounded">
+                    Moneda Nacional
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor={`acc-costo-${a.id}`} className="text-xs font-semibold text-blue-950 mb-1 block" required>
+                      Costo Unitario (Bs)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-xs font-bold text-blue-700 pointer-events-none">Bs</span>
+                      <Input
+                        id={`acc-costo-${a.id}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={a.costoUnitarioBs || ''}
+                        onChange={(e) =>
+                          onUpdateAccesorio(
+                            a.id,
+                            'costoUnitarioBs',
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor={`acc-precio-${a.id}`} className="text-xs font-semibold text-blue-950 mb-1 block" required>
+                      Precio Venta Sugerido (Bs)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-xs font-bold text-blue-700 pointer-events-none">Bs</span>
+                      <Input
+                        id={`acc-precio-${a.id}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={a.precioVentaBs || ''}
+                        onChange={(e) =>
+                          onUpdateAccesorio(
+                            a.id,
+                            'precioVentaBs',
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Smartphone, Plus, Trash2, Sparkles } from 'lucide-react';
+import { Smartphone, Plus, Trash2, Sparkles, Coins, DollarSign } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -257,8 +257,8 @@ export function RecepcionTelefonosTable({
                   />
                 </div>
 
-                {/* IMEI 1 */}
-                <div>
+                {/* FILA 2: IMEI 1 e IMEI 2 (2 columnas cada uno para lectura y escaneo ergonómico) */}
+                <div className="md:col-span-2">
                   <Label htmlFor={`tel-imei1-${t.id}`} required={!noAplicaImei && t.modeloTipo === 'IPHONE'}>
                     IMEI 1 {!noAplicaImei ? (t.modeloTipo === 'IPHONE' ? '(15 dígitos)' : '(Celular/Opc.)') : '(No Aplica)'}
                   </Label>
@@ -291,8 +291,7 @@ export function RecepcionTelefonosTable({
                   />
                 </div>
 
-                {/* IMEI 2 (Opcional) */}
-                <div>
+                <div className="md:col-span-2">
                   <Label htmlFor={`tel-imei2-${t.id}`}>IMEI 2 (Dual SIM / eSIM)</Label>
                   <Input
                     id={`tel-imei2-${t.id}`}
@@ -310,7 +309,6 @@ export function RecepcionTelefonosTable({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        // Enter en IMEI 2 previene el submit y NO crea fila; solo Shift crea la siguiente fila
                       }
                     }}
                     className={
@@ -321,77 +319,7 @@ export function RecepcionTelefonosTable({
                   />
                 </div>
 
-                {/* Costo en Bs */}
-                <div>
-                  <Label htmlFor={`tel-costo-bs-${t.id}`} required>Costo Unitario (Bs)</Label>
-                  <Input
-                    id={`tel-costo-bs-${t.id}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={t.costoBs || ''}
-                    onChange={(e) =>
-                      onUpdateTelefono(t.id, 'costoBs', parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-
-                {/* Precio Venta Sugerido en Bs */}
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor={`tel-precio-bs-${t.id}`} required>P. Venta Sugerido (Bs)</Label>
-                    <span className="text-[10px] text-slate-500 font-mono">auto</span>
-                  </div>
-                  <Input
-                    id={`tel-precio-bs-${t.id}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={t.precioVentaSugeridoBs || ''}
-                    onChange={(e) =>
-                      onUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-
-                {/* Costo en USD */}
-                <div>
-                  <Label htmlFor={`tel-costo-usd-${t.id}`} required>Costo Unitario ($ USD)</Label>
-                  <Input
-                    id={`tel-costo-usd-${t.id}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={t.costoUsd || ''}
-                    onChange={(e) =>
-                      onUpdateTelefono(t.id, 'costoUsd', parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-
-                {/* Precio Venta Sugerido en USD */}
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor={`tel-precio-usd-${t.id}`} required>P. Venta Sugerido ($ USD)</Label>
-                    <span className="text-[10px] text-emerald-600 font-mono font-medium">auto</span>
-                  </div>
-                  <Input
-                    id={`tel-precio-usd-${t.id}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={t.precioVentaSugeridoUsd || ''}
-                    onChange={(e) =>
-                      onUpdateTelefono(t.id, 'precioVentaSugeridoUsd', parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-
-                {/* Detalles Físicos / Observaciones */}
+                {/* FILA 3: Detalles Físicos / Observaciones (Ancho completo de la 3ra fila) */}
                 <div className="md:col-span-4">
                   <Label htmlFor={`tel-detalles-${t.id}`}>Detalles Físicos / Observaciones (Opcional)</Label>
                   <Input
@@ -403,6 +331,129 @@ export function RecepcionTelefonosTable({
                       onUpdateTelefono(t.id, 'detallesFisicos', e.target.value)
                     }
                   />
+                </div>
+
+                {/* FILA 4: JERARQUÍA FINANCIERA DESTACADA (Inputs de 44px / h-11 en Bolivianos y Dólares) */}
+                <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {/* Panel Bolivianos (Bs) */}
+                  <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-blue-100">
+                      <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                        <Coins className="h-4 w-4 text-blue-700" />
+                        Valores en Bolivianos (Bs)
+                      </span>
+                      <span className="text-[10px] font-semibold text-blue-700 bg-blue-100/70 border border-blue-200 px-1.5 py-0.5 rounded">
+                        Moneda Nacional
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`tel-costo-bs-${t.id}`} className="text-xs font-semibold text-blue-950 mb-1 block" required>
+                          Costo Unitario (Bs)
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-3 text-xs font-bold text-blue-700 pointer-events-none">Bs</span>
+                          <Input
+                            id={`tel-costo-bs-${t.id}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={t.costoBs || ''}
+                            onChange={(e) =>
+                              onUpdateTelefono(t.id, 'costoBs', parseFloat(e.target.value) || 0)
+                            }
+                            className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor={`tel-precio-bs-${t.id}`} className="text-xs font-semibold text-blue-950" required>
+                            P. Venta Sugerido (Bs)
+                          </Label>
+                          <span className="text-[10px] text-blue-600 font-mono font-medium">auto</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-3 text-xs font-bold text-blue-700 pointer-events-none">Bs</span>
+                          <Input
+                            id={`tel-precio-bs-${t.id}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={t.precioVentaSugeridoBs || ''}
+                            onChange={(e) =>
+                              onUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
+                            }
+                            className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Panel Dólares ($ USD) */}
+                  <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-emerald-100">
+                      <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                        <DollarSign className="h-4 w-4 text-emerald-700" />
+                        Valores en Dólares ($ USD)
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/70 border border-emerald-200 px-1.5 py-0.5 rounded">
+                        Mayorista USA
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`tel-costo-usd-${t.id}`} className="text-xs font-semibold text-emerald-950 mb-1 block" required>
+                          Costo Unitario ($ USD)
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-3 text-xs font-bold text-emerald-700 pointer-events-none">$</span>
+                          <Input
+                            id={`tel-costo-usd-${t.id}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={t.costoUsd || ''}
+                            onChange={(e) =>
+                              onUpdateTelefono(t.id, 'costoUsd', parseFloat(e.target.value) || 0)
+                            }
+                            className="h-11 pl-8 text-sm font-bold font-mono bg-white border-emerald-300 text-emerald-950 shadow-xs focus-visible:ring-emerald-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor={`tel-precio-usd-${t.id}`} className="text-xs font-semibold text-emerald-950" required>
+                            P. Venta Sugerido ($ USD)
+                          </Label>
+                          <span className="text-[10px] text-emerald-600 font-mono font-medium">auto</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-3 text-xs font-bold text-emerald-700 pointer-events-none">$</span>
+                          <Input
+                            id={`tel-precio-usd-${t.id}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={t.precioVentaSugeridoUsd || ''}
+                            onChange={(e) =>
+                              onUpdateTelefono(t.id, 'precioVentaSugeridoUsd', parseFloat(e.target.value) || 0)
+                            }
+                            className="h-11 pl-8 text-sm font-bold font-mono bg-white border-emerald-300 text-emerald-950 shadow-xs focus-visible:ring-emerald-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
