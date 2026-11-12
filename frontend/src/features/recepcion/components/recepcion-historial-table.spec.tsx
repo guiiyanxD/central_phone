@@ -64,7 +64,7 @@ describe('RecepcionHistorialTable Component', () => {
     isAdmin: true,
   };
 
-  it('debe renderizar las 6 columnas optimizadas sin badge redundante Mayorista', () => {
+  it('debe renderizar las columnas optimizadas con Nro Comprobante restaurado y sin badge redundante Mayorista', () => {
     render(<RecepcionHistorialTable {...defaultProps} />);
 
     // Columna 1: Código
@@ -77,17 +77,17 @@ describe('RecepcionHistorialTable Component', () => {
     // Columna 3: Proveedor Mayorista
     expect(screen.getByText('Apple Distribuidor Miami')).toBeDefined();
 
-    // Columna 4: Ítems ingresados
+    // Columna 4: Nro Comprobante
+    expect(screen.getByText('FAC-8899')).toBeDefined();
+
+    // Columna 5: Ítems ingresados
     expect(screen.getByText('4')).toBeDefined();
     expect(screen.getByText('tel.')).toBeDefined();
     expect(screen.getByText('2')).toBeDefined();
     expect(screen.getByText('lotes')).toBeDefined();
 
-    // Columna 5: Inversión Total Bs
+    // Columna 6: Inversión Total Bs
     expect(screen.getByText(/15[.,]400[.,]00/)).toBeDefined();
-
-    // No debe haber badge "Mayorista" en la fila del item (solo en el título o autocomplete)
-    // En la fila debe estar solo el código y el estado REGISTRADA
   });
 
   it('debe llamar a las acciones de Detalle, Editar y Anular', () => {

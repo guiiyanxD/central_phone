@@ -217,6 +217,7 @@ export function RecepcionHistorialTable({
                 <th className="py-3 px-4">Código / Nota</th>
                 <th className="py-3 px-4">Fecha</th>
                 <th className="py-3 px-4">Proveedor Mayorista</th>
+                <th className="py-3 px-4">Nro Comprobante</th>
                 <th className="py-3 px-4 text-center">Ítems Ingresados</th>
                 <th className="py-3 px-4 text-right">Inversión Total (Bs)</th>
                 <th className="py-3 px-4 text-center">Acciones</th>
@@ -229,6 +230,7 @@ export function RecepcionHistorialTable({
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-20" /></td>
                     <td className="py-3.5 px-4"><Skeleton className="h-4 w-28" /></td>
+                    <td className="py-3.5 px-4"><Skeleton className="h-4 w-24" /></td>
                     <td className="py-3.5 px-4 text-center"><Skeleton className="h-4 w-24 mx-auto" /></td>
                     <td className="py-3.5 px-4 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
                     <td className="py-3.5 px-4 text-center"><Skeleton className="h-7 w-24 mx-auto rounded" /></td>
@@ -236,7 +238,7 @@ export function RecepcionHistorialTable({
                 ))
               ) : recepcionesList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
                     <Truck className="h-8 w-8 mx-auto text-slate-300 mb-2" />
                     <p className="font-semibold text-slate-700">No se encontraron recepciones con los filtros seleccionados.</p>
                     <p className="text-slate-400 text-[11px] mt-0.5">Prueba cambiando el rango de fechas, sucursal o proveedor.</p>
@@ -271,6 +273,13 @@ export function RecepcionHistorialTable({
                         <Badge variant="outline" className="font-semibold bg-slate-50 border-slate-200 text-slate-800">
                           {rec.proveedor?.nombre}
                         </Badge>
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-700 whitespace-nowrap">
+                        {rec.numeroComprobante?.trim() ? (
+                          <span>{rec.numeroComprobante.trim()}</span>
+                        ) : (
+                          <span className="text-slate-400 italic">S/N</span>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <span className="font-semibold text-slate-900">{dispCount}</span>{' '}
