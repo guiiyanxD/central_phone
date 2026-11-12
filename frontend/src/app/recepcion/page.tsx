@@ -575,8 +575,7 @@ export default function RecepcionMercaderiaPage() {
   };
 
   const handleRemoveTelefono = (id: string) => {
-    if (telefonos.length === 1) return;
-    setTelefonos(telefonos.filter((t) => t.id !== id));
+    setTelefonos((prev) => prev.filter((t) => t.id !== id));
   };
 
   const handleUpdateTelefono = (id: string, field: keyof TelefonoRow, value: any) => {
@@ -823,8 +822,7 @@ export default function RecepcionMercaderiaPage() {
   };
 
   const handleRemoveAccesorio = (id: string) => {
-    if (accesorios.length === 1) return;
-    setAccesorios(accesorios.filter((a) => a.id !== id));
+    setAccesorios((prev) => prev.filter((a) => a.id !== id));
   };
 
   const handleUpdateAccesorio = (id: string, field: keyof AccesorioRow, value: any) => {
@@ -1012,6 +1010,18 @@ export default function RecepcionMercaderiaPage() {
         setErrorMessage(`El equipo '${t.modeloNombreDisplay || 'iPhone'}' requiere un IMEI 1 obligatorio.`);
         return;
       }
+      if (Number(t.costoBs) <= 0 && Number(t.costoUsd) <= 0) {
+        setErrorMessage(
+          `El equipo con serie '${t.numeroSerie || t.imei1 || 'sin serie'}' debe tener un costo de adquisición mayor a 0 (en Bs o USD).`
+        );
+        return;
+      }
+      if (Number(t.precioVentaSugeridoBs) <= 0 && Number(t.precioVentaSugeridoUsd) <= 0) {
+        setErrorMessage(
+          `El equipo con serie '${t.numeroSerie || t.imei1 || 'sin serie'}' debe tener un precio de venta sugerido mayor a 0 (en Bs o USD).`
+        );
+        return;
+      }
     }
 
     // 4. Validar filas de accesorios activas
@@ -1031,6 +1041,18 @@ export default function RecepcionMercaderiaPage() {
       if (Number(a.cantidad) <= 0) {
         setErrorMessage(
           `El lote de accesorio '${a.nombreDiferenciador}' debe tener una cantidad mayor a 0.`
+        );
+        return;
+      }
+      if (Number(a.costoUnitarioBs) <= 0) {
+        setErrorMessage(
+          `El lote de accesorio '${a.nombreDiferenciador}' debe tener un costo unitario mayor a 0 Bs.`
+        );
+        return;
+      }
+      if (Number(a.precioVentaBs) <= 0) {
+        setErrorMessage(
+          `El lote de accesorio '${a.nombreDiferenciador}' debe tener un precio de venta sugerido mayor a 0 Bs.`
         );
         return;
       }
@@ -1276,6 +1298,7 @@ export default function RecepcionMercaderiaPage() {
           ) : (
             <form
               onSubmit={handleSubmitNota}
+              noValidate
               onKeyDown={(e) => {
                 // Prevenir que presionar Enter dentro de inputs de texto/selects envíe el formulario por error
                 if (e.key === 'Enter') {

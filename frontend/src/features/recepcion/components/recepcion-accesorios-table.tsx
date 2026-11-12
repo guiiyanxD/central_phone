@@ -86,31 +86,50 @@ export function RecepcionAccesoriosTable({
         ref={scrollContainerRef}
         className="p-5 space-y-4 max-h-[520px] overflow-y-auto pr-3.5 scroll-smooth"
       >
-        {accesorios.map((a, idx) => (
-          <div
-            key={a.id}
-            className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
-          >
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-              <div className="flex items-center gap-2">
-                <span>Lote #{accesorios.length - idx}</span>
-                {a.yaVendido && (
-                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
-                    Con Salidas (Bloqueado)
-                  </Badge>
+        {accesorios.length === 0 ? (
+          <div className="py-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 p-6">
+            <Headphones className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+            <p className="text-sm font-medium text-slate-700">Sin lotes de accesorios</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Esta nota de ingreso no incluirá accesorios. Haz clic en &quot;Agregar Lote Accesorio&quot; si deseas registrar alguno.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddAccesorio}
+              className="mt-3 text-xs"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Agregar Lote Accesorio
+            </Button>
+          </div>
+        ) : (
+          accesorios.map((a, idx) => (
+            <div
+              key={a.id}
+              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span>Lote #{accesorios.length - idx}</span>
+                  {a.yaVendido && (
+                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                      Con Salidas (Bloqueado)
+                    </Badge>
+                  )}
+                </div>
+                {!a.yaVendido && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAccesorio(a.id)}
+                    className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
+                    title="Eliminar fila"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
-              {accesorios.length > 1 && !a.yaVendido && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveAccesorio(a.id)}
-                  className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                  title="Eliminar fila"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
               {/* Accesorio Base */}
@@ -217,7 +236,6 @@ export function RecepcionAccesoriosTable({
                           )
                         }
                         className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
-                        required
                       />
                     </div>
                   </div>
@@ -242,7 +260,6 @@ export function RecepcionAccesoriosTable({
                           )
                         }
                         className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
-                        required
                       />
                     </div>
                   </div>
@@ -250,7 +267,8 @@ export function RecepcionAccesoriosTable({
               </div>
             </div>
           </div>
-        ))}
+        ))
+      )}
       </CardContent>
     </Card>
   );

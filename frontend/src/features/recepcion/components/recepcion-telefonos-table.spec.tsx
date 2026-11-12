@@ -248,4 +248,54 @@ describe('RecepcionTelefonosTable - Barcode Scanner & Shift Ergonomics', () => {
 
     expect(screen.queryByText(/USADO \(Garantizado\)/i)).not.toBeInTheDocument();
   });
+
+  it('permite eliminar la fila incluso si es la única fila y no tiene atributo required en los inputs de precios', () => {
+    render(
+      <RecepcionTelefonosTable
+        telefonos={[defaultRow]}
+        modelos={mockModelos}
+        onAddTelefono={mockOnAddTelefono}
+        onAddSiguienteEquipo={mockOnAddSiguienteEquipo}
+        onRemoveTelefono={mockOnRemoveTelefono}
+        onUpdateTelefono={mockOnUpdateTelefono}
+        onOpenInlineVarianteModal={mockOnOpenInlineVarianteModal}
+      />
+    );
+
+    // El botón eliminar debe estar disponible incluso con 1 sola fila
+    const removeBtn = screen.getByTitle('Eliminar fila');
+    expect(removeBtn).toBeInTheDocument();
+    fireEvent.click(removeBtn);
+    expect(mockOnRemoveTelefono).toHaveBeenCalledWith('tel-1');
+
+    // Los inputs de costo y precio no deben tener el atributo required nativo del navegador
+    const costoBsInput = screen.getByLabelText(/Costo Unitario \(Bs\)/i);
+    expect(costoBsInput).not.toHaveAttribute('required');
+
+    const precioBsInput = screen.getByLabelText(/P\. Venta Sugerido \(Bs\)/i);
+    expect(precioBsInput).not.toHaveAttribute('required');
+  });
+
+  it('renderiza el estado vacío amigable cuando telefonos es un arreglo vacío', () => {
+    render(
+      <RecepcionTelefonosTable
+        telefonos={[]}
+        modelos={mockModelos}
+        onAddTelefono={mockOnAddTelefono}
+        onAddSiguienteEquipo={mockOnAddSiguienteEquipo}
+        onRemoveTelefono={mockOnRemoveTelefono}
+        onUpdateTelefono={mockOnUpdateTelefono}
+        onOpenInlineVarianteModal={mockOnOpenInlineVarianteModal}
+      />
+    );
+
+    expect(screen.getByText('Sin equipos serializados')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Esta nota de ingreso no incluirá teléfonos/i)
+    ).toBeInTheDocument();
+
+    const addBtn = screen.getAllByRole('button', { name: /Agregar Equipo/i })[0];
+    fireEvent.click(addBtn);
+    expect(mockOnAddTelefono).toHaveBeenCalled();
+  });
 });

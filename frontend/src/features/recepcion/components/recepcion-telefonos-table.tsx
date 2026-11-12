@@ -134,7 +134,7 @@ export function RecepcionTelefonosTable({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => (onAddSiguienteEquipo ? onAddSiguienteEquipo() : onAddTelefono())}
+            onClick={() => (onAddSiguienteEquipo && telefonos.length > 0 ? onAddSiguienteEquipo() : onAddTelefono())}
             className="text-xs"
           >
             <Plus className="mr-1 h-3.5 w-3.5" />
@@ -147,35 +147,54 @@ export function RecepcionTelefonosTable({
         ref={scrollContainerRef}
         className="p-5 space-y-4 max-h-[520px] overflow-y-auto pr-3.5 scroll-smooth"
       >
-        {telefonos.map((t, idx) => {
-          const noAplicaImei = isImeiDeshabilitado(t);
-          return (
-            <div
-              key={t.id}
-              onKeyDown={handleRowKeyDown}
-              onKeyUp={(e) => handleRowKeyUp(e, t)}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
+        {telefonos.length === 0 ? (
+          <div className="py-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 p-6">
+            <Smartphone className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+            <p className="text-sm font-medium text-slate-700">Sin equipos serializados</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Esta nota de ingreso no incluirá teléfonos. Haz clic en &quot;Agregar Equipo&quot; si deseas registrar alguno.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => (onAddSiguienteEquipo && telefonos.length > 0 ? onAddSiguienteEquipo() : onAddTelefono())}
+              className="mt-3 text-xs"
             >
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                <div className="flex items-center gap-2">
-                  <span>Unidad #{telefonos.length - idx}</span>
-                  {t.yaVendido && (
-                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
-                      Vendido (Bloqueado)
-                    </Badge>
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Agregar Equipo
+            </Button>
+          </div>
+        ) : (
+          telefonos.map((t, idx) => {
+            const noAplicaImei = isImeiDeshabilitado(t);
+            return (
+              <div
+                key={t.id}
+                onKeyDown={handleRowKeyDown}
+                onKeyUp={(e) => handleRowKeyUp(e, t)}
+                className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative group"
+              >
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span>Unidad #{telefonos.length - idx}</span>
+                    {t.yaVendido && (
+                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                        Vendido (Bloqueado)
+                      </Badge>
+                    )}
+                  </div>
+                  {!t.yaVendido && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveTelefono(t.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
+                      title="Eliminar fila"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
-                {telefonos.length > 1 && !t.yaVendido && (
-                  <button
-                    type="button"
-                    onClick={() => onRemoveTelefono(t.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                    title="Eliminar fila"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 {/* Selector de Variante o Botón al vuelo */}
@@ -364,7 +383,6 @@ export function RecepcionTelefonosTable({
                               onUpdateTelefono(t.id, 'costoBs', parseFloat(e.target.value) || 0)
                             }
                             className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
-                            required
                           />
                         </div>
                       </div>
@@ -388,7 +406,6 @@ export function RecepcionTelefonosTable({
                               onUpdateTelefono(t.id, 'precioVentaSugeridoBs', parseFloat(e.target.value) || 0)
                             }
                             className="h-11 pl-9 text-sm font-bold font-mono bg-white border-blue-300 text-blue-950 shadow-xs focus-visible:ring-blue-500"
-                            required
                           />
                         </div>
                       </div>
@@ -424,7 +441,6 @@ export function RecepcionTelefonosTable({
                               onUpdateTelefono(t.id, 'costoUsd', parseFloat(e.target.value) || 0)
                             }
                             className="h-11 pl-8 text-sm font-bold font-mono bg-white border-emerald-300 text-emerald-950 shadow-xs focus-visible:ring-emerald-500"
-                            required
                           />
                         </div>
                       </div>
@@ -448,7 +464,6 @@ export function RecepcionTelefonosTable({
                               onUpdateTelefono(t.id, 'precioVentaSugeridoUsd', parseFloat(e.target.value) || 0)
                             }
                             className="h-11 pl-8 text-sm font-bold font-mono bg-white border-emerald-300 text-emerald-950 shadow-xs focus-visible:ring-emerald-500"
-                            required
                           />
                         </div>
                       </div>
@@ -458,7 +473,8 @@ export function RecepcionTelefonosTable({
               </div>
             </div>
           );
-        })}
+        })
+      )}
       </CardContent>
     </Card>
   );
