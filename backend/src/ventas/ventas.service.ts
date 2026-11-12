@@ -409,6 +409,7 @@ export class VentasService {
               telefono: dto.cliente.telefono.trim(),
               empresa: 'Cliente Permuta Mostrador',
               contactoReferencia: 'Permuta en POS',
+              tipo: 'MINORISTA',
             },
           });
         }

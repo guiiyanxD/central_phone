@@ -113,16 +113,22 @@ model Usuario {
 // ACTORES COMERCIALES
 // ------------------------------------------
 
+enum TipoProveedor {
+  MAYORISTA
+  MINORISTA
+}
+
 model Proveedor {
-  id                 Int      @id @default(autoincrement())
-  nombre             String   @db.VarChar(100)
-  apellido           String?  @db.VarChar(100)
-  empresa            String?  @db.VarChar(150)
-  telefono           String?  @db.VarChar(30)
-  contactoReferencia String?  @map("contacto_referencia") @db.VarChar(100)
-  activo             Boolean  @default(true)
-  creadoEn           DateTime @default(now()) @map("creado_en")
-  actualizadoEn      DateTime @default(now()) @updatedAt @map("actualizado_en")
+  id                 Int           @id @default(autoincrement())
+  nombre             String        @db.VarChar(100)
+  apellido           String?       @db.VarChar(100)
+  empresa            String?       @db.VarChar(150)
+  telefono           String?       @db.VarChar(30)
+  contactoReferencia String?       @map("contacto_referencia") @db.VarChar(100)
+  tipo               TipoProveedor @default(MAYORISTA)
+  activo             Boolean       @default(true)
+  creadoEn           DateTime      @default(now()) @map("creado_en")
+  actualizadoEn      DateTime      @default(now()) @updatedAt @map("actualizado_en")
 
   notasIngreso NotaIngreso[]
 

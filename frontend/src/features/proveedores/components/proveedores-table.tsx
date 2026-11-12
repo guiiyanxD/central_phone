@@ -61,6 +61,9 @@ export function ProveedoresTable({
                 Contacto Comercial
               </th>
               <th scope="col" className="px-5 py-3.5">
+                Tipo
+              </th>
+              <th scope="col" className="px-5 py-3.5">
                 Teléfono / WhatsApp
               </th>
               <th scope="col" className="px-5 py-3.5 text-center">
@@ -121,6 +124,19 @@ export function ProveedoresTable({
                         </p>
                       )}
                     </div>
+                  </td>
+
+                  {/* Tipo de Proveedor */}
+                  <td className="px-5 py-4">
+                    {p.tipo === 'MINORISTA' ? (
+                      <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                        Minorista (Permuta)
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                        Mayorista
+                      </Badge>
+                    )}
                   </td>
 
                   {/* Teléfono / WhatsApp */}

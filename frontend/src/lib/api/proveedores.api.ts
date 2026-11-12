@@ -9,13 +9,16 @@ import {
 export * from '@/features/proveedores/types';
 
 export const proveedoresApi = {
-  getAll: (includeInactivos = false, search?: string) => {
+  getAll: (includeInactivos = false, search?: string, tipo?: 'MAYORISTA' | 'MINORISTA') => {
     const params = new URLSearchParams();
     if (includeInactivos) {
       params.append('includeInactivos', 'true');
     }
     if (search && search.trim() !== '') {
       params.append('search', search.trim());
+    }
+    if (tipo) {
+      params.append('tipo', tipo);
     }
     const qs = params.toString();
     return request<ProveedorItem[]>(`/proveedores${qs ? `?${qs}` : ''}`);

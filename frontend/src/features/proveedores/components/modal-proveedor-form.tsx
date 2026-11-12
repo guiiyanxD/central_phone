@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Truck, Building2, UserCheck, AlertTriangle } from 'lucide-react';
+import { Truck, Building2, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ export function ModalProveedorForm({
   const [empresa, setEmpresa] = useState('');
   const [telefono, setTelefono] = useState('');
   const [contactoReferencia, setContactoReferencia] = useState('');
+  const [tipo, setTipo] = useState<'MAYORISTA' | 'MINORISTA'>('MAYORISTA');
   const [clientError, setClientError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,12 +43,14 @@ export function ModalProveedorForm({
         setEmpresa(proveedorToEdit.empresa || '');
         setTelefono(proveedorToEdit.telefono || '');
         setContactoReferencia(proveedorToEdit.contactoReferencia || '');
+        setTipo(proveedorToEdit.tipo || 'MAYORISTA');
       } else {
         setNombre('');
         setApellido('');
         setEmpresa('');
         setTelefono('');
         setContactoReferencia('');
+        setTipo('MAYORISTA');
       }
       setClientError(null);
     }
@@ -68,6 +71,7 @@ export function ModalProveedorForm({
       empresa: empresa.trim() || undefined,
       telefono: telefono.trim() || undefined,
       contactoReferencia: contactoReferencia.trim() || undefined,
+      tipo,
     });
   };
 
@@ -101,10 +105,54 @@ export function ModalProveedorForm({
           </div>
         )}
 
-        {/* Empresa / Razón Social Mayorista */}
+        {/* Tipo de Proveedor */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold text-slate-700">
+            Clasificación del Proveedor <span className="text-rose-500">*</span>
+          </Label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setTipo('MAYORISTA')}
+              className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2.5 text-xs font-medium cursor-pointer ${
+                tipo === 'MAYORISTA'
+                  ? 'border-blue-600 bg-blue-50/70 text-blue-950 ring-1 ring-blue-600 shadow-xs'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className={`p-1.5 rounded-lg shrink-0 ${tipo === 'MAYORISTA' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                <Truck className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="block font-semibold">Mayorista</span>
+                <span className="text-[10px] text-slate-500">Distribuidor Comercial</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTipo('MINORISTA')}
+              className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2.5 text-xs font-medium cursor-pointer ${
+                tipo === 'MINORISTA'
+                  ? 'border-purple-600 bg-purple-50/70 text-purple-950 ring-1 ring-purple-600 shadow-xs'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className={`p-1.5 rounded-lg shrink-0 ${tipo === 'MINORISTA' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                <RefreshCw className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="block font-semibold">Minorista</span>
+                <span className="text-[10px] text-slate-500">Cliente / Permuta</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Empresa / Razón Social */}
         <div className="space-y-1.5">
           <Label htmlFor="prov-empresa" className="text-xs font-semibold text-slate-700">
-            Empresa / Razón Social Mayorista <span className="text-slate-400 font-normal">(Opcional)</span>
+            Empresa / Razón Social <span className="text-slate-400 font-normal">(Opcional)</span>
           </Label>
           <Input
             id="prov-empresa"

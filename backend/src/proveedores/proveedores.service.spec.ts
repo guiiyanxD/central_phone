@@ -68,6 +68,23 @@ describe('ProveedoresService', () => {
         }),
       );
     });
+
+    it('debe filtrar por tipo cuando se especifica MAYORISTA o MINORISTA', async () => {
+      prisma.proveedor.findMany.mockResolvedValue([
+        { id: 1, nombre: 'Roberto', tipo: 'MAYORISTA' },
+      ] as any);
+
+      const res = await service.findAll({ tipo: 'MAYORISTA' as any });
+      expect(res).toHaveLength(1);
+      expect(prisma.proveedor.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            activo: true,
+            tipo: 'MAYORISTA',
+          }),
+        }),
+      );
+    });
   });
 
   describe('findOne', () => {
@@ -117,6 +134,7 @@ describe('ProveedoresService', () => {
           empresa: 'Importadora Gaby',
           telefono: '77788990',
           contactoReferencia: null,
+          tipo: 'MAYORISTA',
           activo: true,
         },
       });

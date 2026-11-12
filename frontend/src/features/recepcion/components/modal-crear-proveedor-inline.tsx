@@ -59,6 +59,7 @@ export function ModalCrearProveedorInline({
         empresa: empresa.trim() || undefined,
         telefono: telefono.trim() || undefined,
         contactoReferencia: contactoReferencia.trim() || undefined,
+        tipo: 'MAYORISTA',
       });
 
       onProveedorCreado(nuevo);

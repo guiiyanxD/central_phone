@@ -17,6 +17,11 @@ export class ProveedoresService {
       where.activo = true;
     }
 
+    // Filtrar por tipo si se especifica (MAYORISTA o MINORISTA)
+    if (query?.tipo) {
+      where.tipo = query.tipo;
+    }
+
     if (query?.search && query.search.trim() !== '') {
       const term = query.search.trim();
       where.OR = [
@@ -71,6 +76,7 @@ export class ProveedoresService {
         empresa: createProveedorDto.empresa?.trim() || null,
         telefono: createProveedorDto.telefono?.trim() || null,
         contactoReferencia: createProveedorDto.contactoReferencia?.trim() || null,
+        tipo: createProveedorDto.tipo || 'MAYORISTA',
         activo: true,
       },
     });
@@ -96,6 +102,9 @@ export class ProveedoresService {
         }),
         ...(updateProveedorDto.contactoReferencia !== undefined && {
           contactoReferencia: updateProveedorDto.contactoReferencia?.trim() || null,
+        }),
+        ...(updateProveedorDto.tipo !== undefined && {
+          tipo: updateProveedorDto.tipo,
         }),
         ...(updateProveedorDto.activo !== undefined && {
           activo: updateProveedorDto.activo,

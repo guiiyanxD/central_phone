@@ -15,6 +15,7 @@ export interface ProveedorItem {
   empresa: string | null;
   telefono: string | null;
   contactoReferencia: string | null;
+  tipo: 'MAYORISTA' | 'MINORISTA';
   activo: boolean;
   creadoEn: string;
   actualizadoEn: string;
@@ -30,6 +31,7 @@ export interface CreateProveedorInput {
   empresa?: string;
   telefono?: string;
   contactoReferencia?: string;
+  tipo?: 'MAYORISTA' | 'MINORISTA';
 }
 
 export interface UpdateProveedorInput {
@@ -38,10 +40,12 @@ export interface UpdateProveedorInput {
   empresa?: string;
   telefono?: string;
   contactoReferencia?: string;
+  tipo?: 'MAYORISTA' | 'MINORISTA';
   activo?: boolean;
 }
 
 export interface QueryProveedoresParams {
   includeInactivos?: boolean;
   search?: string;
+  tipo?: 'MAYORISTA' | 'MINORISTA';
 }

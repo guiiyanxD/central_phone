@@ -37,6 +37,7 @@ export default function ProveedoresPage() {
   // Filtros
   const [search, setSearch] = useState('');
   const [activoFiltro, setActivoFiltro] = useState<string>('TODOS');
+  const [tipoFiltro, setTipoFiltro] = useState<string>('TODOS');
 
   // Modales
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -85,8 +86,10 @@ export default function ProveedoresPage() {
     }, 4000);
   };
 
-  // Filtrado en memoria por estado (Activos / Inactivos / Todos)
+  // Filtrado en memoria por estado y por tipo
   const filteredProveedores = proveedores.filter((p) => {
+    if (tipoFiltro === 'MAYORISTA' && p.tipo !== 'MAYORISTA') return false;
+    if (tipoFiltro === 'MINORISTA' && p.tipo !== 'MINORISTA') return false;
     if (activoFiltro === 'ACTIVOS') return p.activo;
     if (activoFiltro === 'INACTIVOS') return !p.activo;
     return true;
@@ -94,9 +97,17 @@ export default function ProveedoresPage() {
 
   // Métricas
   const totalProveedores = proveedores.length;
+  const mayoristasCount = proveedores.filter((p) => !p.tipo || p.tipo === 'MAYORISTA').length;
+  const minoristasCount = proveedores.filter((p) => p.tipo === 'MINORISTA').length;
   const activosCount = proveedores.filter((p) => p.activo).length;
   const inactivosCount = proveedores.filter((p) => !p.activo).length;
   const conRecepcionesCount = proveedores.filter((p) => (p._count?.notasIngreso ?? 0) > 0).length;
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setActivoFiltro('TODOS');
+    setTipoFiltro('TODOS');
+  };
 
   // Handlers
   const handleOpenCreate = () => {
@@ -175,11 +186,6 @@ export default function ProveedoresPage() {
       setProveedorDetalle(p);
       setIsDetalleOpen(true);
     }
-  };
-
-  const handleResetFilters = () => {
-    setSearch('');
-    setActivoFiltro('TODOS');
   };
 
   // ==========================================
@@ -283,6 +289,11 @@ export default function ProveedoresPage() {
         setSearch={setSearch}
         activoFiltro={activoFiltro}
         setActivoFiltro={setActivoFiltro}
+        tipoFiltro={tipoFiltro}
+        setTipoFiltro={setTipoFiltro}
+        totalCount={totalProveedores}
+        mayoristasCount={mayoristasCount}
+        minoristasCount={minoristasCount}
         onReset={handleResetFilters}
       />
 

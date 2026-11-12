@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { AutocompleteInput, AutocompleteOption } from '@/components/ui/autocomplete-input';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,21 @@ export function RecepcionHistorialTable({
   onOpenAnularModal,
   isAdmin = true,
 }: RecepcionHistorialTableProps) {
+  const proveedorOptions: AutocompleteOption[] = React.useMemo(() => {
+    return proveedoresList
+      .filter((p) => !p.tipo || p.tipo === 'MAYORISTA')
+      .map((p) => {
+        const provName = p.empresa ? `${p.empresa} (${p.nombre})` : `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`;
+        return {
+          value: String(p.id),
+          label: provName,
+          sublabel: p.telefono ? `Tel: ${p.telefono}` : undefined,
+          badge: 'Mayorista',
+          badgeVariant: 'blue' as const,
+        };
+      });
+  }, [proveedoresList]);
+
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* BARRA DE FILTROS Y BÚSQUEDA */}
@@ -115,27 +131,20 @@ export function RecepcionHistorialTable({
             </Select>
           </div>
 
-          {/* Selector de Proveedor */}
+          {/* Selector de Proveedor Mayorista con Autocomplete */}
           <div className="lg:col-span-2">
             <Label htmlFor="filtroRecProveedor" className="text-xs text-slate-600 mb-1 block">
               Proveedor Mayorista
             </Label>
-            <Select
+            <AutocompleteInput
               id="filtroRecProveedor"
-              value={filtroRecProveedorId}
-              onChange={(e) => setFiltroRecProveedorId(e.target.value)}
-              className="text-xs h-9"
-            >
-              <option value="TODOS">Todos los proveedores</option>
-              {proveedoresList.map((p) => {
-                const provName = p.empresa ? `${p.empresa} (${p.nombre})` : `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`;
-                return (
-                  <option key={p.id} value={p.id}>
-                    {provName}
-                  </option>
-                );
-              })}
-            </Select>
+              options={proveedorOptions}
+              value={filtroRecProveedorId === 'TODOS' ? '' : filtroRecProveedorId}
+              onChange={(val) => setFiltroRecProveedorId(val ? String(val) : 'TODOS')}
+              placeholder="Todos los mayoristas..."
+              emptyMessage="Sin mayoristas con ese término"
+              isClearable
+            />
           </div>
 
           {/* Rango de Fechas */}

@@ -1,5 +1,6 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { TipoProveedor } from '@prisma/client';
 
 export class QueryProveedorDto {
   @Transform(({ value }) => {
@@ -14,4 +15,8 @@ export class QueryProveedorDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @IsEnum(TipoProveedor, { message: 'El tipo debe ser MAYORISTA o MINORISTA.' })
+  @IsOptional()
+  tipo?: TipoProveedor;
 }

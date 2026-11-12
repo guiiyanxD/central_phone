@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
+import { AutocompleteInput, AutocompleteOption } from '@/components/ui/autocomplete-input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -54,19 +54,22 @@ export function RecepcionHeader({
   setFechaIngreso,
   onOpenCrearProveedor,
 }: RecepcionHeaderProps) {
-  const proveedorOptions: SearchableSelectOption[] = useMemo(() => {
-    return proveedores.map((p) => {
-      const mainLabel = p.empresa || `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`;
-      const subLabel = p.empresa
-        ? `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`
-        : (p.contactoReferencia || '');
-      return {
-        value: p.id,
-        label: mainLabel,
-        sublabel: subLabel || undefined,
-        badge: p.telefono ? `Tel: ${p.telefono}` : undefined,
-      };
-    });
+  const proveedorOptions: AutocompleteOption[] = useMemo(() => {
+    return proveedores
+      .filter((p) => !p.tipo || p.tipo === 'MAYORISTA')
+      .map((p) => {
+        const mainLabel = p.empresa || `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`;
+        const subLabel = p.empresa
+          ? `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`
+          : (p.contactoReferencia || '');
+        return {
+          value: p.id,
+          label: mainLabel,
+          sublabel: subLabel || undefined,
+          badge: p.telefono ? `Tel: ${p.telefono}` : undefined,
+          badgeVariant: 'blue' as const,
+        };
+      });
   }, [proveedores]);
 
   const maxDateTimeLocal = useMemo(() => {
@@ -251,12 +254,13 @@ export function RecepcionHeader({
                   </Button>
                 )}
               </div>
-              <SearchableSelect
-                value={proveedorId}
-                onChange={(val) => setProveedorId(Number(val))}
-                placeholder="Buscar proveedor..."
-                searchPlaceholder="Escribe nombre o empresa..."
+              <AutocompleteInput
+                id="recepcion-proveedor-mayorista"
+                value={proveedorId || null}
+                onChange={(val) => setProveedorId(Number(val) || 0)}
+                placeholder="Buscar mayorista por nombre o empresa..."
                 options={proveedorOptions}
+                isClearable
               />
             </div>
 

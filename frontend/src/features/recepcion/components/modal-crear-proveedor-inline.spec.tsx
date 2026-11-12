@@ -87,6 +87,7 @@ describe('ModalCrearProveedorInline', () => {
         empresa: 'Miami Wholesale',
         telefono: '77112233',
         contactoReferencia: undefined,
+        tipo: 'MAYORISTA',
       });
       expect(onCreadoMock).toHaveBeenCalledWith(mockNuevoProv);
       expect(onCloseMock).toHaveBeenCalled();

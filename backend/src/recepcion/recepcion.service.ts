@@ -1378,12 +1378,21 @@ export class RecepcionService {
     // 2. Transacción Atómica ACID para crear permuta, iPhone y gastos
     return this.prisma.$transaction(async (tx) => {
       // Buscar o crear proveedor minorista
-      let proveedor = await tx.proveedor.findFirst({
-        where: {
-          nombre: { equals: proveedorMinorista.nombre.trim(), mode: 'insensitive' },
-          telefono: { equals: proveedorMinorista.telefono.trim() },
-        },
-      });
+      let proveedor = null;
+      if (proveedorMinorista.id) {
+        proveedor = await tx.proveedor.findUnique({
+          where: { id: proveedorMinorista.id },
+        });
+      }
+
+      if (!proveedor) {
+        proveedor = await tx.proveedor.findFirst({
+          where: {
+            nombre: { equals: proveedorMinorista.nombre.trim(), mode: 'insensitive' },
+            telefono: { equals: proveedorMinorista.telefono.trim() },
+          },
+        });
+      }
 
       if (!proveedor) {
         proveedor = await tx.proveedor.create({
@@ -1393,6 +1402,7 @@ export class RecepcionService {
             telefono: proveedorMinorista.telefono.trim(),
             empresa: 'Cliente Permuta',
             contactoReferencia: 'Proveedor Minorista (Permuta)',
+            tipo: 'MINORISTA',
           },
         });
       }

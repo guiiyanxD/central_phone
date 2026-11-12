@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { AutocompleteInput, AutocompleteOption } from '@/components/ui/autocomplete-input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -81,6 +82,20 @@ export function InventarioTelefonosTab({
   onFetchDispositivos,
   onSelectImeiForLifeline,
 }: InventarioTelefonosTabProps) {
+  const proveedorOptions: AutocompleteOption[] = React.useMemo(() => {
+    return proveedoresList.map((p) => {
+      const provName = p.empresa ? `${p.empresa} (${p.nombre})` : `${p.nombre}${p.apellido ? ` ${p.apellido}` : ''}`;
+      const isMinorista = p.tipo === 'MINORISTA';
+      return {
+        value: String(p.id),
+        label: provName,
+        sublabel: p.telefono ? `Tel: ${p.telefono}` : undefined,
+        badge: isMinorista ? 'Minorista' : 'Mayorista',
+        badgeVariant: isMinorista ? ('purple' as const) : ('blue' as const),
+      };
+    });
+  }, [proveedoresList]);
+
   return (
     <div className="space-y-4">
       {/* BARRA DE FILTROS MULTI-CRITERIO Y BÚSQUEDA */}
@@ -171,18 +186,15 @@ export function InventarioTelefonosTab({
           </div>
 
           <div className="lg:col-span-3">
-            <Select
-              className="h-9 text-xs"
-              value={proveedorFilter}
-              onChange={(e) => setProveedorFilter(e.target.value)}
-            >
-              <option value="TODOS">Todos los proveedores</option>
-              {proveedoresList.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </Select>
+            <AutocompleteInput
+              id="inventarioProveedorFilter"
+              options={proveedorOptions}
+              value={proveedorFilter === 'TODOS' ? '' : proveedorFilter}
+              onChange={(val) => setProveedorFilter(val ? String(val) : 'TODOS')}
+              placeholder="Todos los proveedores..."
+              emptyMessage="Sin proveedores con ese término"
+              isClearable
+            />
           </div>
 
           <div className="lg:col-span-2">

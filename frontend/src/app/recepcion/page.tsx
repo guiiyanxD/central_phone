@@ -209,7 +209,9 @@ export default function RecepcionMercaderiaPage() {
         setTiposDispositivo(tiposData);
         setReglasMargen(Array.isArray(margenesData) ? margenesData : []);
 
-        if (provData.length > 0) setProveedorId(provData[0].id);
+        const primerMayorista = provData.find((p: any) => !p.tipo || p.tipo === 'MAYORISTA');
+        if (primerMayorista) setProveedorId(primerMayorista.id);
+        else if (provData.length > 0) setProveedorId(provData[0].id);
         if (sucData.length > 0) {
           setSucursalId((isAdmin && activeSucursal?.id) || user?.sucursal?.id || sucData[0].id);
         }

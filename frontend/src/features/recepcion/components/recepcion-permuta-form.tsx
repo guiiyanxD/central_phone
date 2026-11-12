@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Info,
   CalendarClock,
+  Search,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
+import { AutocompleteInput, AutocompleteOption } from '@/components/ui/autocomplete-input';
+import { ModalCrearProveedorMinoristaInline } from './modal-crear-proveedor-minorista-inline';
+import { ProveedorItem } from '@/features/proveedores/types';
 import { api } from '@/lib/api';
 import { ReglaMargenPrecio } from '@/lib/api/configuracion.api';
 import { calcularPrecioSugeridoBs } from '@/lib/utils/pricing.util';
@@ -64,9 +68,61 @@ export function RecepcionPermutaForm({
   const [nombreCliente, setNombreCliente] = useState('');
   const [apellidoCliente, setApellidoCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
+  const [minoristas, setMinoristas] = useState<ProveedorItem[]>([]);
+  const [selectedMinoristaId, setSelectedMinoristaId] = useState<number | null>(null);
+  const [isModalMinoristaOpen, setIsModalMinoristaOpen] = useState(false);
   const [sucursalDestinoId, setSucursalDestinoId] = useState<number>(currentSucursalId || 1);
   const [numeroComprobante, setNumeroComprobante] = useState('');
   const [observaciones, setObservaciones] = useState('');
+
+  // Cargar lista de proveedores minoristas para autocompletado
+  useEffect(() => {
+    if (api.proveedores?.getAll) {
+      api.proveedores
+        .getAll(false, undefined, 'MINORISTA')
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setMinoristas(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const minoristaOptions: AutocompleteOption[] = React.useMemo(() => {
+    return minoristas.map((m) => {
+      const fullName = `${m.nombre}${m.apellido ? ` ${m.apellido}` : ''}`;
+      return {
+        value: m.id,
+        label: fullName,
+        sublabel: m.telefono ? `Tel: ${m.telefono}` : undefined,
+        badge: 'Minorista',
+        badgeVariant: 'purple' as const,
+      };
+    });
+  }, [minoristas]);
+
+  const handleSelectMinorista = (val: any) => {
+    if (!val) {
+      setSelectedMinoristaId(null);
+      return;
+    }
+    const found = minoristas.find((m) => m.id === Number(val));
+    if (found) {
+      setSelectedMinoristaId(found.id);
+      setNombreCliente(found.nombre);
+      setApellidoCliente(found.apellido || '');
+      setTelefonoCliente(found.telefono || '');
+    }
+  };
+
+  const handleMinoristaCreado = (nuevo: ProveedorItem) => {
+    setMinoristas((prev) => [nuevo, ...prev]);
+    setSelectedMinoristaId(nuevo.id);
+    setNombreCliente(nuevo.nombre);
+    setApellidoCliente(nuevo.apellido || '');
+    setTelefonoCliente(nuevo.telefono || '');
+  };
 
   const getNowDateTimeLocal = () => {
     const d = new Date();
@@ -234,6 +290,7 @@ export function RecepcionPermutaForm({
     try {
       const payload = {
         proveedorMinorista: {
+          ...(selectedMinoristaId ? { id: selectedMinoristaId } : {}),
           nombre: nombreCliente.trim(),
           apellido: apellidoCliente.trim() || undefined,
           telefono: telefonoCliente.trim(),
@@ -299,48 +356,84 @@ export function RecepcionPermutaForm({
             Identificación de la persona particular que entrega el equipo como permuta.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label htmlFor="nombreCliente" className="text-xs font-semibold text-slate-700 mb-1 block">
-              Nombre <span className="text-rose-500">*</span>
-            </Label>
-            <Input
-              id="nombreCliente"
-              placeholder="Ej: Juan"
-              value={nombreCliente}
-              onChange={(e) => setNombreCliente(e.target.value)}
-              className="text-xs h-9"
-              required
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          {/* Selector con búsqueda de Proveedor Minorista */}
+          <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-xl space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <Label htmlFor="buscarMinoristaInput" className="text-xs font-bold text-purple-950 flex items-center gap-1.5 mb-0">
+                <Search className="h-3.5 w-3.5 text-purple-700" />
+                <span>Proveedor Minorista (Particular / Permuta)</span>
+              </Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs px-2.5 bg-white text-purple-700 border-purple-300 hover:bg-purple-100 hover:text-purple-900 font-semibold gap-1 shadow-2xs self-start sm:self-auto cursor-pointer"
+                onClick={() => setIsModalMinoristaOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5 text-purple-700" />
+                <span>Nuevo Proveedor Minorista</span>
+              </Button>
+            </div>
+            <AutocompleteInput
+              id="buscarMinoristaInput"
+              options={minoristaOptions}
+              value={selectedMinoristaId}
+              onChange={handleSelectMinorista}
+              placeholder="Escribe nombre o teléfono para buscar minorista registrado..."
+              emptyMessage="Sin proveedores minoristas registrados con ese término"
+              isClearable
             />
           </div>
 
-          <div>
-            <Label htmlFor="apellidoCliente" className="text-xs font-semibold text-slate-700 mb-1 block">
-              Apellido <span className="text-slate-400 font-normal">(Opcional)</span>
-            </Label>
-            <Input
-              id="apellidoCliente"
-              placeholder="Ej: Pérez"
-              value={apellidoCliente}
-              onChange={(e) => setApellidoCliente(e.target.value)}
-              className="text-xs h-9"
-            />
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="nombreCliente" className="text-xs font-semibold text-slate-700 mb-1 block">
+                Nombre <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="nombreCliente"
+                placeholder="Ej: Juan"
+                value={nombreCliente}
+                onChange={(e) => {
+                  setNombreCliente(e.target.value);
+                  if (selectedMinoristaId) setSelectedMinoristaId(null);
+                }}
+                className="text-xs h-9"
+                required
+              />
+            </div>
 
-          <div>
-            <Label htmlFor="telefonoCliente" className="text-xs font-semibold text-slate-700 mb-1 block">
-              Teléfono de Contacto <span className="text-rose-500">*</span>
-            </Label>
-            <Input
-              id="telefonoCliente"
-              type="tel"
-              placeholder="Ej: 70012345"
-              value={telefonoCliente}
-              onChange={(e) => setTelefonoCliente(e.target.value)}
-              className="text-xs h-9 font-mono"
-              required
-            />
-          </div>
+            <div>
+              <Label htmlFor="apellidoCliente" className="text-xs font-semibold text-slate-700 mb-1 block">
+                Apellido <span className="text-slate-400 font-normal">(Opcional)</span>
+              </Label>
+              <Input
+                id="apellidoCliente"
+                placeholder="Ej: Pérez"
+                value={apellidoCliente}
+                onChange={(e) => setApellidoCliente(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="telefonoCliente" className="text-xs font-semibold text-slate-700 mb-1 block">
+                Teléfono de Contacto <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="telefonoCliente"
+                type="tel"
+                placeholder="Ej: 70012345"
+                value={telefonoCliente}
+                onChange={(e) => {
+                  setTelefonoCliente(e.target.value);
+                  if (selectedMinoristaId) setSelectedMinoristaId(null);
+                }}
+                className="text-xs h-9 font-mono"
+                required
+              />
+            </div>
 
           <div>
             <Label htmlFor="sucursalDestino" className="text-xs font-semibold text-slate-700 mb-1 block">
@@ -420,8 +513,9 @@ export function RecepcionPermutaForm({
               className="text-xs h-9"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
 
       {/* SECCIÓN 2: DATOS DEL DISPOSITIVO IPHONE */}
       <Card className="border-slate-200 bg-white shadow-subtle">
@@ -870,6 +964,13 @@ export function RecepcionPermutaForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal para crear proveedor minorista al vuelo */}
+      <ModalCrearProveedorMinoristaInline
+        isOpen={isModalMinoristaOpen}
+        onClose={() => setIsModalMinoristaOpen(false)}
+        onProveedorCreado={handleMinoristaCreado}
+      />
     </form>
   );
 }

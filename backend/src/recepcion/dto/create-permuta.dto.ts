@@ -15,6 +15,10 @@ import { Type } from 'class-transformer';
 import { NuevaVarianteInlineDto } from './linea-dispositivo.dto';
 
 export class ProveedorMinoristaDto {
+  @IsInt()
+  @IsOptional()
+  id?: number;
+
   @IsString({ message: 'El nombre del cliente/proveedor es obligatorio.' })
   @IsNotEmpty({ message: 'El nombre no puede estar vacío.' })
   nombre: string;

@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { TipoProveedor } from '@prisma/client';
 
 export class UpdateProveedorDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto.' })
@@ -20,6 +21,10 @@ export class UpdateProveedorDto {
   @IsString({ message: 'El contacto de referencia debe ser texto.' })
   @IsOptional()
   contactoReferencia?: string;
+
+  @IsEnum(TipoProveedor, { message: 'El tipo debe ser MAYORISTA o MINORISTA.' })
+  @IsOptional()
+  tipo?: TipoProveedor;
 
   @IsBoolean({ message: 'El estado activo debe ser un valor booleano.' })
   @IsOptional()
