@@ -435,28 +435,33 @@ export class RecepcionService {
           },
         },
       });
-    });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async findAll(
     queryOrSucursalId?: QueryNotasIngresoDto | number,
     proveedorIdOrUserRole?: number | string,
-    userRoleParam?: string,
+    userRoleParam?: string | number,
+    userSucursalIdParam?: number,
   ) {
     let query: QueryNotasIngresoDto = {};
     let userRole: string | undefined = undefined;
+    let userSucursalId: number | undefined = undefined;
 
     if (typeof queryOrSucursalId === 'number') {
       query = {
         sucursalId: queryOrSucursalId,
         proveedorId: typeof proveedorIdOrUserRole === 'number' ? proveedorIdOrUserRole : undefined,
       };
-      userRole = userRoleParam;
+      userRole = typeof userRoleParam === 'string' ? userRoleParam : undefined;
+      userSucursalId = userSucursalIdParam;
     } else if (queryOrSucursalId && typeof queryOrSucursalId === 'object') {
       query = queryOrSucursalId;
-      userRole = typeof proveedorIdOrUserRole === 'string' ? proveedorIdOrUserRole : userRoleParam;
+      userRole = typeof proveedorIdOrUserRole === 'string' ? proveedorIdOrUserRole : undefined;
+      userSucursalId = typeof userRoleParam === 'number' ? userRoleParam : userSucursalIdParam;
     } else {
-      userRole = typeof proveedorIdOrUserRole === 'string' ? proveedorIdOrUserRole : userRoleParam;
+      userRole = typeof proveedorIdOrUserRole === 'string' ? proveedorIdOrUserRole : undefined;
+      userSucursalId = typeof userRoleParam === 'number' ? userRoleParam : userSucursalIdParam;
     }
 
     const page = query.page && query.page > 0 ? query.page : 1;
@@ -467,6 +472,11 @@ export class RecepcionService {
 
     if (query.sucursalId) {
       where.sucursalId = query.sucursalId;
+    }
+
+    // Aislamiento Multi-Sucursal (BOLA / IDOR): Vendedores solo ven recepciones de su sucursal
+    if (userRole && userRole !== 'ADMIN' && userSucursalId) {
+      where.sucursalId = userSucursalId;
     }
 
     if (query.proveedorId) {
@@ -586,7 +596,7 @@ export class RecepcionService {
     };
   }
 
-  async findOne(id: number, userRole?: string) {
+  async findOne(id: number, userRole?: string, userSucursalId?: number) {
     const nota = await this.prisma.notaIngreso.findUnique({
       where: { id },
       include: {
@@ -645,6 +655,13 @@ export class RecepcionService {
 
     if (!nota) {
       throw new NotFoundException(`La Nota de Ingreso con ID ${id} no existe.`);
+    }
+
+    // Aislamiento Multi-Sucursal (BOLA / IDOR): Vendedores no pueden consultar notas de otra sucursal
+    if (userRole && userRole !== 'ADMIN' && userSucursalId && nota.sucursalId !== userSucursalId) {
+      throw new ForbiddenException(
+        'No tienes permisos para consultar notas de ingreso de otra sucursal.',
+      );
     }
 
     // Cálculos de métricas financieras de dispositivos
@@ -872,7 +889,7 @@ export class RecepcionService {
         message: `Nota de Ingreso #${id} anulada exitosamente.`,
         nota: notaActualizada,
       };
-    });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async updateNotaIngreso(id: number, dto: UpdateNotaIngresoDto, usuarioId: number) {
@@ -1309,7 +1326,7 @@ export class RecepcionService {
       }
 
       this.logger.log(`Nota de Ingreso #${id} actualizada exitosamente por usuario ${usuarioId}.`);
-    });
+    }, { timeout: 15000, maxWait: 5000 });
 
     return this.findOne(id, 'ADMIN');
   }
@@ -1558,7 +1575,7 @@ export class RecepcionService {
         precioSugeridoBs,
         inversionTotalBs: roundMoney(costoBs + sumaGastos),
       };
-    });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async updatePermuta(
@@ -1710,7 +1727,7 @@ export class RecepcionService {
         success: true,
         message: `Permuta #${id} actualizada exitosamente.`,
       };
-    });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async anularPermuta(id: number, dto: AnularNotaIngresoDto, usuarioId: number) {
@@ -1788,6 +1805,6 @@ export class RecepcionService {
         message: `Permuta #${id} anulada exitosamente.`,
         nota: notaActualizada,
       };
-    });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 }

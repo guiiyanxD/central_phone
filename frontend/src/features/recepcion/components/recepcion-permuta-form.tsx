@@ -180,16 +180,22 @@ export function RecepcionPermutaForm({
       .catch(() => {});
   }, []);
 
-  // Obtener las variantes del modelo de iPhone seleccionado
+  // Obtener las variantes del modelo de iPhone seleccionado (memoizado para estabilidad de ciclo de vida)
   const selectedModelo = iphoneModelos.find((m) => m.id === Number(selectedModeloId));
-  const variantesDisponibles = selectedModelo?.variantes || [];
+  const variantesDisponibles = React.useMemo(
+    () => selectedModelo?.variantes || [],
+    [selectedModelo]
+  );
 
   // Seleccionar la primera variante por defecto si cambia el modelo
   React.useEffect(() => {
     if (variantesDisponibles.length > 0) {
-      if (!selectedVarianteId || !variantesDisponibles.some((v: any) => v.id === selectedVarianteId)) {
-        setSelectedVarianteId(variantesDisponibles[0].id);
-      }
+      setSelectedVarianteId((prev) => {
+        if (!prev || !variantesDisponibles.some((v: any) => v.id === prev)) {
+          return variantesDisponibles[0].id;
+        }
+        return prev;
+      });
     } else {
       setSelectedVarianteId(null);
     }

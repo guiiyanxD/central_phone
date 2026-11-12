@@ -221,6 +221,11 @@ export function AutocompleteInput({
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls={id ? `${id}-listbox` : undefined}
+          aria-activedescendant={
+            isOpen && filteredOptions[highlightedIndex] && id
+              ? `${id}-opt-${highlightedIndex}`
+              : undefined
+          }
           disabled={disabled}
           autoFocus={autoFocus}
           required={required && !value}
@@ -256,9 +261,9 @@ export function AutocompleteInput({
               type="button"
               onClick={handleClear}
               aria-label="Limpiar campo"
-              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded cursor-pointer transition-colors"
+              className="p-1.5 min-w-[28px] min-h-[28px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded cursor-pointer transition-colors"
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </button>
           ) : null}
 
@@ -307,12 +312,13 @@ export function AutocompleteInput({
                 return (
                   <li
                     key={String(opt.value)}
+                    id={id ? `${id}-opt-${idx}` : undefined}
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelectOption(opt)}
                     onMouseEnter={() => setHighlightedIndex(idx)}
                     className={cn(
-                      'px-3 py-2 text-xs rounded-lg cursor-pointer flex items-center justify-between gap-2 transition-colors',
+                      'px-3 py-2.5 text-xs rounded-lg cursor-pointer flex items-center justify-between gap-2 transition-colors',
                       opt.disabled && 'opacity-40 cursor-not-allowed pointer-events-none',
                       isHighlighted && !opt.disabled && 'bg-slate-100 text-slate-900 font-medium',
                       isSelected && 'bg-slate-900 text-white hover:bg-slate-800 font-semibold'

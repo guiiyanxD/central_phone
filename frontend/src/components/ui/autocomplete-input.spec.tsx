@@ -111,4 +111,22 @@ describe('AutocompleteInput (Input directo con sugerencias flotantes)', () => {
 
     expect(handleChange).toHaveBeenCalledWith(null, null);
   });
+
+  it('debe vincular aria-activedescendant con la opción resaltada en la lista accesible (WCAG 2.2)', () => {
+    render(
+      <AutocompleteInput
+        id="prov-select"
+        options={options}
+        value={null}
+        onChange={vi.fn()}
+      />
+    );
+
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    expect(input.getAttribute('aria-activedescendant')).toBe('prov-select-opt-0');
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.getAttribute('aria-activedescendant')).toBe('prov-select-opt-1');
+  });
 });

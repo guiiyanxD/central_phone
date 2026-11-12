@@ -479,18 +479,30 @@ describe('RecepcionService', () => {
     it('debe purgar costos mayoristas si quien consulta no es ADMIN (CENTRALPHONE-CONF-003)', async () => {
       prisma.notaIngreso.findUnique.mockResolvedValue({
         id: 25,
+        sucursalId: 1,
         totalCostoBs: 4300,
         dispositivos: [{ id: 1, costoBs: 4000, costoUsd: 580, precioVentaSugeridoBs: 5000 }],
         lotesAccesorio: [{ id: 1, cantidadInicial: 10, stockActual: 10, costoUnitarioBs: 30, precioVentaBs: 60 }],
       } as any);
 
-      const res = await service.findOne(25, 'VENDEDOR');
+      const res = await service.findOne(25, 'VENDEDOR', 1);
       expect(res.id).toBe(25);
       expect((res.dispositivos[0] as any).costoBs).toBeUndefined();
       expect((res.dispositivos[0] as any).costoUsd).toBeUndefined();
       expect((res.lotesAccesorio[0] as any).costoUnitarioBs).toBeUndefined();
       expect((res.resumenFinanciero as any).totalCostoBs).toBeUndefined();
       expect((res.resumenFinanciero as any).margenProyectadoBs).toBeUndefined();
+    });
+
+    it('debe lanzar ForbiddenException si un vendedor intenta consultar una nota de otra sucursal (BOLA/IDOR)', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 25,
+        sucursalId: 2,
+        dispositivos: [],
+        lotesAccesorio: [],
+      } as any);
+
+      await expect(service.findOne(25, 'VENDEDOR', 1)).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -570,6 +582,21 @@ describe('RecepcionService', () => {
       );
       expect(res.data[0].tipoIngreso).toBe('PERMUTA');
       expect(res.data[0].proveedor.telefono).toBe('77889900');
+    });
+
+    it('debe forzar el filtro de sucursalId para vendedores no administradores (BOLA/IDOR)', async () => {
+      prisma.notaIngreso.findMany.mockResolvedValue([{ id: 10 }] as any);
+      prisma.notaIngreso.count.mockResolvedValue(1);
+
+      await service.findAll({ sucursalId: 99 }, 'VENDEDOR', 2);
+
+      expect(prisma.notaIngreso.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sucursalId: 2,
+          }),
+        }),
+      );
     });
   });
 

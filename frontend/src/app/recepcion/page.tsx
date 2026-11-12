@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, Pencil, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -223,7 +223,7 @@ export default function RecepcionMercaderiaPage() {
       }
     }
     fetchMasterData();
-  }, [user]);
+  }, [user, isAdmin, activeSucursal?.id]);
 
   // Sincronizar sucursalId cuando activeSucursal cambie para administradores
   useEffect(() => {
@@ -243,7 +243,7 @@ export default function RecepcionMercaderiaPage() {
     return () => clearTimeout(handler);
   }, [filtroPermutaSearch]);
 
-  const fetchRecepciones = async (page = 1, customLimit?: number) => {
+  const fetchRecepciones = useCallback(async (page = 1, customLimit?: number) => {
     if (!isAdmin) return;
     setIsLoadingRecepciones(true);
     try {
@@ -272,15 +272,9 @@ export default function RecepcionMercaderiaPage() {
     } finally {
       setIsLoadingRecepciones(false);
     }
-  };
-
-  useEffect(() => {
-    if (isAdmin && activeTab === 'historial-mayorista') {
-      fetchRecepciones(1);
-    }
   }, [
-    activeTab,
     isAdmin,
+    recepcionesMeta.limit,
     filtroRecSucursalId,
     filtroRecProveedorId,
     filtroRecFechaDesde,
@@ -288,7 +282,13 @@ export default function RecepcionMercaderiaPage() {
     searchRecDebounce,
   ]);
 
-  const fetchPermutas = async (page = 1, customLimit?: number) => {
+  useEffect(() => {
+    if (isAdmin && activeTab === 'historial-mayorista') {
+      fetchRecepciones(1);
+    }
+  }, [activeTab, isAdmin, fetchRecepciones]);
+
+  const fetchPermutas = useCallback(async (page = 1, customLimit?: number) => {
     if (!isAdmin) return;
     setIsLoadingPermutas(true);
     try {
@@ -316,20 +316,20 @@ export default function RecepcionMercaderiaPage() {
     } finally {
       setIsLoadingPermutas(false);
     }
-  };
-
-  useEffect(() => {
-    if (isAdmin && activeTab === 'historial-permutas') {
-      fetchPermutas(1);
-    }
   }, [
-    activeTab,
     isAdmin,
+    permutasMeta.limit,
     filtroPermutaSucursalId,
     filtroPermutaFechaDesde,
     filtroPermutaFechaHasta,
     searchPermutaDebounce,
   ]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'historial-permutas') {
+      fetchPermutas(1);
+    }
+  }, [activeTab, isAdmin, fetchPermutas]);
 
   const handleResetFiltrosPermutas = () => {
     setFiltroPermutaSearch('');

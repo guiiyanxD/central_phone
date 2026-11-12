@@ -9,6 +9,7 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ProveedoresService } from './proveedores.service';
 import { CreateProveedorDto } from './dto/create-proveedor.dto';
@@ -17,7 +18,8 @@ import { QueryProveedorDto } from './dto/query-proveedor.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RolUsuario } from '@prisma/client';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RolUsuario, TipoProveedor } from '@prisma/client';
 
 @Controller('proveedores')
 @UseGuards(JwtAuthGuard)
@@ -37,7 +39,15 @@ export class ProveedoresController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(RolUsuario.ADMIN, RolUsuario.VENDEDOR)
-  async create(@Body() createProveedorDto: CreateProveedorDto) {
+  async create(
+    @Body() createProveedorDto: CreateProveedorDto,
+    @CurrentUser() user: any,
+  ) {
+    if (user?.rol !== RolUsuario.ADMIN && createProveedorDto.tipo === TipoProveedor.MAYORISTA) {
+      throw new ForbiddenException(
+        'Solo los administradores pueden registrar proveedores mayoristas.',
+      );
+    }
     return this.proveedoresService.create(createProveedorDto);
   }
 

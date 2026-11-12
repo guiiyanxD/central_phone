@@ -94,16 +94,16 @@ export class RecepcionController {
   @Get('notas-ingreso')
   async findAll(
     @Query() query: QueryNotasIngresoDto,
-    @CurrentUser('rol') userRole?: string,
+    @CurrentUser() user: any,
   ) {
-    return this.recepcionService.findAll(query, userRole);
+    return this.recepcionService.findAll(query, user?.rol, user?.sucursalId);
   }
 
   @Get('notas-ingreso/:id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser('rol') userRole?: string,
+    @CurrentUser() user: any,
   ) {
-    return this.recepcionService.findOne(id, userRole);
+    return this.recepcionService.findOne(id, user?.rol, user?.sucursalId);
   }
 }
