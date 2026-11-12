@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { Navbar } from './navbar';
 
 // Mock de usePathname
@@ -72,7 +72,6 @@ describe('Navbar - Tipo de Cambio WaveSoft Widget', () => {
       expect(screen.getByText('12.05')).toBeInTheDocument();
     });
 
-    // Simular que el Administrador sincronizó el TC desde el Centro de Administración
     act(() => {
       window.dispatchEvent(
         new CustomEvent('configuracion-updated', {
@@ -91,23 +90,46 @@ describe('Navbar - Tipo de Cambio WaveSoft Widget', () => {
     });
   });
 
-  it('permite a un Administrador conmutar de sucursal desde el dropdown de usuario', async () => {
-    const { fireEvent } = await import('@testing-library/react');
+  it('omite el botón de texto Operaciones en desktop pero mantiene el Logo a / e Inicio en móvil', async () => {
     render(<Navbar />);
 
-    // Verificar que la sucursal activa se proyecta en el chip
+    await waitFor(() => {
+      expect(screen.getByTitle('CentralPhone - Inicio / Operaciones')).toBeInTheDocument();
+    });
+
+    // El logo apunta a /
+    const logoLink = screen.getByTitle('CentralPhone - Inicio / Operaciones');
+    expect(logoLink).toBeInTheDocument();
+    expect(logoLink).toHaveAttribute('href', '/');
+
+    // El navbar desktop no debe tener un enlace de texto llamado 'Operaciones'
+    const desktopNav = document.querySelector('nav.hidden.lg\\:flex');
+    expect(desktopNav).toBeInTheDocument();
+    expect(desktopNav?.textContent).not.toContain('Operaciones');
+    expect(desktopNav?.textContent).toContain('Punto de Venta');
+
+    // La barra móvil contiene 'Inicio'
+    const mobileNav = screen.getByLabelText('Navegación móvil y tablet');
+    expect(mobileNav).toBeInTheDocument();
+    expect(mobileNav.textContent).toContain('Inicio');
+  });
+
+  it('permite a un Administrador conmutar de sucursal desde el selector dedicado', async () => {
+    render(<Navbar />);
+
+    // Verificar que la sucursal activa se proyecta en el selector
     await waitFor(() => {
       expect(screen.getAllByText('Sucursal Central').length).toBeGreaterThanOrEqual(1);
     });
 
-    // Abrir dropdown de usuario
-    const userButton = screen.getByText('Administrador Central').closest('button');
-    expect(userButton).toBeInTheDocument();
-    fireEvent.click(userButton!);
+    // Abrir dropdown dedicado de sucursal
+    const sucursalButton = screen.getAllByText('Sucursal Central')[0].closest('button');
+    expect(sucursalButton).toBeInTheDocument();
+    fireEvent.click(sucursalButton!);
 
     // Verificar que se listan las sucursales disponibles
     await waitFor(() => {
-      expect(screen.getByText(/Sucursal Activa/i)).toBeInTheDocument();
+      expect(screen.getByText(/Sucursales/i)).toBeInTheDocument();
       expect(screen.getByText(/Sucursal Norte \(Cochabamba\)/i)).toBeInTheDocument();
     });
 
@@ -124,7 +146,6 @@ describe('Navbar - Tipo de Cambio WaveSoft Widget', () => {
   });
 
   it('debe solicitar confirmación antes de conmutar sucursal si el carrito de POS contiene productos (ID-UX-001)', async () => {
-    const { fireEvent } = await import('@testing-library/react');
     const nextNav = await import('next/navigation');
     vi.spyOn(nextNav, 'usePathname').mockReturnValue('/pos');
 
@@ -135,8 +156,12 @@ describe('Navbar - Tipo de Cambio WaveSoft Widget', () => {
     confirmSpy.mockReturnValueOnce(false);
     render(<Navbar />);
 
-    const userButton = screen.getByText('Administrador Central').closest('button');
-    fireEvent.click(userButton!);
+    await waitFor(() => {
+      expect(screen.getAllByText('Sucursal Central').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const sucursalButton = screen.getAllByText('Sucursal Central')[0].closest('button');
+    fireEvent.click(sucursalButton!);
 
     await waitFor(() => {
       expect(screen.getByText(/Sucursal Norte \(Cochabamba\)/i)).toBeInTheDocument();
@@ -148,7 +173,7 @@ describe('Navbar - Tipo de Cambio WaveSoft Widget', () => {
 
     // 2. Caso confirmado por el usuario
     confirmSpy.mockReturnValueOnce(true);
-    fireEvent.click(userButton!);
+    fireEvent.click(sucursalButton!);
     fireEvent.click(screen.getByText(/Sucursal Norte \(Cochabamba\)/i));
     expect(mockSetActiveSucursal).toHaveBeenCalledWith({
       id: 2,
