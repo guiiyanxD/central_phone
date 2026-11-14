@@ -1,16 +1,36 @@
 // Centralized HTTP Client & Error Handling for CentralPhone
 
 /**
- * Obtiene la URL base de la API adaptándose dinámicamente al hostname del cliente.
- * Si el usuario accede desde un dispositivo en la red local (ej: 192.168.x.x:3000),
- * se conmuta automáticamente el host de localhost hacia dicha IP para evitar 'Load failed'.
+ * Obtiene la URL base de la API adaptándose dinámicamente al protocolo y hostname del cliente.
+ * 1. En producción (HTTPS): Si la página se carga sobre HTTPS, garantiza que la API use HTTPS
+ *    (usando la variable o infiriendo api.<dominio>) previniendo 'blocked:mixed-content'.
+ * 2. En red local (HTTP / LAN): Si el usuario accede desde una tablet en red local (ej: 192.168.x.x:3000),
+ *    conmuta automáticamente el host hacia dicha IP para evitar 'Load failed'.
  */
 export function getApiBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
 
   if (typeof window !== 'undefined') {
+    // Escenario 1: Navegador en entorno HTTPS (Producción con SSL)
+    if (window.location.protocol === 'https:') {
+      // Si la variable de entorno está definida explícitamente con HTTPS, usarla
+      if (envUrl && envUrl.startsWith('https://')) {
+        return envUrl.replace(/\/$/, '');
+      }
+
+      // Si no fue inyectada en build-time o cayó en fallback de localhost/http,
+      // deducir la API segura en el subdominio 'api.' del dominio actual
+      const hostname = window.location.hostname;
+      const apiHost = hostname.startsWith('app.')
+        ? hostname.replace(/^app\./, 'api.')
+        : `api.${hostname}`;
+      return `https://${apiHost}/api/v1`;
+    }
+
+    // Escenario 2: Navegador en entorno HTTP (Desarrollo local o LAN en tienda)
     try {
-      const parsed = new URL(envUrl);
+      const fallbackUrl = envUrl || 'http://localhost:4000/api/v1';
+      const parsed = new URL(fallbackUrl);
       const clientHostname = window.location.hostname;
 
       if (
@@ -22,12 +42,14 @@ export function getApiBaseUrl(): string {
         parsed.hostname = clientHostname;
         return parsed.toString().replace(/\/$/, '');
       }
+
+      return fallbackUrl.replace(/\/$/, '');
     } catch {
-      // Retornar envUrl de fallback si falla el parsing
+      // Retornar fallback seguro
     }
   }
 
-  return envUrl;
+  return envUrl || 'http://localhost:4000/api/v1';
 }
 
 export class ApiError extends Error {
