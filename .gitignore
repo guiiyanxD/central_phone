@@ -61,6 +61,7 @@ frontend/e2e/.auth/
 docs/
 DESIGN.md
 PRODUCT.md
+DESPLIEGUE_HOSTINGER_DOKPLOY.md
 
 # Agentes de IA y auditorías locales
 .agents/
