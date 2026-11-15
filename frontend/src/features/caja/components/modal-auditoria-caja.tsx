@@ -44,9 +44,9 @@ export function ModalAuditoriaCaja({
       title={
         cajaDetalleData?.caja
           ? `Auditoría: ${formatNombreCaja(
-              cajaDetalleData.caja.fechaApertura,
-              cajaDetalleData.caja.sucursal?.nombre
-            )}`
+            cajaDetalleData.caja.fechaApertura,
+            cajaDetalleData.caja.sucursal?.nombre
+          )}`
           : 'Auditoría de Turno de Caja'
       }
       description={
@@ -131,8 +131,8 @@ export function ModalAuditoriaCaja({
                         detDif === 0
                           ? 'bg-slate-200 text-slate-800'
                           : detDif > 0
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-900 text-white'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-900 text-white'
                       )}
                     >
                       {detDif === 0 ? 'OK' : detDif > 0 ? `+Bs ${detDif}` : `Bs ${detDif}`}
@@ -276,7 +276,7 @@ export function ModalAuditoriaCaja({
                                       ) : (
                                         <QrCode className="h-3 w-3 text-slate-600" />
                                       )}
-                                      {v.metodoPago?.nombre || 'Efectivo'}
+                                      {v.metodoPago?.codigo === 'EFECTIVO' ? 'EFECTIVO' : 'QR'}
                                     </span>
                                   </td>
 
@@ -317,7 +317,7 @@ export function ModalAuditoriaCaja({
                                     <div>Bs {Number(v.totalVentaBs).toFixed(2)}</div>
                                     {v.montoPermutaBs && Number(v.montoPermutaBs) > 0 && (
                                       <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded mt-0.5">
-                                        🔄 Permuta -Bs {Number(v.montoPermutaBs).toFixed(2)}
+                                        Permuta -Bs {Number(v.montoPermutaBs).toFixed(2)}
                                       </span>
                                     )}
                                   </td>
@@ -473,8 +473,8 @@ export function ModalAuditoriaCaja({
                             {detDif === 0
                               ? 'Bs 0.00 (Conforme)'
                               : detDif > 0
-                              ? `+Bs ${detDif.toFixed(2)} (Sobrante)`
-                              : `Bs ${detDif.toFixed(2)} (Faltante)`}
+                                ? `+Bs ${detDif.toFixed(2)} (Sobrante)`
+                                : `Bs ${detDif.toFixed(2)} (Faltante)`}
                           </span>
                         </div>
                       </div>

@@ -69,16 +69,14 @@ export function CajaMovimientosTurno({
                 return (
                   <div
                     key={v.id}
-                    className={`p-3 flex items-center justify-between hover:bg-slate-50 transition-colors gap-3 ${
-                      isAnulada ? 'bg-rose-50/40 opacity-75' : ''
-                    }`}
+                    className={`p-3 flex items-center justify-between hover:bg-slate-50 transition-colors gap-3 ${isAnulada ? 'bg-rose-50/40 opacity-75' : ''
+                      }`}
                   >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span
-                          className={`font-bold font-mono ${
-                            isAnulada ? 'text-slate-500 line-through' : 'text-slate-900'
-                          }`}
+                          className={`font-bold font-mono ${isAnulada ? 'text-slate-500 line-through' : 'text-slate-900'
+                            }`}
                         >
                           #{formatFolioTicket(v.id)}
                         </span>
@@ -89,7 +87,7 @@ export function CajaMovimientosTurno({
                           })}
                         </span>
                         <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                          {v.metodoPago?.nombre || 'Efectivo'}
+                          {v.metodoPago?.codigo === 'EFECTIVO' ? 'EFECTIVO' : 'QR'}
                         </span>
                         {isAnulada && (
                           <Badge
@@ -142,9 +140,8 @@ export function CajaMovimientosTurno({
                     <div className="flex items-center gap-2 text-right shrink-0">
                       <div>
                         <span
-                          className={`font-bold font-mono text-sm block ${
-                            isAnulada ? 'text-slate-400 line-through' : 'text-slate-900'
-                          }`}
+                          className={`font-bold font-mono text-sm block ${isAnulada ? 'text-slate-400 line-through' : 'text-slate-900'
+                            }`}
                         >
                           Bs {saldoCobrado.toFixed(2)}
                         </span>
