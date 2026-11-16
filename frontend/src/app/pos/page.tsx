@@ -125,14 +125,15 @@ export default function PosPage() {
       const cajaRes = await api.caja.getActiva(sucursalToQuery);
       setSessionData(cajaRes);
 
-      const targetSucursalId = isAdmin
-        ? undefined
-        : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
+      const targetSucursalId =
+        (targetSucursal !== undefined ? targetSucursal : (isAdmin && activeSucursal?.id)) ||
+        cajaRes?.caja?.sucursalId ||
+        user?.sucursal?.id;
 
       const [dispRes, accRes, configRes, modRes, margenesRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
-          limit: 100,
+          limit: 500,
           ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
         }),
         api.accesorios.getAll(undefined, targetSucursalId),
@@ -158,14 +159,15 @@ export default function PosPage() {
       const cajaRes = await api.caja.getActiva(sucursalToQuery);
       setSessionData(cajaRes);
 
-      const targetSucursalId = isAdmin
-        ? undefined
-        : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
+      const targetSucursalId =
+        (isAdmin && activeSucursal?.id) ||
+        cajaRes?.caja?.sucursalId ||
+        user?.sucursal?.id;
 
       const [dispRes, accRes, modRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
-          limit: 100,
+          limit: 500,
           ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
         }),
         api.accesorios.getAll(undefined, targetSucursalId),
@@ -539,14 +541,27 @@ export default function PosPage() {
   // Hook Global de Hardware (useBarcodeScanner): Escaneo de IMEI o Serie desacoplado del cursor
   useBarcodeScanner({
     playSound: false, // Desactivar beep prematuro en el hook; el sonido se evalúa semánticamente según match
-    onScan: (scannedCode) => {
+    onScan: async (scannedCode) => {
       const q = scannedCode.toLowerCase().trim();
-      const match = dispositivos.find(
+      let match = dispositivos.find(
         (d) =>
           (d.imei1 && d.imei1.toLowerCase() === q) ||
           (d.imei2 && d.imei2.toLowerCase() === q) ||
           (d.numeroSerie && d.numeroSerie.toLowerCase() === q)
       );
+
+      // Si no está precargado en memoria, buscar remotamente por IMEI o Serie
+      if (!match && q.length >= 4) {
+        try {
+          const remoteRes = await api.modelos.getDispositivos({ imei: scannedCode.trim(), estado: 'DISPONIBLE' });
+          const items = Array.isArray(remoteRes) ? remoteRes : (remoteRes?.data || []);
+          if (items.length > 0) {
+            match = items[0];
+          }
+        } catch {
+          // Ignorar error de red en escaneo
+        }
+      }
 
       if (match) {
         if (cart.some((i) => i.dispositivoId === match.id)) {
@@ -567,18 +582,31 @@ export default function PosPage() {
   });
 
   // Manejador del input de búsqueda con Enter
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const q = searchPhone.trim().toLowerCase();
       if (!q) return;
 
-      const exactMatch = dispositivos.find(
+      let exactMatch = dispositivos.find(
         (d) =>
           (d.imei1 && d.imei1.toLowerCase() === q) ||
           (d.imei2 && d.imei2.toLowerCase() === q) ||
           (d.numeroSerie && d.numeroSerie.toLowerCase() === q)
       );
+
+      // Si no está precargado en memoria, buscar remotamente por IMEI o Serie
+      if (!exactMatch && q.length >= 4) {
+        try {
+          const remoteRes = await api.modelos.getDispositivos({ imei: searchPhone.trim(), estado: 'DISPONIBLE' });
+          const items = Array.isArray(remoteRes) ? remoteRes : (remoteRes?.data || []);
+          if (items.length > 0) {
+            exactMatch = items[0];
+          }
+        } catch {
+          // Ignorar error de red
+        }
+      }
 
       if (exactMatch) {
         if (cart.some((i) => i.dispositivoId === exactMatch.id)) {

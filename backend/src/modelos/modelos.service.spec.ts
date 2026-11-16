@@ -357,6 +357,18 @@ describe('ModelosService', () => {
         })
       );
     });
+
+    it('debe permitir un limit ampliado de hasta 1000 elementos para catálogos POS', async () => {
+      prisma.dispositivo.findMany.mockResolvedValue(rawDispositivos as any);
+      prisma.dispositivo.count.mockResolvedValue(1);
+
+      await service.findDispositivos({ limit: 500 }, 'ADMIN');
+      expect(prisma.dispositivo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 500,
+        })
+      );
+    });
   });
 
   describe('findOne', () => {
