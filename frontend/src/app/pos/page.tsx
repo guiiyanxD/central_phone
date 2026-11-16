@@ -125,15 +125,14 @@ export default function PosPage() {
       const cajaRes = await api.caja.getActiva(sucursalToQuery);
       setSessionData(cajaRes);
 
-      const targetSucursalId =
-        (targetSucursal !== undefined ? targetSucursal : (isAdmin && activeSucursal?.id)) ||
-        cajaRes?.caja?.sucursalId ||
-        user?.sucursal?.id;
+      const targetSucursalId = isAdmin
+        ? undefined
+        : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
 
       const [dispRes, accRes, configRes, modRes, margenesRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
-          limit: 500,
+          limit: 1000,
           ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
         }),
         api.accesorios.getAll(undefined, targetSucursalId),
@@ -159,15 +158,14 @@ export default function PosPage() {
       const cajaRes = await api.caja.getActiva(sucursalToQuery);
       setSessionData(cajaRes);
 
-      const targetSucursalId =
-        (isAdmin && activeSucursal?.id) ||
-        cajaRes?.caja?.sucursalId ||
-        user?.sucursal?.id;
+      const targetSucursalId = isAdmin
+        ? undefined
+        : cajaRes?.caja?.sucursalId || user?.sucursal?.id;
 
       const [dispRes, accRes, modRes] = await Promise.all([
         api.modelos.getDispositivos({
           estado: 'DISPONIBLE',
-          limit: 500,
+          limit: 1000,
           ...(targetSucursalId ? { sucursalId: targetSucursalId } : {}),
         }),
         api.accesorios.getAll(undefined, targetSucursalId),
