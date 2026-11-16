@@ -1,0 +1,155 @@
+name: CI/CD CentralPhone (GHCR + Dokploy)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite ejecutar el flujo manualmente desde GitHub si se desea
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ----------------------------------------------------
+  # JOB 1: DETECCIÓN DE CAMBIOS (DISCRIMINACIÓN INTELIGENTE)
+  # ----------------------------------------------------
+  changes:
+    name: Detectar cambios en Frontend / Backend
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Filtrar rutas modificadas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/deploy.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/deploy.yml'
+
+  # ----------------------------------------------------
+  # JOB 2: CI/CD BACKEND (NESTJS)
+  # ----------------------------------------------------
+  build-backend:
+    name: Build & Push Backend a GHCR
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Quality Gates - Ejecutar Tests Backend (Jest)
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Autenticar en GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalizar nombre del repositorio a minúsculas
+        run: |
+          echo "IMAGE_NAME=ghcr.io/$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')/centralphone-backend" >> $GITHUB_ENV
+
+      - name: Compilar y subir imagen Docker del Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Notificar a Dokploy (Deploy Webhook)
+        if: env.DOKPLOY_WEBHOOK != ''
+        env:
+          DOKPLOY_WEBHOOK: ${{ secrets.DOKPLOY_BACKEND_WEBHOOK }}
+        run: |
+          echo "🚀 Notificando a Dokploy para desplegar backend..."
+          curl -s -X POST "$DOKPLOY_WEBHOOK" || echo "Webhook no configurado o fallido"
+
+  # ----------------------------------------------------
+  # JOB 3: CI/CD FRONTEND (NEXT.JS)
+  # ----------------------------------------------------
+  build-frontend:
+    name: Build & Push Frontend a GHCR
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Quality Gates - Ejecutar Tests Frontend (Vitest)
+        run: |
+          cd frontend
+          npm ci --legacy-peer-deps
+          npm test -- --run
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Autenticar en GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalizar nombre del repositorio a minúsculas
+        run: |
+          echo "IMAGE_NAME=ghcr.io/$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')/centralphone-frontend" >> $GITHUB_ENV
+
+      - name: Compilar y subir imagen Docker del Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Notificar a Dokploy (Deploy Webhook)
+        if: env.DOKPLOY_WEBHOOK != ''
+        env:
+          DOKPLOY_WEBHOOK: ${{ secrets.DOKPLOY_FRONTEND_WEBHOOK }}
+        run: |
+          echo "🚀 Notificando a Dokploy para desplegar frontend..."
+          curl -s -X POST "$DOKPLOY_WEBHOOK" || echo "Webhook no configurado o fallido"
