@@ -52,13 +52,13 @@ interface PosCartPanelProps {
   permutaSummary?: {
     modeloNombre: string;
     varianteDetalle: string;
-    imei1: string;
+    imei1?: string;
     valorTomaBs: number;
   } | null;
   permutasSummaries?: Array<{
     modeloNombre: string;
     varianteDetalle: string;
-    imei1: string;
+    imei1?: string;
     valorTomaBs: number;
   }>;
   onOpenModalPermuta?: () => void;
@@ -372,7 +372,7 @@ export function PosCartPanel({
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-emerald-800">
                       <span>
-                        {sum.varianteDetalle} • IMEI: ...{p.imei1.slice(-5)}
+                        {sum.varianteDetalle} • {p.imei1 ? `IMEI: ...${p.imei1.slice(-5)}` : p.numeroSerie ? `S/N: ${p.numeroSerie}` : ''}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {onOpenModalPermuta && (
@@ -405,7 +405,7 @@ export function PosCartPanel({
                   <div className="flex items-center gap-1.5">
                     <RefreshCw className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
                     <span className="text-[11px] font-bold text-emerald-900">
-                      Permutas ({listaPermutas.length} iPhones en parte de pago)
+                      Permutas ({listaPermutas.length} en parte de pago)
                     </span>
                   </div>
                   <span className="text-xs font-bold font-mono text-emerald-700">
@@ -418,7 +418,7 @@ export function PosCartPanel({
                     return (
                       <div key={i} className="flex justify-between items-center text-[10px]">
                         <span>
-                          {i + 1}. {sum?.modeloNombre || 'iPhone'} {sum?.varianteDetalle || ''} (...{p.imei1.slice(-5)})
+                          {i + 1}. {sum?.modeloNombre || 'Dispositivo'} {sum?.varianteDetalle || ''} ({p.imei1 ? `...${p.imei1.slice(-5)}` : p.numeroSerie || ''})
                         </span>
                         <span className="font-mono font-medium">Bs {Number(p.valorTomaBs).toFixed(2)}</span>
                       </div>
