@@ -111,6 +111,15 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
     fetchLineaVida();
   }, [isOpen, imei]);
 
+  // Temporizador de auto-cierre para feedback de éxito
+  useEffect(() => {
+    if (!gastoSuccessMsg) return;
+    const timer = setTimeout(() => {
+      setGastoSuccessMsg(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [gastoSuccessMsg]);
+
   // Manejo de formulario de Gasto (Crear / Editar)
   const handleOpenCrearGasto = () => {
     setGastoModo('crear');
@@ -260,7 +269,8 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
               <button
                 type="button"
                 onClick={() => setGastoSuccessMsg(null)}
-                className="text-emerald-700 hover:text-emerald-900"
+                className="text-emerald-700 hover:text-emerald-900 p-1 rounded-md"
+                aria-label="Cerrar notificación"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -353,9 +363,10 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-2.5 h-7 px-2.5 text-[11px] gap-1.5 border-amber-400/50 text-amber-300 hover:text-white hover:bg-amber-600 hover:border-amber-600 transition-all font-semibold"
+                  className="mt-2.5 h-8 px-2.5 text-xs gap-1.5 border border-amber-400 bg-amber-500/20 text-amber-200 hover:text-white hover:bg-amber-600 hover:border-amber-600 transition-all font-semibold"
                   onClick={() => setModalEditarDispositivoOpen(true)}
                   title="Editar información técnica y costo del dispositivo"
+                  aria-label="Editar información técnica y costo del dispositivo"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Editar Dispositivo
@@ -529,8 +540,9 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleOpenEditarGasto(g)}
-                                  className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900"
+                                  className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
                                   title="Editar Gasto"
+                                  aria-label={`Editar gasto ${g.concepto}`}
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
@@ -540,8 +552,9 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleOpenAnularGasto(g)}
-                                    className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700"
+                                    className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700"
                                     title="Anular Gasto (Exclusivo Admin)"
+                                    aria-label={`Anular gasto ${g.concepto}`}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -872,7 +885,8 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
                   <button
                     type="button"
                     onClick={() => setModalGastoOpen(false)}
-                    className="text-slate-400 hover:text-slate-700"
+                    className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
+                    aria-label="Cerrar modal de gasto"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -911,6 +925,7 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
                         min="0.01"
                         placeholder="0.00"
                         value={costoBsGasto}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           const val = e.target.value === '' ? '' : parseFloat(e.target.value);
                           setCostoBsGasto(val);
@@ -1000,7 +1015,8 @@ export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaV
                   <button
                     type="button"
                     onClick={() => setModalAnularGastoOpen(false)}
-                    className="text-slate-400 hover:text-slate-700"
+                    className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
+                    aria-label="Cerrar modal de anulación de gasto"
                   >
                     <X className="h-4 w-4" />
                   </button>

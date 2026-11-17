@@ -417,6 +417,7 @@ export function ModalPermutaCheckout({
                       min={1}
                       max={100}
                       value={eq.porcentajeBateria}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
                         updateEquipo(idx, 'porcentajeBateria', isNaN(val) ? '' : val);
@@ -449,6 +450,7 @@ export function ModalPermutaCheckout({
                     min="1"
                     max={totalBs}
                     value={eq.valorTomaBs}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
                       updateEquipo(idx, 'valorTomaBs', isNaN(val) ? '' : val);

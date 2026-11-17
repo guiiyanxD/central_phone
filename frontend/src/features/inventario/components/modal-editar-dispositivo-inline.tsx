@@ -162,6 +162,8 @@ export function ModalEditarDispositivoInline({
                 placeholder="F2LZX90..."
                 className="mt-1 font-mono text-xs uppercase"
                 disabled={isSubmitting}
+                autoFocus
+                aria-required="true"
                 required
               />
             </div>
@@ -208,12 +210,14 @@ export function ModalEditarDispositivoInline({
                   min="1"
                   max="100"
                   value={porcentajeBateria}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     setPorcentajeBateria(e.target.value === '' ? '' : Number(e.target.value))
                   }
                   placeholder="85"
                   className="pl-9 font-mono text-xs"
                   disabled={isSubmitting}
+                  aria-required="true"
                   required
                 />
               </div>
@@ -233,10 +237,12 @@ export function ModalEditarDispositivoInline({
                 step="0.01"
                 min="0.01"
                 value={costoBs}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setCostoBs(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="3500.00"
                 className="pl-9 font-mono text-xs font-bold text-slate-900"
                 disabled={isSubmitting}
+                aria-required="true"
                 required
               />
             </div>

@@ -235,6 +235,7 @@ export function ModalEditarPermuta({
                 onChange={(e) => setNombreCliente(e.target.value)}
                 className="text-xs h-9"
                 placeholder="Ej: Carlos Mamani"
+                autoFocus
                 required
               />
             </div>
@@ -268,7 +269,7 @@ export function ModalEditarPermuta({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-5 text-[10px] px-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                className="h-7 text-xs px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 onClick={() => {
                   const now = new Date();
                   const pad = (n: number) => String(n).padStart(2, '0');
@@ -371,6 +372,7 @@ export function ModalEditarPermuta({
                       max={100}
                       disabled={currentDisp.isSold}
                       value={currentDisp.porcentajeBateria}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateSelectedDevice(
                           'porcentajeBateria',
@@ -402,6 +404,7 @@ export function ModalEditarPermuta({
                       step="any"
                       disabled={!isAdmin || currentDisp.isSold}
                       value={currentDisp.costoBs}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateSelectedDevice(
                           'costoBs',
