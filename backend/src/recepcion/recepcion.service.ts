@@ -1886,28 +1886,27 @@ export class RecepcionService {
         }
       }
 
+      const notaIngresoUpdateData: any = {};
+
       if (notaCostoModificado) {
         const nuevoTotalNota = roundMoney(
           Array.from(costosActualesPorId.values()).reduce((sum, c) => sum + c, 0),
         );
-        await tx.notaIngreso.update({
-          where: { id },
-          data: { totalCostoBs: nuevoTotalNota },
-        });
+        notaIngresoUpdateData.totalCostoBs = nuevoTotalNota;
       }
 
       if (dto.observaciones !== undefined) {
-        await tx.notaIngreso.update({
-          where: { id },
-          data: { observaciones: dto.observaciones?.trim() || null },
-        });
+        notaIngresoUpdateData.observaciones = dto.observaciones?.trim() || null;
       }
 
       if (dto.fechaIngreso !== undefined) {
-        const fechaEfectiva = this.validarFechaIngreso(dto.fechaIngreso);
+        notaIngresoUpdateData.fechaIngreso = this.validarFechaIngreso(dto.fechaIngreso);
+      }
+
+      if (Object.keys(notaIngresoUpdateData).length > 0) {
         await tx.notaIngreso.update({
           where: { id },
-          data: { fechaIngreso: fechaEfectiva },
+          data: notaIngresoUpdateData,
         });
       }
 

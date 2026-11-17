@@ -1374,17 +1374,28 @@ export class ModelosService {
 
       // Si el costo del dispositivo cambió, actualizar totalCostoBs en la NotaIngreso vinculada
       if (costoModificado && dispositivo.notaIngresoId) {
-        const todosDispositivosNota = await tx.dispositivo.findMany({
-          where: { notaIngresoId: dispositivo.notaIngresoId },
-          select: { id: true, costoBs: true },
-        });
+        const [todosDispositivosNota, todosLotesNota] = await Promise.all([
+          tx.dispositivo.findMany({
+            where: { notaIngresoId: dispositivo.notaIngresoId },
+            select: { id: true, costoBs: true },
+          }),
+          tx.loteAccesorio.findMany({
+            where: { notaIngresoId: dispositivo.notaIngresoId },
+            select: { costoUnitarioBs: true, cantidadInicial: true },
+          }),
+        ]);
 
-        const nuevoTotalNota = roundMoney(
-          todosDispositivosNota.reduce((sum, d) => {
-            const costo = d.id === id ? nuevoCostoBs : Number(d.costoBs);
-            return sum + costo;
-          }, 0),
+        const sumaDispositivos = todosDispositivosNota.reduce((sum, d) => {
+          const costo = d.id === id ? nuevoCostoBs : Number(d.costoBs);
+          return sum + costo;
+        }, 0);
+
+        const sumaLotes = todosLotesNota.reduce(
+          (sum, l) => sum + Number(l.costoUnitarioBs) * l.cantidadInicial,
+          0,
         );
+
+        const nuevoTotalNota = roundMoney(sumaDispositivos + sumaLotes);
 
         await tx.notaIngreso.update({
           where: { id: dispositivo.notaIngresoId },
