@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Smartphone,
   User,
@@ -16,6 +16,10 @@ import {
   Info,
   CalendarClock,
   Search,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,13 +34,27 @@ import { api } from '@/lib/api';
 import { ReglaMargenPrecio } from '@/lib/api/configuracion.api';
 import { calcularPrecioSugeridoBs } from '@/lib/utils/pricing.util';
 
-interface GastoRow {
+export interface GastoRow {
   id: string;
   concepto: string;
   costoBs: number | '';
   fechaGasto: string;
   observacion: string;
   aplicoEnCaja: boolean;
+}
+
+export interface DispositivoPermutaItem {
+  id: string;
+  modeloId: number;
+  varianteId: number | null;
+  numeroSerie: string;
+  imei1: string;
+  imei2: string;
+  porcentajeBateria: number | '';
+  detallesFisicos: string;
+  costoBs: number | '';
+  gastos: GastoRow[];
+  isExpanded: boolean;
 }
 
 interface RecepcionPermutaFormProps {
@@ -57,12 +75,19 @@ export function RecepcionPermutaForm({
   onOpenInlineVarianteModal,
 }: RecepcionPermutaFormProps) {
   // Filtrar modelos exclusivos de iPhone
-  const iphoneModelos = modelos.filter(
-    (m) =>
-      m.tipo === 'IPHONE' ||
-      m.tipoDispositivo?.nombre === 'IPHONE' ||
-      m.nombreModelo.toUpperCase().includes('IPHONE')
+  const iphoneModelos = useMemo(
+    () =>
+      modelos.filter(
+        (m) =>
+          m.tipo === 'IPHONE' ||
+          m.tipoDispositivo?.nombre === 'IPHONE' ||
+          m.nombreModelo.toUpperCase().includes('IPHONE')
+      ),
+    [modelos]
   );
+
+  const defaultModeloId = iphoneModelos[0]?.id || (modelos[0]?.id || 1);
+  const defaultVarianteId = iphoneModelos[0]?.variantes?.[0]?.id || null;
 
   // Estados de datos de proveedor minorista
   const [nombreCliente, setNombreCliente] = useState('');
@@ -89,7 +114,7 @@ export function RecepcionPermutaForm({
     }
   }, []);
 
-  const minoristaOptions: AutocompleteOption[] = React.useMemo(() => {
+  const minoristaOptions: AutocompleteOption[] = useMemo(() => {
     return minoristas.map((m) => {
       const fullName = `${m.nombre}${m.apellido ? ` ${m.apellido}` : ''}`;
       return {
@@ -132,11 +157,11 @@ export function RecepcionPermutaForm({
 
   const [fechaIngreso, setFechaIngreso] = useState<string>(getNowDateTimeLocal());
 
-  const maxDateTimeLocal = React.useMemo(() => {
+  const maxDateTimeLocal = useMemo(() => {
     return getNowDateTimeLocal();
   }, []);
 
-  const esHistorico = React.useMemo(() => {
+  const esHistorico = useMemo(() => {
     if (!fechaIngreso) return false;
     const timeSelected = new Date(fechaIngreso).getTime();
     if (isNaN(timeSelected)) return false;
@@ -147,27 +172,8 @@ export function RecepcionPermutaForm({
     setFechaIngreso(getNowDateTimeLocal());
   };
 
-  // Estados del dispositivo físico iPhone
-  const [selectedModeloId, setSelectedModeloId] = useState<number>(
-    iphoneModelos[0]?.id || (modelos[0]?.id || 1)
-  );
-  const [selectedVarianteId, setSelectedVarianteId] = useState<number | null>(null);
-  const [numeroSerie, setNumeroSerie] = useState('');
-  const [imei1, setImei1] = useState('');
-  const [imei2, setImei2] = useState('');
-  const [porcentajeBateria, setPorcentajeBateria] = useState<number | ''>(85);
-  const [registro, setRegistro] = useState('');
-  const [costoBs, setCostoBs] = useState<number | ''>('');
-
-  // Gastos iniciales opcionales
-  const [gastos, setGastos] = useState<GastoRow[]>([]);
-  const [reglaPermuta, setReglaPermuta] = useState<ReglaMargenPrecio | null>(null);
-
-  // Estados de validación y carga
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   // Cargar regla de margen de permuta centralizada
+  const [reglaPermuta, setReglaPermuta] = useState<ReglaMargenPrecio | null>(null);
   useEffect(() => {
     api.configuracion
       .getMargenes()
@@ -180,74 +186,175 @@ export function RecepcionPermutaForm({
       .catch(() => {});
   }, []);
 
-  // Obtener las variantes del modelo de iPhone seleccionado (memoizado para estabilidad de ciclo de vida)
-  const selectedModelo = iphoneModelos.find((m) => m.id === Number(selectedModeloId));
-  const variantesDisponibles = React.useMemo(
-    () => selectedModelo?.variantes || [],
-    [selectedModelo]
-  );
+  // Helper para crear un equipo en blanco
+  const createDefaultItem = (idx = 1): DispositivoPermutaItem => {
+    return {
+      id: `disp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      modeloId: defaultModeloId,
+      varianteId: defaultVarianteId,
+      numeroSerie: '',
+      imei1: '',
+      imei2: '',
+      porcentajeBateria: 85,
+      detallesFisicos: '',
+      costoBs: '',
+      gastos: [],
+      isExpanded: true,
+    };
+  };
 
-  // Seleccionar la primera variante por defecto si cambia el modelo
-  React.useEffect(() => {
-    if (variantesDisponibles.length > 0) {
-      setSelectedVarianteId((prev) => {
-        if (!prev || !variantesDisponibles.some((v: any) => v.id === prev)) {
-          return variantesDisponibles[0].id;
-        }
-        return prev;
-      });
-    } else {
-      setSelectedVarianteId(null);
-    }
-  }, [selectedModeloId, variantesDisponibles]);
+  // Lista dinámica de equipos en la permuta
+  const [equipos, setEquipos] = useState<DispositivoPermutaItem[]>([createDefaultItem()]);
 
-  // Manejo de gastos dinámicos
-  const handleAddGasto = () => {
+  // Estados de validación y carga
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Manejadores de Equipos
+  const handleAddEquipo = () => {
+    setEquipos((prev) => [...prev, createDefaultItem(prev.length + 1)]);
+  };
+
+  const handleDuplicateEquipo = (index: number) => {
+    const source = equipos[index];
+    if (!source) return;
+    const duplicated: DispositivoPermutaItem = {
+      id: `disp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      modeloId: source.modeloId,
+      varianteId: source.varianteId,
+      numeroSerie: '',
+      imei1: '',
+      imei2: '',
+      porcentajeBateria: source.porcentajeBateria,
+      detallesFisicos: source.detallesFisicos,
+      costoBs: source.costoBs,
+      gastos: [],
+      isExpanded: true,
+    };
+    setEquipos((prev) => [...prev, duplicated]);
+  };
+
+  const handleRemoveEquipo = (index: number) => {
+    if (equipos.length <= 1) return;
+    setEquipos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleExpandEquipo = (index: number) => {
+    setEquipos((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], isExpanded: !copy[index].isExpanded };
+      return copy;
+    });
+  };
+
+  const updateEquipo = (index: number, field: keyof DispositivoPermutaItem, val: any) => {
+    setEquipos((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: val };
+      if (field === 'modeloId') {
+        const m = iphoneModelos.find((mod) => mod.id === Number(val));
+        copy[index].varianteId = m?.variantes?.[0]?.id || null;
+      }
+      return copy;
+    });
+  };
+
+  // Manejo de Gastos por Equipo
+  const handleAddGasto = (equipoIndex: number) => {
     const today = new Date().toISOString().slice(0, 10);
-    setGastos((prev) => [
-      ...prev,
-      {
+    setEquipos((prev) => {
+      const copy = [...prev];
+      const target = copy[equipoIndex];
+      const newGasto: GastoRow = {
         id: `gasto-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         concepto: '',
         costoBs: '',
         fechaGasto: today,
         observacion: '',
-        aplicoEnCaja: true, // Predeterminadamente activo según regla inmutable
-      },
-    ]);
+        aplicoEnCaja: true,
+      };
+      copy[equipoIndex] = {
+        ...target,
+        gastos: [...target.gastos, newGasto],
+      };
+      return copy;
+    });
   };
 
-  const handleRemoveGasto = (id: string) => {
-    setGastos((prev) => prev.filter((g) => g.id !== id));
+  const handleRemoveGasto = (equipoIndex: number, gastoId: string) => {
+    setEquipos((prev) => {
+      const copy = [...prev];
+      const target = copy[equipoIndex];
+      copy[equipoIndex] = {
+        ...target,
+        gastos: target.gastos.filter((g) => g.id !== gastoId),
+      };
+      return copy;
+    });
   };
 
-  const handleUpdateGasto = (id: string, field: keyof GastoRow, val: any) => {
-    setGastos((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, [field]: val } : g))
-    );
+  const handleUpdateGasto = (
+    equipoIndex: number,
+    gastoId: string,
+    field: keyof GastoRow,
+    val: any
+  ) => {
+    setEquipos((prev) => {
+      const copy = [...prev];
+      const target = copy[equipoIndex];
+      copy[equipoIndex] = {
+        ...target,
+        gastos: target.gastos.map((g) => (g.id === gastoId ? { ...g, [field]: val } : g)),
+      };
+      return copy;
+    });
   };
 
-  // Cálculos financieros dinámicos en vivo respetando regla centralizada
-  const numericCostoBs = typeof costoBs === 'number' ? Math.max(0, costoBs) : 0;
-  const sumaGastosActivos = gastos.reduce((sum, g) => {
-    const val = typeof g.costoBs === 'number' ? Math.max(0, g.costoBs) : 0;
-    return sum + val;
-  }, 0);
+  // Cálculos Consolidados Globales
+  const totalEquipos = equipos.length;
 
-  const precioSugeridoCalculado = calcularPrecioSugeridoBs(
-    numericCostoBs,
-    reglaPermuta,
-    sumaGastosActivos,
-  );
-  const inversionTotalReal = Math.round((numericCostoBs + sumaGastosActivos) * 100) / 100;
-  const margenBrutoCalculado = Math.max(0, precioSugeridoCalculado - inversionTotalReal);
+  const totalCostoCompraBs = useMemo(() => {
+    return equipos.reduce((sum, eq) => {
+      const num = typeof eq.costoBs === 'number' ? Math.max(0, eq.costoBs) : 0;
+      return sum + num;
+    }, 0);
+  }, [equipos]);
+
+  const totalGastosBs = useMemo(() => {
+    return equipos.reduce((sum, eq) => {
+      const sumEq = eq.gastos.reduce((s, g) => {
+        const num = typeof g.costoBs === 'number' ? Math.max(0, g.costoBs) : 0;
+        return s + num;
+      }, 0);
+      return sum + sumEq;
+    }, 0);
+  }, [equipos]);
+
+  const totalInversionLoteBs = useMemo(() => {
+    return Math.round((totalCostoCompraBs + totalGastosBs) * 100) / 100;
+  }, [totalCostoCompraBs, totalGastosBs]);
+
+  const totalVentaProyectadaBs = useMemo(() => {
+    return equipos.reduce((sum, eq) => {
+      const numCosto = typeof eq.costoBs === 'number' ? Math.max(0, eq.costoBs) : 0;
+      const sumGastos = eq.gastos.reduce((s, g) => {
+        const num = typeof g.costoBs === 'number' ? Math.max(0, g.costoBs) : 0;
+        return s + num;
+      }, 0);
+      return sum + calcularPrecioSugeridoBs(numCosto, reglaPermuta, sumGastos);
+    }, 0);
+  }, [equipos, reglaPermuta]);
+
+  const totalMargenProyectadoBs = useMemo(() => {
+    return Math.max(0, totalVentaProyectadaBs - totalInversionLoteBs);
+  }, [totalVentaProyectadaBs, totalInversionLoteBs]);
 
   // Envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    // 1. Validaciones de Proveedor Minorista
+    // 1. Validaciones del Proveedor Minorista
     if (!nombreCliente.trim()) {
       setErrorMsg('El nombre del cliente/proveedor es obligatorio.');
       return;
@@ -257,43 +364,103 @@ export function RecepcionPermutaForm({
       return;
     }
 
-    // 2. Validaciones de Dispositivo
-    if (!selectedVarianteId) {
-      setErrorMsg('Debes seleccionar una variante (Color/Capacidad) para el iPhone.');
-      return;
-    }
-    if (!numeroSerie.trim()) {
-      setErrorMsg('El número de serie del iPhone es obligatorio.');
-      return;
-    }
-    if (!imei1.trim() || imei1.trim().length < 14) {
-      setErrorMsg('El IMEI 1 es obligatorio y debe tener al menos 14-15 dígitos numéricos.');
-      return;
-    }
-    if (porcentajeBateria === '' || porcentajeBateria < 1 || porcentajeBateria > 100) {
-      setErrorMsg('El porcentaje de salud de batería debe estar entre 1% y 100%.');
-      return;
-    }
-    if (numericCostoBs <= 0) {
-      setErrorMsg('El costo de compra/toma en Bolivianos (Bs) debe ser mayor a 0.');
+    if (equipos.length === 0) {
+      setErrorMsg('Debes agregar al menos un iPhone a la permuta.');
       return;
     }
 
-    // 3. Validar gastos si existen
-    for (let i = 0; i < gastos.length; i++) {
-      const g = gastos[i];
-      if (!g.concepto.trim()) {
-        setErrorMsg(`El gasto #${i + 1} requiere un concepto o descripción (ej: Cambio de Pantalla).`);
+    // 2. Validaciones de cada iPhone y unicidad en memoria
+    const imeisVistos = new Set<string>();
+    const seriesVistas = new Set<string>();
+
+    for (let i = 0; i < equipos.length; i++) {
+      const eq = equipos[i];
+      const eqNum = i + 1;
+
+      if (!eq.varianteId) {
+        setErrorMsg(`El iPhone #${eqNum} requiere que selecciones una variante (Color/Capacidad).`);
         return;
       }
-      if (typeof g.costoBs !== 'number' || g.costoBs <= 0) {
-        setErrorMsg(`El gasto #${i + 1} (${g.concepto}) debe tener un costo numérico mayor a 0.`);
+
+      const imei1Clean = eq.imei1.trim();
+      if (!imei1Clean || imei1Clean.length < 14) {
+        setErrorMsg(`El iPhone #${eqNum} requiere un IMEI 1 válido de al menos 14-15 dígitos numéricos.`);
         return;
+      }
+
+      if (imeisVistos.has(imei1Clean)) {
+        setErrorMsg(`El IMEI 1 '${imei1Clean}' del iPhone #${eqNum} está repetido dentro del mismo lote.`);
+        return;
+      }
+      imeisVistos.add(imei1Clean);
+
+      if (eq.imei2.trim()) {
+        const imei2Clean = eq.imei2.trim();
+        if (imeisVistos.has(imei2Clean)) {
+          setErrorMsg(`El IMEI 2 '${imei2Clean}' del iPhone #${eqNum} ya fue registrado en este lote.`);
+          return;
+        }
+        imeisVistos.add(imei2Clean);
+      }
+
+      // Serie (autogeneración con prefijo SN- si está en blanco)
+      const serieClean = (eq.numeroSerie.trim() || `SN-${imei1Clean}`).toUpperCase();
+      if (seriesVistas.has(serieClean)) {
+        setErrorMsg(`El número de serie '${serieClean}' del iPhone #${eqNum} está repetido en este lote.`);
+        return;
+      }
+      seriesVistas.add(serieClean);
+
+      if (eq.porcentajeBateria === '' || eq.porcentajeBateria < 1 || eq.porcentajeBateria > 100) {
+        setErrorMsg(`El porcentaje de salud de batería del iPhone #${eqNum} debe estar entre 1% y 100%.`);
+        return;
+      }
+
+      const numCosto = typeof eq.costoBs === 'number' ? eq.costoBs : 0;
+      if (numCosto <= 0) {
+        setErrorMsg(`El costo de compra/toma en Bs del iPhone #${eqNum} debe ser mayor a 0.`);
+        return;
+      }
+
+      // Validar gastos de este equipo
+      for (let gIdx = 0; gIdx < eq.gastos.length; gIdx++) {
+        const g = eq.gastos[gIdx];
+        if (!g.concepto.trim()) {
+          setErrorMsg(`El gasto #${gIdx + 1} del iPhone #${eqNum} requiere una descripción o concepto.`);
+          return;
+        }
+        if (typeof g.costoBs !== 'number' || g.costoBs <= 0) {
+          setErrorMsg(`El gasto #${gIdx + 1} (${g.concepto}) del iPhone #${eqNum} debe tener un costo mayor a 0.`);
+          return;
+        }
       }
     }
 
     setIsSubmitting(true);
     try {
+      const dispositivosPayload = equipos.map((eq) => {
+        const numCosto = typeof eq.costoBs === 'number' ? Math.max(0, eq.costoBs) : 0;
+        const serieFinal = (eq.numeroSerie.trim() || `SN-${eq.imei1.trim()}`).toUpperCase();
+        return {
+          varianteId: Number(eq.varianteId),
+          numeroSerie: serieFinal,
+          imei1: eq.imei1.trim(),
+          imei2: eq.imei2.trim() || undefined,
+          porcentajeBateria: Number(eq.porcentajeBateria),
+          detallesFisicos: eq.detallesFisicos.trim() || undefined,
+          costoBs: numCosto,
+          gastosIniciales: eq.gastos.map((g) => ({
+            concepto: g.concepto.trim(),
+            costoBs: Number(g.costoBs),
+            fechaGasto: g.fechaGasto
+              ? new Date(`${g.fechaGasto}T12:00:00`).toISOString()
+              : new Date().toISOString(),
+            observacion: g.observacion.trim() || undefined,
+            aplicoEnCaja: g.aplicoEnCaja,
+          })),
+        };
+      });
+
       const payload = {
         proveedorMinorista: {
           ...(selectedMinoristaId ? { id: selectedMinoristaId } : {}),
@@ -305,22 +472,9 @@ export function RecepcionPermutaForm({
         numeroComprobante: numeroComprobante.trim() || undefined,
         observaciones: observaciones.trim() || undefined,
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso).toISOString() : undefined,
-        dispositivo: {
-          varianteId: Number(selectedVarianteId),
-          numeroSerie: numeroSerie.trim().toUpperCase(),
-          imei1: imei1.trim(),
-          imei2: imei2.trim() || undefined,
-          porcentajeBateria: Number(porcentajeBateria),
-          detallesFisicos: registro.trim() || undefined,
-          costoBs: numericCostoBs,
-        },
-        gastosIniciales: gastos.map((g) => ({
-          concepto: g.concepto.trim(),
-          costoBs: Number(g.costoBs),
-          fechaGasto: g.fechaGasto ? new Date(`${g.fechaGasto}T12:00:00`).toISOString() : new Date().toISOString(),
-          observacion: g.observacion.trim() || undefined,
-          aplicoEnCaja: g.aplicoEnCaja,
-        })),
+        dispositivos: dispositivosPayload,
+        // Compatibilidad hacia atrás si un consumidor legacy espera el primer dispositivo
+        dispositivo: dispositivosPayload[0],
       };
 
       const res = await api.recepcion.createPermuta(payload);
@@ -359,14 +513,17 @@ export function RecepcionPermutaForm({
             </Badge>
           </div>
           <CardDescription className="text-xs text-slate-500">
-            Identificación de la persona particular que entrega el equipo como permuta.
+            Identificación de la persona particular que entrega el o los equipos como permuta.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-5 space-y-4">
           {/* Selector con búsqueda de Proveedor Minorista */}
           <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-xl space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <Label htmlFor="buscarMinoristaInput" className="text-xs font-bold text-purple-950 flex items-center gap-1.5 mb-0">
+              <Label
+                htmlFor="buscarMinoristaInput"
+                className="text-xs font-bold text-purple-950 flex items-center gap-1.5 mb-0"
+              >
                 <Search className="h-3.5 w-3.5 text-purple-700" />
                 <span>Proveedor Minorista (Particular / Permuta)</span>
               </Label>
@@ -441,542 +598,607 @@ export function RecepcionPermutaForm({
               />
             </div>
 
-          <div>
-            <Label htmlFor="sucursalDestino" className="text-xs font-semibold text-slate-700 mb-1 block">
-              Sucursal Destino <span className="text-rose-500">*</span>
-            </Label>
-            <Select
-              id="sucursalDestino"
-              value={String(sucursalDestinoId)}
-              onChange={(e) => setSucursalDestinoId(Number(e.target.value))}
-              disabled={!isAdmin}
-              className="text-xs h-9"
-            >
-              {sucursales.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre} ({s.ciudad})
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="numeroComprobantePermuta" className="text-xs font-semibold text-slate-700 mb-1 block">
-              Nro Comprobante / Recibo <span className="text-slate-400 font-normal">(Opcional)</span>
-            </Label>
-            <Input
-              id="numeroComprobantePermuta"
-              placeholder="Ej: PERM-001"
-              value={numeroComprobante}
-              onChange={(e) => setNumeroComprobante(e.target.value)}
-              className="text-xs h-9 font-mono"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label htmlFor="fechaIngresoPermuta" className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                <CalendarClock className="h-3.5 w-3.5 text-slate-500" />
-                <span>Fecha de Recepción</span>
-              </Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-5 text-[10px] px-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium"
-                onClick={handleSetAhora}
-                title="Restablecer a la fecha y hora actual"
-              >
-                Ahora
-              </Button>
-            </div>
-            <Input
-              id="fechaIngresoPermuta"
-              type="datetime-local"
-              max={maxDateTimeLocal}
-              value={fechaIngreso}
-              onChange={(e) => setFechaIngreso(e.target.value)}
-              className="text-xs h-9 font-mono"
-            />
-            {esHistorico && (
-              <div className="mt-1 flex items-center gap-1">
-                <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-700 px-1.5 py-0 font-medium">
-                  Ingreso Histórico
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          <div className="sm:col-span-2 lg:col-span-3">
-            <Label htmlFor="observacionesPermuta" className="text-xs font-semibold text-slate-700 mb-1 block">
-              Observaciones Generales
-            </Label>
-            <Input
-              id="observacionesPermuta"
-              placeholder="Ej: Equipo recibido con funda original..."
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              className="text-xs h-9"
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-      {/* SECCIÓN 2: DATOS DEL DISPOSITIVO IPHONE */}
-      <Card className="border-slate-200 bg-white shadow-subtle">
-        <CardHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4 text-slate-800" />
-              <CardTitle className="text-sm font-bold text-slate-900">
-                2. Especificaciones del Teléfono iPhone
-              </CardTitle>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700">
-                Condición: Permuta (Fija)
-              </Badge>
-            </div>
-          </div>
-          <CardDescription className="text-xs text-slate-500">
-            Identificadores de hardware únicos y estado de recepción del dispositivo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Modelo iPhone */}
             <div>
-              <Label htmlFor="modeloIphone" className="text-xs font-semibold text-slate-700 mb-1 block">
-                Modelo iPhone <span className="text-rose-500">*</span>
+              <Label htmlFor="sucursalDestino" className="text-xs font-semibold text-slate-700 mb-1 block">
+                Sucursal Destino <span className="text-rose-500">*</span>
               </Label>
               <Select
-                id="modeloIphone"
-                value={String(selectedModeloId)}
-                onChange={(e) => setSelectedModeloId(Number(e.target.value))}
-                className="text-xs h-9 font-semibold"
+                id="sucursalDestino"
+                value={String(sucursalDestinoId)}
+                onChange={(e) => setSucursalDestinoId(Number(e.target.value))}
+                disabled={!isAdmin}
+                className="text-xs h-9"
               >
-                {iphoneModelos.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nombreModelo}
+                {sucursales.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre} ({s.ciudad})
                   </option>
                 ))}
               </Select>
             </div>
 
-            {/* Variante Color / Capacidad */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="varianteIphone" className="text-xs font-semibold text-slate-700">
-                  Variante (Color / Almacenamiento) <span className="text-rose-500">*</span>
-                </Label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenInlineVarianteModal((newVar) => {
-                      setSelectedVarianteId(newVar.id);
-                    })
-                  }
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5"
-                >
-                  <Plus className="h-3 w-3" /> Crear Variante
-                </button>
-              </div>
-              <Select
-                id="varianteIphone"
-                value={selectedVarianteId ? String(selectedVarianteId) : ''}
-                onChange={(e) => setSelectedVarianteId(Number(e.target.value))}
-                className="text-xs h-9"
-              >
-                {variantesDisponibles.length === 0 ? (
-                  <option value="">(Sin variantes disponibles)</option>
-                ) : (
-                  variantesDisponibles.map((v: any) => (
-                    <option key={v.id} value={v.id}>
-                      {v.color} - {v.capacidadGb >= 1024 ? `${v.capacidadGb / 1024}TB` : `${v.capacidadGb}GB`} ({v.tipoSim || 'SIM Físico'})
-                    </option>
-                  ))
-                )}
-              </Select>
-            </div>
-
-            {/* Condición Readonly */}
-            <div>
-              <Label className="text-xs font-semibold text-slate-700 mb-1 block">
-                Condición de Ingreso
-              </Label>
-              <div className="h-9 px-3 bg-purple-50/70 border border-purple-200 rounded-md flex items-center justify-between text-xs font-bold text-purple-900">
-                <span>PERMUTA</span>
-                <span className="text-[10px] font-normal text-purple-600 bg-white px-1.5 py-0.5 rounded border border-purple-200">
-                  Solo Lectura
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
-            {/* Número de Serie */}
-            <div>
-              <Label htmlFor="numeroSeriePermuta" className="text-xs font-semibold text-slate-700 mb-1 block">
-                Número de Serie (S/N) <span className="text-rose-500">*</span>
+              <Label htmlFor="numeroComprobantePermuta" className="text-xs font-semibold text-slate-700 mb-1 block">
+                Nro Comprobante / Recibo <span className="text-slate-400 font-normal">(Opcional)</span>
               </Label>
               <Input
-                id="numeroSeriePermuta"
-                placeholder="Ej: F2LX45009"
-                value={numeroSerie}
-                onChange={(e) => setNumeroSerie(e.target.value.toUpperCase())}
-                className="text-xs h-9 font-mono uppercase font-semibold"
-                required
-              />
-            </div>
-
-            {/* IMEI 1 */}
-            <div>
-              <Label htmlFor="imei1Permuta" className="text-xs font-semibold text-slate-700 mb-1 block">
-                IMEI 1 <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                id="imei1Permuta"
-                placeholder="15 dígitos numéricos"
-                value={imei1}
-                onChange={(e) => setImei1(e.target.value.replace(/\D/g, '').slice(0, 15))}
-                className="text-xs h-9 font-mono font-semibold"
-                required
-              />
-            </div>
-
-            {/* IMEI 2 */}
-            <div>
-              <Label htmlFor="imei2Permuta" className="text-xs font-semibold text-slate-700 mb-1 block">
-                IMEI 2 <span className="text-slate-400 font-normal">(eSIM / Dual SIM)</span>
-              </Label>
-              <Input
-                id="imei2Permuta"
-                placeholder="Opcional (15 dígitos)"
-                value={imei2}
-                onChange={(e) => setImei2(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                id="numeroComprobantePermuta"
+                placeholder="Ej: PERM-001"
+                value={numeroComprobante}
+                onChange={(e) => setNumeroComprobante(e.target.value)}
                 className="text-xs h-9 font-mono"
               />
             </div>
 
-            {/* Porcentaje de Batería */}
             <div>
-              <Label htmlFor="porcentajeBateriaPermuta" className="text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                <span>Salud de Batería <span className="text-rose-500">*</span></span>
-                {typeof porcentajeBateria === 'number' && (
-                  <span className={`text-[10px] font-bold ${porcentajeBateria >= 85 ? 'text-emerald-700' : porcentajeBateria >= 80 ? 'text-amber-700' : 'text-rose-700'}`}>
-                    {porcentajeBateria}%
-                  </span>
-                )}
-              </Label>
-              <div className="relative">
-                <Battery className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  id="porcentajeBateriaPermuta"
-                  type="number"
-                  min="1"
-                  max="100"
-                  placeholder="Ej: 85"
-                  value={porcentajeBateria}
-                  onChange={(e) => {
-                    const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-                    setPorcentajeBateria(val);
-                  }}
-                  className="text-xs h-9 pl-9 font-mono font-bold"
-                  required
-                />
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="fechaIngresoPermuta" className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                  <CalendarClock className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Fecha de Recepción</span>
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[10px] px-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium"
+                  onClick={handleSetAhora}
+                  title="Restablecer a la fecha y hora actual"
+                >
+                  Ahora
+                </Button>
               </div>
-            </div>
-          </div>
-
-          {/* Campo Registro: Situación de liberación del iPhone */}
-          <div className="pt-1">
-            <Label htmlFor="registroPermuta" className="text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
-                <span>Registro</span>
-                <span className="text-slate-400 font-normal text-[11px]">(Situación de liberación del iPhone)</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
-            </Label>
-            <Input
-              id="registroPermuta"
-              placeholder="Ej: Liberado de fábrica / Bloqueado AT&T / R-SIM / Homologado"
-              value={registro}
-              onChange={(e) => setRegistro(e.target.value)}
-              className="text-xs h-9"
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              Información de uso interno para determinar si el equipo está liberado o asociado a un operador.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            {/* Costo de Compra / Toma en Bolivianos */}
-            <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-1">
-              <Label htmlFor="costoBsPermuta" className="text-xs font-bold text-blue-950 flex items-center justify-between">
-                <span>Costo de Toma / Compra (Bs) <span className="text-rose-500">*</span></span>
-                <span className="text-[10px] text-blue-700 font-normal">Exclusivo en Bolivianos (Sin USD)</span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-xs font-bold text-blue-800">Bs</span>
-                <Input
-                  id="costoBsPermuta"
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  placeholder="0.00"
-                  value={costoBs}
-                  onChange={(e) => {
-                    const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                    setCostoBs(val);
-                  }}
-                  className="text-sm font-bold font-mono pl-9 h-9 bg-white border-blue-300 text-blue-950"
-                  required
-                />
-              </div>
-              <p className="text-[11px] text-blue-700">
-                Monto acordado pagado al cliente por la entrega del teléfono.
-              </p>
+              <Input
+                id="fechaIngresoPermuta"
+                type="datetime-local"
+                max={maxDateTimeLocal}
+                value={fechaIngreso}
+                onChange={(e) => setFechaIngreso(e.target.value)}
+                className="text-xs h-9 font-mono"
+              />
+              {esHistorico && (
+                <div className="mt-1 flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-700 px-1.5 py-0 font-medium">
+                    Ingreso Histórico
+                  </Badge>
+                </div>
+              )}
             </div>
 
-            {/* Margen comercial base */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-medium">
-                  {reglaPermuta?.tipoAumento === 'ABSOLUTO'
-                    ? `Margen Centralizado (+Bs ${reglaPermuta.valorBs}):`
-                    : `Margen Centralizado (+${reglaPermuta?.valorBs ?? 15}%):`}
-                </span>
-                <span className="font-mono font-bold text-slate-900">
-                  + Bs {margenBrutoCalculado.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200 mt-2">
-                <span className="text-slate-600 font-medium">Subtotal con Margen:</span>
-                <span className="font-mono font-bold text-emerald-700">
-                  Bs {(numericCostoBs + margenBrutoCalculado).toFixed(2)}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 mt-1">
-                Calculado mediante la regla centralizada de márgenes para permutas.
-              </p>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Label htmlFor="observacionesPermuta" className="text-xs font-semibold text-slate-700 mb-1 block">
+                Observaciones Generales
+              </Label>
+              <Input
+                id="observacionesPermuta"
+                placeholder="Ej: Lote recibido con fundas y cargadores originales..."
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                className="text-xs h-9"
+              />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* SECCIÓN 3: GASTOS INICIALES DE INVERSIÓN Y REPARACIÓN */}
-      <Card className="border-slate-200 bg-white shadow-subtle">
-        <CardHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 bg-slate-50/50 flex flex-row items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-slate-800" />
-              <CardTitle className="text-sm font-bold text-slate-900">
-                3. Gastos de Reparación e Inversión sobre el Teléfono (Opcional)
-              </CardTitle>
+      {/* SECCIÓN 2: LISTA DE IPHONES RECIBIDOS */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-purple-700" />
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                2. Especificaciones de los iPhones Recibidos ({totalEquipos})
+              </h2>
+              <p className="text-xs text-slate-500">
+                Detalla cada teléfono con sus identificadores de hardware únicos y gastos de reparación.
+              </p>
             </div>
-            <CardDescription className="text-xs text-slate-500">
-              Registra costos de repuestos, mantenimiento o puesta a punto aplicados a este iPhone.
-            </CardDescription>
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={handleAddGasto}
-            className="text-xs h-8"
+            onClick={handleAddEquipo}
+            className="text-xs h-8 gap-1.5 text-purple-700 border-purple-300 hover:bg-purple-50 font-semibold"
           >
-            <Plus className="h-3.5 w-3.5 mr-1 text-slate-600" />
-            Agregar Gasto
+            <Plus className="h-3.5 w-3.5 text-purple-700" />
+            <span>Agregar otro iPhone</span>
           </Button>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-5 space-y-3">
-          {gastos.length === 0 ? (
-            <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-xs text-slate-500">
-              <p className="font-medium text-slate-700">No se han registrado gastos iniciales para este teléfono.</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Si requiere cambio de batería, pantalla o reparación, haz clic en &ldquo;Agregar Gasto&rdquo;. También podrás agregar más gastos posteriormente desde el inventario.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {gastos.map((gasto, index) => (
-                <div
-                  key={gasto.id}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-3 items-center text-xs"
-                >
-                  <div className="sm:col-span-3">
-                    <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
-                      Concepto del Gasto #{index + 1} <span className="text-rose-500">*</span>
-                    </Label>
-                    <Input
-                      placeholder="Ej: Cambio de pantalla OLED"
-                      value={gasto.concepto}
-                      onChange={(e) => handleUpdateGasto(gasto.id, 'concepto', e.target.value)}
-                      className="text-xs h-8 bg-white"
-                      required
-                    />
-                  </div>
+        </div>
 
-                  <div className="sm:col-span-2">
-                    <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
-                      Costo (Bs) <span className="text-rose-500">*</span>
-                    </Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      placeholder="0.00"
-                      value={gasto.costoBs}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                        handleUpdateGasto(gasto.id, 'costoBs', val);
-                      }}
-                      className="text-xs h-8 font-mono font-bold bg-white"
-                      required
-                    />
-                  </div>
+        {equipos.map((eq, index) => {
+          const selectedModelo = iphoneModelos.find((m) => m.id === Number(eq.modeloId));
+          const variantesDisponibles = selectedModelo?.variantes || [];
+          const selectedVariante = variantesDisponibles.find((v: any) => v.id === Number(eq.varianteId));
 
-                  <div className="sm:col-span-2">
-                    <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
-                      Fecha Gasto <span className="text-rose-500">*</span>
-                    </Label>
-                    <Input
-                      type="date"
-                      value={gasto.fechaGasto}
-                      onChange={(e) => handleUpdateGasto(gasto.id, 'fechaGasto', e.target.value)}
-                      className="text-xs h-8 bg-white font-mono"
-                      required
-                    />
-                  </div>
+          const numCosto = typeof eq.costoBs === 'number' ? Math.max(0, eq.costoBs) : 0;
+          const sumaGastosEq = eq.gastos.reduce((sum, g) => {
+            const val = typeof g.costoBs === 'number' ? Math.max(0, g.costoBs) : 0;
+            return sum + val;
+          }, 0);
 
-                  <div className="sm:col-span-2">
-                    <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">
-                      Observación / Repuesto
-                    </Label>
-                    <Input
-                      placeholder="Ej: Repuesto original Apple"
-                      value={gasto.observacion}
-                      onChange={(e) => handleUpdateGasto(gasto.id, 'observacion', e.target.value)}
-                      className="text-xs h-8 bg-white"
-                    />
-                  </div>
+          const precioSugeridoEq = calcularPrecioSugeridoBs(numCosto, reglaPermuta, sumaGastosEq);
+          const inversionTotalEq = Math.round((numCosto + sumaGastosEq) * 100) / 100;
+          const margenBrutoEq = Math.max(0, precioSugeridoEq - inversionTotalEq);
 
-                  <div className="sm:col-span-2 flex items-center gap-2 pt-4 sm:pt-0">
-                    <input
-                      type="checkbox"
-                      id={`caja-${gasto.id}`}
-                      checked={gasto.aplicoEnCaja}
-                      onChange={(e) => handleUpdateGasto(gasto.id, 'aplicoEnCaja', e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <label
-                      htmlFor={`caja-${gasto.id}`}
-                      className="text-[11px] font-medium text-slate-700 cursor-pointer leading-tight"
-                    >
-                      Restar de Caja
-                    </label>
+          return (
+            <Card
+              key={eq.id}
+              className="border-slate-200 bg-white shadow-subtle overflow-hidden transition-all duration-150"
+            >
+              {/* Encabezado de la tarjeta del equipo */}
+              <div className="p-3.5 sm:p-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-xs shrink-0">
+                    {index + 1}
                   </div>
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                      {selectedModelo?.nombreModelo || 'iPhone'}
+                      {selectedVariante ? ` - ${selectedVariante.color} (${selectedVariante.capacidadGb >= 1024 ? `${selectedVariante.capacidadGb / 1024}TB` : `${selectedVariante.capacidadGb}GB`})` : ''}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {eq.imei1 ? `IMEI: ${eq.imei1}` : 'Sin IMEI asignado'}
+                      {numCosto > 0 ? ` • Bs ${numCosto.toFixed(2)}` : ''}
+                    </span>
+                  </div>
+                </div>
 
-                  <div className="sm:col-span-1 flex justify-end">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDuplicateEquipo(index)}
+                    title="Duplicar modelo y especificaciones de este equipo"
+                    className="h-7 text-xs px-2 text-slate-600 hover:text-purple-700 hover:bg-purple-50 font-medium gap-1"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Duplicar</span>
+                  </Button>
+
+                  {equipos.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveGasto(gasto.id)}
-                      className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600"
+                      onClick={() => handleRemoveEquipo(index)}
+                      title="Eliminar este equipo de la permuta"
+                      className="h-7 text-xs px-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 font-medium gap-1"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Eliminar</span>
                     </Button>
-                  </div>
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleExpandEquipo(index)}
+                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                  >
+                    {eq.isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
                 </div>
-              ))}
+              </div>
+
+              {/* Contenido desplegable de la tarjeta */}
+              {eq.isExpanded && (
+                <CardContent className="p-4 sm:p-5 space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Modelo iPhone */}
+                    <div>
+                      <Label htmlFor={`modelo-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 block">
+                        Modelo iPhone <span className="text-rose-500">*</span>
+                      </Label>
+                      <Select
+                        id={`modelo-${eq.id}`}
+                        value={String(eq.modeloId)}
+                        onChange={(e) => updateEquipo(index, 'modeloId', Number(e.target.value))}
+                        className="text-xs h-9 font-semibold"
+                      >
+                        {iphoneModelos.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.nombreModelo}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    {/* Variante */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor={`variante-${eq.id}`} className="text-xs font-semibold text-slate-700">
+                          Variante <span className="text-rose-500">*</span>
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenInlineVarianteModal((newVar) => {
+                              updateEquipo(index, 'varianteId', newVar.id);
+                            })
+                          }
+                          className="text-[11px] text-purple-700 hover:text-purple-900 font-semibold flex items-center gap-0.5"
+                        >
+                          <Plus className="h-3 w-3" /> Crear
+                        </button>
+                      </div>
+                      <Select
+                        id={`variante-${eq.id}`}
+                        value={eq.varianteId ? String(eq.varianteId) : ''}
+                        onChange={(e) => updateEquipo(index, 'varianteId', Number(e.target.value))}
+                        className="text-xs h-9"
+                      >
+                        {variantesDisponibles.length === 0 ? (
+                          <option value="">(Sin variantes)</option>
+                        ) : (
+                          variantesDisponibles.map((v: any) => (
+                            <option key={v.id} value={v.id}>
+                              {v.color} - {v.capacidadGb >= 1024 ? `${v.capacidadGb / 1024}TB` : `${v.capacidadGb}GB`} ({v.tipoSim || 'SIM'})
+                            </option>
+                          ))
+                        )}
+                      </Select>
+                    </div>
+
+                    {/* IMEI 1 */}
+                    <div>
+                      <Label htmlFor={`imei1-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 block">
+                        IMEI 1 <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        id={`imei1-${eq.id}`}
+                        placeholder="35..."
+                        maxLength={16}
+                        value={eq.imei1}
+                        onChange={(e) => updateEquipo(index, 'imei1', e.target.value)}
+                        className="text-xs h-9 font-mono"
+                        required
+                      />
+                    </div>
+
+                    {/* IMEI 2 (Opcional) */}
+                    <div>
+                      <Label htmlFor={`imei2-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 block">
+                        IMEI 2 <span className="text-slate-400 font-normal">(Opcional)</span>
+                      </Label>
+                      <Input
+                        id={`imei2-${eq.id}`}
+                        placeholder="35..."
+                        maxLength={16}
+                        value={eq.imei2}
+                        onChange={(e) => updateEquipo(index, 'imei2', e.target.value)}
+                        className="text-xs h-9 font-mono"
+                      />
+                    </div>
+
+                    {/* Número de Serie */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor={`serie-${eq.id}`} className="text-xs font-semibold text-slate-700">
+                          N° de Serie
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (eq.imei1) {
+                              updateEquipo(index, 'numeroSerie', `SN-${eq.imei1.trim()}`);
+                            }
+                          }}
+                          className="text-[10px] text-slate-500 hover:text-slate-900"
+                        >
+                          Autogenerar
+                        </button>
+                      </div>
+                      <Input
+                        id={`serie-${eq.id}`}
+                        placeholder="F2L..."
+                        value={eq.numeroSerie}
+                        onChange={(e) => updateEquipo(index, 'numeroSerie', e.target.value)}
+                        className="text-xs h-9 font-mono uppercase"
+                      />
+                    </div>
+
+                    {/* Salud de Batería */}
+                    <div>
+                      <Label htmlFor={`bateria-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Battery className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Batería (%) <span className="text-rose-500">*</span></span>
+                      </Label>
+                      <Input
+                        id={`bateria-${eq.id}`}
+                        type="number"
+                        min={1}
+                        max={100}
+                        placeholder="85"
+                        value={eq.porcentajeBateria}
+                        onChange={(e) =>
+                          updateEquipo(
+                            index,
+                            'porcentajeBateria',
+                            e.target.value === '' ? '' : Number(e.target.value)
+                          )
+                        }
+                        className="text-xs h-9 font-mono"
+                        required
+                      />
+                    </div>
+
+                    {/* Costo de Toma / Compra */}
+                    <div>
+                      <Label htmlFor={`costo-${eq.id}`} className="text-xs font-semibold text-purple-950 mb-1 flex items-center gap-1">
+                        <DollarSign className="h-3.5 w-3.5 text-purple-700" />
+                        <span>Costo de Toma (Bs) <span className="text-rose-500">*</span></span>
+                      </Label>
+                      <Input
+                        id={`costo-${eq.id}`}
+                        type="number"
+                        min={1}
+                        step="any"
+                        placeholder="Ej: 3500"
+                        value={eq.costoBs}
+                        onChange={(e) =>
+                          updateEquipo(
+                            index,
+                            'costoBs',
+                            e.target.value === '' ? '' : Number(e.target.value)
+                          )
+                        }
+                        className="text-xs h-9 font-mono font-bold text-slate-900 bg-purple-50/30 border-purple-200"
+                        required
+                      />
+                    </div>
+
+                    {/* Registro / Situación de Liberación */}
+                    <div>
+                      <Label htmlFor={`registro-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Registro <span className="text-slate-400 font-normal">(Operador)</span></span>
+                      </Label>
+                      <Input
+                        id={`registro-${eq.id}`}
+                        placeholder="Liberado de fábrica..."
+                        value={eq.detallesFisicos}
+                        onChange={(e) => updateEquipo(index, 'detallesFisicos', e.target.value)}
+                        className="text-xs h-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Subsección: Gastos de Puesta a Punto de este iPhone */}
+                  <div className="pt-2 border-t border-slate-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Receipt className="h-3.5 w-3.5 text-slate-600" />
+                        <span className="text-xs font-bold text-slate-800">
+                          Gastos de Reparación / Puesta a Punto (Equipo #{index + 1})
+                        </span>
+                        {eq.gastos.length > 0 && (
+                          <Badge variant="outline" className="text-[10px] bg-slate-100">
+                            {eq.gastos.length} gasto(s)
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleAddGasto(index)}
+                        className="h-6 text-[11px] px-2 text-purple-700 hover:text-purple-900 hover:bg-purple-50 font-semibold gap-1"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Agregar Gasto</span>
+                      </Button>
+                    </div>
+
+                    {eq.gastos.length > 0 && (
+                      <div className="space-y-2 bg-slate-50/50 p-3 rounded-xl border border-slate-200">
+                        {eq.gastos.map((g, gIdx) => (
+                          <div
+                            key={g.id}
+                            className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2 rounded-lg border border-slate-200 shadow-2xs"
+                          >
+                            <div className="sm:col-span-4">
+                              <Input
+                                placeholder="Concepto (ej: Cambio de Pantalla)"
+                                value={g.concepto}
+                                onChange={(e) =>
+                                  handleUpdateGasto(index, g.id, 'concepto', e.target.value)
+                                }
+                                className="text-xs h-8"
+                                required
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Input
+                                type="number"
+                                min={0.01}
+                                step="any"
+                                placeholder="Costo Bs"
+                                value={g.costoBs}
+                                onChange={(e) =>
+                                  handleUpdateGasto(
+                                    index,
+                                    g.id,
+                                    'costoBs',
+                                    e.target.value === '' ? '' : Number(e.target.value)
+                                  )
+                                }
+                                className="text-xs h-8 font-mono font-semibold"
+                                required
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <Input
+                                type="date"
+                                value={g.fechaGasto}
+                                onChange={(e) =>
+                                  handleUpdateGasto(index, g.id, 'fechaGasto', e.target.value)
+                                }
+                                className="text-xs h-8 font-mono"
+                              />
+                            </div>
+                            <div className="sm:col-span-2 flex items-center gap-1.5">
+                              <label className="text-[11px] text-slate-600 flex items-center gap-1 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={g.aplicoEnCaja}
+                                  onChange={(e) =>
+                                    handleUpdateGasto(index, g.id, 'aplicoEnCaja', e.target.checked)
+                                  }
+                                  className="h-3.5 w-3.5 rounded text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>En Caja</span>
+                              </label>
+                            </div>
+                            <div className="sm:col-span-1 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveGasto(index, g.id)}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Resumen Financiero Individual de este iPhone */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Costo Compra</span>
+                        <span className="font-mono font-bold text-slate-800">
+                          Bs {numCosto.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Reparaciones</span>
+                        <span className="font-mono font-semibold text-slate-700">
+                          + Bs {sumaGastosEq.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Inversión Real</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          Bs {inversionTotalEq.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Margen Est. ({reglaPermuta?.valorBs || 15}%)</span>
+                        <span className="font-mono font-semibold text-emerald-700">
+                          Bs {margenBrutoEq.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-600 font-medium text-xs">Precio Sugerido:</span>
+                      <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs px-2.5 py-0.5">
+                        Bs {precioSugeridoEq.toFixed(2)}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          );
+        })}
+
+        {/* Botón para agregar otro iPhone */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleAddEquipo}
+          className="w-full h-11 border-dashed border-2 border-purple-300 bg-purple-50/30 hover:bg-purple-50 text-purple-800 font-bold text-xs flex items-center justify-center gap-2 rounded-xl transition-colors cursor-pointer"
+        >
+          <Plus className="h-4 w-4 text-purple-700" />
+          <span>+ Agregar otro iPhone a esta permuta</span>
+        </Button>
+      </div>
+
+      {/* SECCIÓN 3: PANEL CONSOLIDADO GLOBAL DE TOTALES */}
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50/60 via-white to-purple-50/40 shadow-card">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+            {/* Métricas Consolidadas */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
+              <div className="bg-white p-2.5 rounded-lg border border-purple-100 shadow-2xs">
+                <span className="text-[10px] text-slate-500 font-semibold block uppercase">Total iPhones</span>
+                <span className="text-base font-bold text-purple-950 font-mono">
+                  {totalEquipos} {totalEquipos === 1 ? 'equipo' : 'equipos'}
+                </span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-lg border border-purple-100 shadow-2xs">
+                <span className="text-[10px] text-slate-500 font-semibold block uppercase">Compra Lote</span>
+                <span className="text-base font-bold text-slate-900 font-mono">
+                  Bs {totalCostoCompraBs.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-lg border border-purple-100 shadow-2xs">
+                <span className="text-[10px] text-slate-500 font-semibold block uppercase">Gastos Puesta Punto</span>
+                <span className="text-base font-bold text-slate-700 font-mono">
+                  Bs {totalGastosBs.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-lg border border-purple-100 shadow-2xs">
+                <span className="text-[10px] text-slate-500 font-semibold block uppercase">Inversión Total</span>
+                <span className="text-base font-bold text-purple-700 font-mono">
+                  Bs {totalInversionLoteBs.toFixed(2)}
+                </span>
+              </div>
             </div>
-          )}
+
+            {/* Acción de Confirmación */}
+            <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+              <div className="text-right hidden sm:block">
+                <span className="text-[10px] text-slate-500 block">Venta Sugerida Total:</span>
+                <span className="text-sm font-bold font-mono text-emerald-700">
+                  Bs {totalVentaProyectadaBs.toFixed(2)}
+                </span>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto h-11 px-6 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs gap-2 rounded-xl shadow-sm transition-all"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Guardando lote de permutas...</span>
+                  </>
+                ) : (
+                  <>
+                    <Receipt className="h-4 w-4" />
+                    <span>Registrar Permuta ({totalEquipos} {totalEquipos === 1 ? 'iPhone' : 'iPhones'})</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* SECCIÓN 4: RESUMEN FINANCIERO Y CONFIRMACIÓN */}
-      <Card className="border-slate-900 bg-slate-950 text-white shadow-xl">
-        <CardContent className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div className="lg:col-span-8 space-y-3">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-400" />
-              <h3 className="text-base font-bold text-white tracking-tight">
-                Resumen Financiero de la Permuta
-              </h3>
-              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px]">
-                {reglaPermuta?.tipoAumento === 'ABSOLUTO'
-                  ? `Margen Centralizado +Bs ${reglaPermuta.valorBs}`
-                  : `Margen Centralizado +${reglaPermuta?.valorBs ?? 15}%`}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
-              <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span className="text-slate-400 text-[11px]">Costo de Compra:</span>
-                <p className="font-mono font-bold text-sm text-slate-100">
-                  Bs {numericCostoBs.toFixed(2)}
-                </p>
-              </div>
-
-              <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span className="text-slate-400 text-[11px]">Margen Estimado:</span>
-                <p className="font-mono font-bold text-sm text-emerald-400">
-                  + Bs {margenBrutoCalculado.toFixed(2)}
-                </p>
-              </div>
-
-              <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span className="text-slate-400 text-[11px]">Gastos Reparación:</span>
-                <p className="font-mono font-bold text-sm text-amber-400">
-                  + Bs {sumaGastosActivos.toFixed(2)}
-                </p>
-              </div>
-
-              <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                <span className="text-slate-400 text-[11px]">Inversión Total:</span>
-                <p className="font-mono font-bold text-sm text-slate-200">
-                  Bs {inversionTotalReal.toFixed(2)}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-400 flex items-center gap-1.5 pt-1">
-              <Info className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-              <span>
-                Fórmula de negocio: Margen centralizado de permuta ({reglaPermuta?.tipoAumento === 'ABSOLUTO' ? `+Bs ${reglaPermuta.valorBs}` : `+${reglaPermuta?.valorBs ?? 15}%`}) sobre costo de compra + 100% de gastos de reparación.
-              </span>
-            </p>
-          </div>
-
-          <div className="lg:col-span-4 bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
-            <div>
-              <span className="text-slate-400 text-xs font-medium">Precio Sugerido al Público:</span>
-              <p className="text-2xl font-bold font-mono text-emerald-400 mt-0.5">
-                Bs {precioSugeridoCalculado.toFixed(2)}
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-11 text-sm shadow-lg transition-transform active:scale-[0.99]"
-            >
-              {isSubmitting ? 'Registrando Permuta...' : 'Completar y Registrar Permuta'}
-              {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Modal para crear proveedor minorista al vuelo */}
-      <ModalCrearProveedorMinoristaInline
-        isOpen={isModalMinoristaOpen}
-        onClose={() => setIsModalMinoristaOpen(false)}
-        onProveedorCreado={handleMinoristaCreado}
-      />
+      {/* Modal para Crear Proveedor Minorista en línea */}
+      {isModalMinoristaOpen && (
+        <ModalCrearProveedorMinoristaInline
+          isOpen={isModalMinoristaOpen}
+          onClose={() => setIsModalMinoristaOpen(false)}
+          onSuccess={handleMinoristaCreado}
+          telefonoInicial={telefonoCliente}
+          nombreInicial={nombreCliente}
+        />
+      )}
     </form>
   );
 }

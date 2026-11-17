@@ -1134,5 +1134,102 @@ describe('RecepcionService', () => {
         }),
       });
     });
+
+    it('debe rechazar modificación de costo de permuta si el usuario no es ADMIN', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 51,
+        sucursalId: 1,
+        estado: 'REGISTRADA',
+        dispositivos: [{ id: 10, costoBs: 3000, estadoInventario: 'DISPONIBLE', detalleVentas: [], gastos: [] }],
+      } as any);
+
+      await expect(
+        service.updatePermuta(
+          51,
+          {
+            dispositivos: [
+              {
+                id: 10,
+                costoBs: 3500, // Cambio de costo
+              },
+            ],
+          },
+          usuarioId,
+          'VENDEDOR', // No es ADMIN
+          1,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('debe actualizar múltiples dispositivos y recalcular costo total de la nota como ADMIN', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 52,
+        sucursalId: 1,
+        estado: 'REGISTRADA',
+        dispositivos: [
+          { id: 10, costoBs: 3000, estadoInventario: 'DISPONIBLE', detalleVentas: [], gastos: [] },
+          { id: 20, costoBs: 4000, estadoInventario: 'DISPONIBLE', detalleVentas: [], gastos: [] },
+        ],
+      } as any);
+      prisma.dispositivo.update.mockResolvedValue({ id: 10 } as any);
+      prisma.notaIngreso.update.mockResolvedValue({ id: 52 } as any);
+
+      const res = await service.updatePermuta(
+        52,
+        {
+          dispositivos: [
+            { id: 10, porcentajeBateria: 92, costoBs: 3200 },
+            { id: 20, porcentajeBateria: 88 },
+          ],
+        },
+        usuarioId,
+        'ADMIN',
+        1,
+      );
+
+      expect(res.success).toBe(true);
+      expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: expect.objectContaining({
+          porcentajeBateria: 92,
+          costoBs: 3200,
+        }),
+      });
+      expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+        where: { id: 20 },
+        data: expect.objectContaining({
+          porcentajeBateria: 88,
+        }),
+      });
+      // Costo total de la nota recalculado: 3200 + 4000 = 7200
+      expect(prisma.notaIngreso.update).toHaveBeenCalledWith({
+        where: { id: 52 },
+        data: { totalCostoBs: 7200 },
+      });
+    });
+
+    it('debe rechazar edición si alguno de los dispositivos en el lote de permuta ya fue vendido', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 53,
+        sucursalId: 1,
+        estado: 'REGISTRADA',
+        dispositivos: [
+          { id: 10, numeroSerie: 'SN-001', estadoInventario: 'DISPONIBLE', detalleVentas: [], gastos: [] },
+          { id: 20, numeroSerie: 'SN-002', estadoInventario: 'VENDIDO', detalleVentas: [{ id: 1 }], gastos: [] },
+        ],
+      } as any);
+
+      await expect(
+        service.updatePermuta(
+          53,
+          {
+            dispositivos: [{ id: 20, porcentajeBateria: 90 }],
+          },
+          usuarioId,
+          'ADMIN',
+          1,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 });

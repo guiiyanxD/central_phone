@@ -14,7 +14,7 @@ import { UpdateNotaIngresoDto } from './dto/update-nota-ingreso.dto';
 import { AnularNotaIngresoDto } from './dto/anular-nota-ingreso.dto';
 import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
 import { CreatePermutaDto, DispositivoPermutaDto } from './dto/create-permuta.dto';
-import { UpdatePermutaDto } from './dto/update-permuta.dto';
+import { UpdatePermutaDto, UpdateDispositivoPermutaDto } from './dto/update-permuta.dto';
 import { roundMoney } from '../common/utils/money.util';
 import {
   CategoriaMargen,
@@ -1684,12 +1684,39 @@ export class RecepcionService {
       throw new BadRequestException('No se puede modificar una permuta que ha sido anulada.');
     }
 
-    const disp = nota.dispositivos[0];
-    if (disp) {
-      if (disp.estadoInventario === EstadoInventario.VENDIDO || disp.detalleVentas.length > 0) {
-        throw new BadRequestException(
-          'No se pueden modificar los datos del equipo porque ya ha sido vendido.',
-        );
+    const listaUpdateDispositivos: UpdateDispositivoPermutaDto[] =
+      dto.dispositivos && dto.dispositivos.length > 0
+        ? dto.dispositivos
+        : dto.dispositivo
+          ? [dto.dispositivo]
+          : [];
+
+    // Pre-validar dispositivos vendidos o intentos de modificación de costo sin rol ADMIN
+    for (const [index, dDto] of listaUpdateDispositivos.entries()) {
+      const match = dDto.id
+        ? nota.dispositivos.find((d) => d.id === dDto.id)
+        : nota.dispositivos[index] || nota.dispositivos[0];
+
+      if (match) {
+        if (
+          match.estadoInventario === EstadoInventario.VENDIDO ||
+          match.detalleVentas.length > 0
+        ) {
+          throw new BadRequestException(
+            `No se pueden modificar los datos del equipo '${match.numeroSerie}' porque ya ha sido vendido.`,
+          );
+        }
+
+        if (
+          dDto.costoBs !== undefined &&
+          roundMoney(dDto.costoBs) !== roundMoney(match.costoBs)
+        ) {
+          if (userRol !== 'ADMIN') {
+            throw new ForbiddenException(
+              'Solo el administrador tiene permisos para modificar el costo de compra/toma de los dispositivos.',
+            );
+          }
+        }
       }
     }
 
@@ -1708,49 +1735,68 @@ export class RecepcionService {
         });
       }
 
-      // 2. Actualizar dispositivo
-      if (disp && dto.dispositivo) {
+      // 2. Actualizar dispositivos
+      let notaCostoModificado = false;
+      const costosActualesPorId = new Map<number, number>(
+        nota.dispositivos.map((d) => [d.id, Number(d.costoBs)]),
+      );
+
+      for (const [index, dDto] of listaUpdateDispositivos.entries()) {
+        const targetDisp = dDto.id
+          ? nota.dispositivos.find((d) => d.id === dDto.id)
+          : nota.dispositivos[index] || nota.dispositivos[0];
+
+        if (!targetDisp) continue;
+
         const updateData: any = {};
-        if (dto.dispositivo.varianteId) updateData.varianteId = dto.dispositivo.varianteId;
-        if (dto.dispositivo.numeroSerie) {
-          const serie = dto.dispositivo.numeroSerie.trim();
-          if (serie !== disp.numeroSerie) {
+        if (dDto.varianteId) updateData.varianteId = dDto.varianteId;
+        if (dDto.numeroSerie) {
+          const serie = dDto.numeroSerie.trim();
+          if (serie !== targetDisp.numeroSerie) {
             const exists = await tx.dispositivo.findUnique({ where: { numeroSerie: serie } });
-            if (exists) throw new ConflictException(`El número de serie '${serie}' ya está en uso.`);
+            if (exists && exists.id !== targetDisp.id) {
+              throw new ConflictException(`El número de serie '${serie}' ya está en uso.`);
+            }
             updateData.numeroSerie = serie;
           }
         }
-        if (dto.dispositivo.imei1) {
-          const imei = dto.dispositivo.imei1.trim();
-          if (imei !== disp.imei1) {
+        if (dDto.imei1) {
+          const imei = dDto.imei1.trim();
+          if (imei !== targetDisp.imei1) {
             const exists = await tx.dispositivo.findUnique({ where: { imei1: imei } });
-            if (exists) throw new ConflictException(`El IMEI 1 '${imei}' ya está en uso.`);
+            if (exists && exists.id !== targetDisp.id) {
+              throw new ConflictException(`El IMEI 1 '${imei}' ya está en uso.`);
+            }
             updateData.imei1 = imei;
           }
         }
-        if (dto.dispositivo.imei2 !== undefined) {
-          const imei2 = dto.dispositivo.imei2?.trim() || null;
-          if (imei2 && imei2 !== disp.imei2) {
+        if (dDto.imei2 !== undefined) {
+          const imei2 = dDto.imei2?.trim() || null;
+          if (imei2 && imei2 !== targetDisp.imei2) {
             const exists = await tx.dispositivo.findUnique({ where: { imei2 } });
-            if (exists) throw new ConflictException(`El IMEI 2 '${imei2}' ya está en uso.`);
+            if (exists && exists.id !== targetDisp.id) {
+              throw new ConflictException(`El IMEI 2 '${imei2}' ya está en uso.`);
+            }
             updateData.imei2 = imei2;
           } else if (!imei2) {
             updateData.imei2 = null;
           }
         }
-        if (dto.dispositivo.porcentajeBateria !== undefined) {
-          updateData.porcentajeBateria = dto.dispositivo.porcentajeBateria;
+        if (dDto.porcentajeBateria !== undefined) {
+          updateData.porcentajeBateria = dDto.porcentajeBateria;
         }
-        if (dto.dispositivo.detallesFisicos !== undefined) {
-          updateData.detallesFisicos = dto.dispositivo.detallesFisicos?.trim() || null;
+        if (dDto.detallesFisicos !== undefined) {
+          updateData.detallesFisicos = dDto.detallesFisicos?.trim() || null;
         }
-        if (dto.dispositivo.costoBs !== undefined) {
-          const nuevoCosto = roundMoney(dto.dispositivo.costoBs);
+        if (dDto.costoBs !== undefined) {
+          const nuevoCosto = roundMoney(dDto.costoBs);
           updateData.costoBs = nuevoCosto;
+          costosActualesPorId.set(targetDisp.id, nuevoCosto);
+          notaCostoModificado = true;
 
-          // Recalcular precio sugerido con gastos activos existentes
+          // Recalcular precio sugerido con gastos activos existentes del equipo
           const sumGastos = roundMoney(
-            disp.gastos.reduce((s, g) => s + Number(g.costoBs), 0),
+            targetDisp.gastos.reduce((s, g) => s + Number(g.costoBs), 0),
           );
           updateData.precioVentaSugeridoBs = await this.calcularPrecioSugerido(
             CategoriaMargen.PERMUTA,
@@ -1758,20 +1804,24 @@ export class RecepcionService {
             sumGastos,
             tx,
           );
-
-          // Actualizar costo de la nota
-          await tx.notaIngreso.update({
-            where: { id },
-            data: { totalCostoBs: nuevoCosto },
-          });
         }
 
         if (Object.keys(updateData).length > 0) {
           await tx.dispositivo.update({
-            where: { id: disp.id },
+            where: { id: targetDisp.id },
             data: updateData,
           });
         }
+      }
+
+      if (notaCostoModificado) {
+        const nuevoTotalNota = roundMoney(
+          Array.from(costosActualesPorId.values()).reduce((sum, c) => sum + c, 0),
+        );
+        await tx.notaIngreso.update({
+          where: { id },
+          data: { totalCostoBs: nuevoTotalNota },
+        });
       }
 
       if (dto.observaciones !== undefined) {

@@ -12,6 +12,9 @@ vi.mock('@/lib/api', () => ({
     recepcion: {
       createPermuta: vi.fn(),
     },
+    proveedores: {
+      getAll: vi.fn().mockResolvedValue([]),
+    },
   },
   ApiError: class ApiError extends Error {},
 }));
@@ -28,6 +31,25 @@ describe('RecepcionPermutaForm Component', () => {
           color: 'Negro',
           capacidadGb: 128,
           tipoSim: 'SIM Físico',
+        },
+        {
+          id: 11,
+          color: 'Azul',
+          capacidadGb: 256,
+          tipoSim: 'eSIM',
+        },
+      ],
+    },
+    {
+      id: 2,
+      nombreModelo: 'iPhone 15 Pro',
+      tipo: 'IPHONE',
+      variantes: [
+        {
+          id: 20,
+          color: 'Titanio Natural',
+          capacidadGb: 256,
+          tipoSim: 'eSIM',
         },
       ],
     },
@@ -54,30 +76,28 @@ describe('RecepcionPermutaForm Component', () => {
     (api.recepcion.createPermuta as any).mockResolvedValue({ id: 101 });
   });
 
-  it('debe renderizar el input de texto "Registro" en la sección de especificaciones del iPhone', async () => {
+  it('debe renderizar la sección de especificaciones de iPhones y el campo Registro', async () => {
     render(<RecepcionPermutaForm {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByText('2. Especificaciones del Teléfono iPhone')).toBeDefined();
+      expect(screen.getByText(/2. Especificaciones de los iPhones Recibidos/i)).toBeDefined();
     });
 
     expect(screen.getByLabelText(/Registro/i)).toBeDefined();
-    expect(
-      screen.getByPlaceholderText(/Liberado de fábrica \/ Bloqueado AT&T \/ R-SIM/i),
-    ).toBeDefined();
+    expect(screen.getByPlaceholderText(/Liberado de fábrica/i)).toBeDefined();
   });
 
   it('debe enviar el valor de "Registro" como detallesFisicos al registrar la permuta', async () => {
     render(<RecepcionPermutaForm {...defaultProps} />);
 
-    fireEvent.change(screen.getByLabelText(/Nombre/i), { target: { value: 'Mateo' } });
+    fireEvent.change(screen.getByLabelText(/Nombre \*/i), { target: { value: 'Mateo' } });
     fireEvent.change(screen.getByLabelText(/Teléfono de Contacto/i), { target: { value: '71234567' } });
-    fireEvent.change(screen.getByLabelText(/Número de Serie/i), { target: { value: 'F2LXYZ123' } });
+    fireEvent.change(screen.getByLabelText(/Serie/i), { target: { value: 'F2LXYZ123' } });
     fireEvent.change(screen.getByLabelText(/IMEI 1/i), { target: { value: '354928110009999' } });
     fireEvent.change(screen.getByLabelText(/Registro/i), {
       target: { value: 'Liberado de fábrica (Comprobado con chip Entel)' },
     });
-    fireEvent.change(screen.getByLabelText(/Costo de Toma \/ Compra/i), { target: { value: '2500' } });
+    fireEvent.change(screen.getByLabelText(/Costo de Toma/i), { target: { value: '2500' } });
 
     const submitBtn = screen.getByRole('button', { name: /Registrar Permuta/i });
     fireEvent.click(submitBtn);
@@ -85,16 +105,95 @@ describe('RecepcionPermutaForm Component', () => {
     await waitFor(() => {
       expect(api.recepcion.createPermuta).toHaveBeenCalledWith(
         expect.objectContaining({
-          dispositivo: expect.objectContaining({
-            detallesFisicos: 'Liberado de fábrica (Comprobado con chip Entel)',
-            numeroSerie: 'F2LXYZ123',
-            imei1: '354928110009999',
-            costoBs: 2500,
+          proveedorMinorista: expect.objectContaining({
+            nombre: 'Mateo',
+            telefono: '71234567',
           }),
+          dispositivos: expect.arrayContaining([
+            expect.objectContaining({
+              detallesFisicos: 'Liberado de fábrica (Comprobado con chip Entel)',
+              numeroSerie: 'F2LXYZ123',
+              imei1: '354928110009999',
+              costoBs: 2500,
+            }),
+          ]),
         }),
       );
     });
 
     expect(defaultProps.onSuccess).toHaveBeenCalledWith({ id: 101 });
+  });
+
+  it('debe permitir agregar múltiples iPhones y enviar el lote consolidado', async () => {
+    render(<RecepcionPermutaForm {...defaultProps} />);
+
+    // Llenar datos del cliente
+    fireEvent.change(screen.getByLabelText(/Nombre \*/i), { target: { value: 'Carlos' } });
+    fireEvent.change(screen.getByLabelText(/Teléfono de Contacto/i), { target: { value: '78901234' } });
+
+    // Llenar iPhone #1
+    const serieInputs = screen.getAllByLabelText(/Serie/i);
+    const imeiInputs = screen.getAllByLabelText(/IMEI 1/i);
+    const costoInputs = screen.getAllByLabelText(/Costo de Toma/i);
+
+    fireEvent.change(serieInputs[0], { target: { value: 'SN-IPH13-001' } });
+    fireEvent.change(imeiInputs[0], { target: { value: '351111111111111' } });
+    fireEvent.change(costoInputs[0], { target: { value: '3000' } });
+
+    // Agregar segundo iPhone
+    const addBtn = screen.getByRole('button', { name: /\+ Agregar otro iPhone/i });
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Total iPhones/i)).toBeDefined();
+    });
+
+    // Llenar iPhone #2
+    const serieInputsAfter = screen.getAllByLabelText(/Serie/i);
+    const imeiInputsAfter = screen.getAllByLabelText(/IMEI 1/i);
+    const costoInputsAfter = screen.getAllByLabelText(/Costo de Toma/i);
+
+    expect(serieInputsAfter.length).toBe(2);
+    fireEvent.change(serieInputsAfter[1], { target: { value: 'SN-IPH15-002' } });
+    fireEvent.change(imeiInputsAfter[1], { target: { value: '352222222222222' } });
+    fireEvent.change(costoInputsAfter[1], { target: { value: '5000' } });
+
+    // Confirmar permuta multi-equipo
+    const submitBtn = screen.getByRole('button', { name: /Registrar Permuta \(2 iPhones\)/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(api.recepcion.createPermuta).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dispositivos: [
+            expect.objectContaining({
+              imei1: '351111111111111',
+              costoBs: 3000,
+            }),
+            expect.objectContaining({
+              imei1: '352222222222222',
+              costoBs: 5000,
+            }),
+          ],
+        }),
+      );
+    });
+  });
+
+  it('debe duplicar las especificaciones de un iPhone al pulsar "Duplicar"', async () => {
+    render(<RecepcionPermutaForm {...defaultProps} />);
+
+    // Llenar iPhone #1 con costo 3500 y detalles
+    const costoInput = screen.getByLabelText(/Costo de Toma/i);
+    fireEvent.change(costoInput, { target: { value: '3500' } });
+
+    const duplicateBtn = screen.getByRole('button', { name: /Duplicar/i });
+    fireEvent.click(duplicateBtn);
+
+    await waitFor(() => {
+      const costoInputs = screen.getAllByLabelText(/Costo de Toma/i);
+      expect(costoInputs.length).toBe(2);
+      expect((costoInputs[1] as HTMLInputElement).value).toBe('3500');
+    });
   });
 });

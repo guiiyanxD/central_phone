@@ -1284,11 +1284,7 @@ export default function RecepcionMercaderiaPage() {
               currentSucursalId={sucursalId}
               isAdmin={isAdmin}
               onSuccess={(res) => {
-                setSuccessFeedback(
-                  `Permuta registrada con éxito (Dispositivo ID #${res.dispositivoId || res.id}). Inversión Total: Bs ${Number(
-                    res.inversionTotalBs || 0
-                  ).toFixed(2)}, Precio Sugerido: Bs ${Number(res.precioSugeridoBs || 0).toFixed(2)}.`
-                );
+                setNotaCreada(res);
                 if (isAdmin) fetchRecepciones(1);
               }}
               onOpenInlineVarianteModal={(onCreated) => {
@@ -1490,6 +1486,7 @@ export default function RecepcionMercaderiaPage() {
           setPermutaParaEditar(null);
         }}
         permuta={permutaParaEditar}
+        isAdmin={isAdmin}
         onSuccess={() => {
           setSuccessFeedback('Permuta actualizada con éxito.');
           fetchPermutas(permutasMeta.page);

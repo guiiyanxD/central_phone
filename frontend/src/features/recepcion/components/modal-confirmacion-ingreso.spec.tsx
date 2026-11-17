@@ -2,6 +2,11 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ModalConfirmacionIngreso } from './modal-confirmacion-ingreso';
+import { printPermutaReceipt } from '../utils/receipt-printer';
+
+vi.mock('../utils/receipt-printer', () => ({
+  printPermutaReceipt: vi.fn(),
+}));
 
 describe('ModalConfirmacionIngreso Component', () => {
   const baseNota = {
@@ -109,5 +114,32 @@ describe('ModalConfirmacionIngreso Component', () => {
     const btnHistorial = screen.getByRole('button', { name: /Ver en Historial/i });
     fireEvent.click(btnHistorial);
     expect(onGoToHistorialMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('debe renderizar botón de imprimir comprobante cuando la nota es de tipo PERMUTA', () => {
+    const permutaNota = {
+      ...baseNota,
+      tipoIngreso: 'PERMUTA',
+      dispositivos: [
+        { id: 1, costoBs: 3500 },
+        { id: 2, costoBs: 4000 },
+      ],
+    };
+
+    render(
+      <ModalConfirmacionIngreso
+        notaCreada={permutaNota}
+        onReset={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Permuta Recibida e Inventariada/i)).toBeDefined();
+    expect(screen.getByText(/iPhones Recibidos:/i)).toBeDefined();
+
+    const printBtn = screen.getByRole('button', { name: /Imprimir Comprobante de Recepción \/ Permuta/i });
+    expect(printBtn).toBeDefined();
+
+    fireEvent.click(printBtn);
+    expect(printPermutaReceipt).toHaveBeenCalledWith(permutaNota);
   });
 });

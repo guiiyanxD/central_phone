@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsDateString,
   IsInt,
   IsNotEmpty,
@@ -13,6 +14,10 @@ import { Type } from 'class-transformer';
 import { ProveedorMinoristaDto } from './create-permuta.dto';
 
 export class UpdateDispositivoPermutaDto {
+  @IsInt()
+  @IsOptional()
+  id?: number;
+
   @IsNumber()
   @IsOptional()
   varianteId?: number;
@@ -55,6 +60,12 @@ export class UpdatePermutaDto {
   @Type(() => UpdateDispositivoPermutaDto)
   @IsOptional()
   dispositivo?: UpdateDispositivoPermutaDto;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateDispositivoPermutaDto)
+  @IsOptional()
+  dispositivos?: UpdateDispositivoPermutaDto[];
 
   @IsString()
   @IsOptional()
