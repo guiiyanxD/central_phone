@@ -2,6 +2,7 @@ import { CashPaymentStrategy } from './cash-payment.strategy';
 import { QrPaymentStrategy } from './qr-payment.strategy';
 import { TransferPaymentStrategy } from './transfer-payment.strategy';
 import { PosCardPaymentStrategy } from './pos-card-payment.strategy';
+import { MixedPaymentStrategy } from './mixed-payment.strategy';
 import { PaymentStrategyRegistry } from './payment-strategy.registry';
 import { IPaymentStrategy, PaymentValidationResult } from './payment-strategy.interface';
 import { CreateVentaDto } from '../dto/create-venta.dto';
@@ -12,18 +13,21 @@ describe('PaymentStrategyRegistry & Strategies (SOLID OCP)', () => {
   let qrStrategy: QrPaymentStrategy;
   let transferStrategy: TransferPaymentStrategy;
   let cardStrategy: PosCardPaymentStrategy;
+  let mixedStrategy: MixedPaymentStrategy;
 
   beforeEach(() => {
     cashStrategy = new CashPaymentStrategy();
     qrStrategy = new QrPaymentStrategy();
     transferStrategy = new TransferPaymentStrategy();
     cardStrategy = new PosCardPaymentStrategy();
+    mixedStrategy = new MixedPaymentStrategy();
 
     registry = new PaymentStrategyRegistry(
       cashStrategy,
       qrStrategy,
       transferStrategy,
       cardStrategy,
+      mixedStrategy,
     );
   });
 
@@ -35,6 +39,8 @@ describe('PaymentStrategyRegistry & Strategies (SOLID OCP)', () => {
       expect(registry.hasStrategy('QR_ESTATICO')).toBe(true);
       expect(registry.hasStrategy('TRANSFERENCIA')).toBe(true);
       expect(registry.hasStrategy('TARJETA_POS')).toBe(true);
+      expect(registry.hasStrategy('MIXTO')).toBe(true);
+      expect(registry.hasStrategy('mixto')).toBe(true);
       expect(registry.hasStrategy('CRIPTO_DESCONOCIDO')).toBe(false);
     });
 
@@ -105,6 +111,39 @@ describe('PaymentStrategyRegistry & Strategies (SOLID OCP)', () => {
         metodoPagoCodigo: 'TARJETA_POS',
       });
       expect(res.isValid).toBe(true);
+    });
+
+    it('MixedPaymentStrategy: debe rechazar si falta montoEfectivoMixtoBs o es menor/igual a cero', () => {
+      const res = registry.validatePayment('MIXTO', {
+        ...baseDto,
+        metodoPagoCodigo: 'MIXTO',
+        comprobanteReferencia: 'BCP-12345',
+        montoEfectivoMixtoBs: 0,
+      });
+      expect(res.isValid).toBe(false);
+      expect(res.errorMessage).toContain('anticipo en efectivo recibido mayor a Bs 0');
+    });
+
+    it('MixedPaymentStrategy: debe rechazar si falta comprobanteReferencia para el saldo QR', () => {
+      const res = registry.validatePayment('MIXTO', {
+        ...baseDto,
+        metodoPagoCodigo: 'MIXTO',
+        montoEfectivoMixtoBs: 500,
+        comprobanteReferencia: '',
+      });
+      expect(res.isValid).toBe(false);
+      expect(res.errorMessage).toContain('obligatorio ingresar el número de comprobante o referencia bancaria');
+    });
+
+    it('MixedPaymentStrategy: debe ser válido cuando contiene anticipo en efectivo y comprobante de referencia', () => {
+      const res = registry.validatePayment('MIXTO', {
+        ...baseDto,
+        metodoPagoCodigo: 'MIXTO',
+        montoEfectivoMixtoBs: 500,
+        comprobanteReferencia: 'BNB-789456',
+      });
+      expect(res.isValid).toBe(true);
+      expect(res.errorMessage).toBeUndefined();
     });
   });
 

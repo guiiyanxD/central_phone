@@ -7,7 +7,7 @@ import {
   BadGatewayException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CategoriaMargen, TipoAumentoMargen } from '@prisma/client';
+import { CategoriaMargen, TipoAumentoMargen, TipoEstrategiaPago } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfiguracionDto } from './dto/update-configuracion.dto';
 import { ActualizarReglasMargenDto } from './dto/actualizar-reglas-margen.dto';
@@ -31,6 +31,32 @@ export class ConfiguracionService implements OnModuleInit {
   async onModuleInit() {
     await this.ensureConfiguracionExists();
     await this.ensureReglasMargenExists();
+    await this.ensureMetodosPagoExists();
+  }
+
+  /**
+   * Garantiza que los métodos de pago base (incluyendo MIXTO) existan de forma resiliente.
+   */
+  async ensureMetodosPagoExists() {
+    const metodos = [
+      { codigo: 'EFECTIVO', nombre: 'Efectivo en Caja', tipoEstrategia: TipoEstrategiaPago.CASH },
+      { codigo: 'QR_SIMPLE', nombre: 'QR Oficial CentralPhone', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
+      { codigo: 'TRANSFERENCIA', nombre: 'Transferencia Bancaria', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
+      { codigo: 'MIXTO', nombre: 'Pago Mixto (Efectivo + QR)', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
+    ];
+
+    for (const m of metodos) {
+      await this.prisma.metodoPago.upsert({
+        where: { codigo: m.codigo },
+        update: {},
+        create: {
+          codigo: m.codigo,
+          nombre: m.nombre,
+          tipoEstrategia: m.tipoEstrategia,
+          activo: true,
+        },
+      });
+    }
   }
 
   /**

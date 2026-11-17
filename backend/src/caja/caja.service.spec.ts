@@ -14,6 +14,7 @@ import {
   QrPaymentStrategy,
   TransferPaymentStrategy,
   PosCardPaymentStrategy,
+  MixedPaymentStrategy,
   PaymentStrategyRegistry,
 } from '../ventas/strategies';
 
@@ -31,6 +32,7 @@ describe('CajaService', () => {
         QrPaymentStrategy,
         TransferPaymentStrategy,
         PosCardPaymentStrategy,
+        MixedPaymentStrategy,
         PaymentStrategyRegistry,
         { provide: PrismaService, useValue: prisma },
       ],
@@ -68,6 +70,32 @@ describe('CajaService', () => {
       expect(res?.resumenFinanciero.saldoEfectivoEnCaja).toBe(1150);
       expect(res?.resumenFinanciero.totalRecaudadoTotal).toBe(1500);
       expect(res?.resumenFinanciero.totalVentasDigitales).toBe(500);
+    });
+
+    it('debe calcular correctamente el resumen financiero incluyendo ventas en pago MIXTO', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({
+        id: 10,
+        sucursalId: 1,
+        montoInicialEfectivo: 200,
+        estado: EstadoCaja.ABIERTA,
+        ventas: [
+          {
+            totalVentaBs: 5000,
+            montoEfectivoBs: 2000,
+            montoDigitalBs: 3000,
+            metodoPago: { codigo: 'MIXTO' },
+          },
+        ],
+        gastosOperativos: [],
+      } as any);
+
+      const res = await service.getSesionActiva(1);
+      expect(res).not.toBeNull();
+      // saldo = 200 (inicial) + 2000 (porción efectivo de mixto) = 2200
+      expect(res?.resumenFinanciero.saldoEfectivoEnCaja).toBe(2200);
+      expect(res?.resumenFinanciero.totalVentasEfectivo).toBe(2000);
+      expect(res?.resumenFinanciero.totalVentasDigitales).toBe(3000);
+      expect(res?.resumenFinanciero.totalRecaudadoTotal).toBe(5000);
     });
   });
 

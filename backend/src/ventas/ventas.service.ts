@@ -16,6 +16,7 @@ import {
   EstadoCaja,
   EstadoInventario,
   EstadoVenta,
+  TipoEstrategiaPago,
   TipoItemVenta,
 } from '@prisma/client';
 import { roundMoney } from '../common/utils/money.util';
@@ -107,6 +108,19 @@ export class VentasService {
     let metodoPago = await this.prisma.metodoPago.findUnique({
       where: { codigo: dto.metodoPagoCodigo },
     });
+
+    if (!metodoPago && dto.metodoPagoCodigo === 'MIXTO') {
+      metodoPago = await this.prisma.metodoPago.upsert({
+        where: { codigo: 'MIXTO' },
+        update: {},
+        create: {
+          codigo: 'MIXTO',
+          nombre: 'Pago Mixto (Efectivo + QR)',
+          tipoEstrategia: TipoEstrategiaPago.STATIC_QR,
+          activo: true,
+        },
+      });
+    }
 
     if (!metodoPago && (dto.metodoPagoCodigo === 'QR_SIMPLE' || dto.metodoPagoCodigo === 'QR_ESTATICO')) {
       metodoPago = await this.prisma.metodoPago.findFirst({

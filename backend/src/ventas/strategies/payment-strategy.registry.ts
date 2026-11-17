@@ -4,6 +4,7 @@ import { CashPaymentStrategy } from './cash-payment.strategy';
 import { QrPaymentStrategy } from './qr-payment.strategy';
 import { TransferPaymentStrategy } from './transfer-payment.strategy';
 import { PosCardPaymentStrategy } from './pos-card-payment.strategy';
+import { MixedPaymentStrategy } from './mixed-payment.strategy';
 import { CreateVentaDto } from '../dto/create-venta.dto';
 
 @Injectable()
@@ -15,11 +16,13 @@ export class PaymentStrategyRegistry {
     qrStrategy: QrPaymentStrategy,
     transferStrategy: TransferPaymentStrategy,
     cardStrategy: PosCardPaymentStrategy,
+    mixedStrategy: MixedPaymentStrategy,
   ) {
     this.registerStrategy(cashStrategy);
     this.registerStrategy(qrStrategy);
     this.registerStrategy(transferStrategy);
     this.registerStrategy(cardStrategy);
+    this.registerStrategy(mixedStrategy);
   }
 
   registerStrategy(strategy: IPaymentStrategy) {

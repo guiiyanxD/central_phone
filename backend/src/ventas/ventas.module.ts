@@ -8,6 +8,7 @@ import {
   QrPaymentStrategy,
   TransferPaymentStrategy,
   PosCardPaymentStrategy,
+  MixedPaymentStrategy,
   PaymentStrategyRegistry,
 } from './strategies';
 
@@ -20,6 +21,7 @@ import {
     QrPaymentStrategy,
     TransferPaymentStrategy,
     PosCardPaymentStrategy,
+    MixedPaymentStrategy,
     PaymentStrategyRegistry,
   ],
   exports: [VentasService, PaymentStrategyRegistry],

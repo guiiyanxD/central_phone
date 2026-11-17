@@ -93,4 +93,20 @@ describe('PosCartPanel Component', () => {
     expect(setNombreMock).toHaveBeenCalledWith('Comprador casual');
     expect(setTelefonoMock).toHaveBeenCalledWith('71000000');
   });
+
+  it('debe renderizar los inputs de anticipo efectivo y comprobante QR al seleccionar método MIXTO', () => {
+    render(
+      <PosCartPanel
+        {...defaultProps}
+        metodoPagoCodigo="MIXTO"
+        montoEfectivoMixtoBs={40}
+        comprobanteRef="BNB-12345"
+      />
+    );
+
+    expect(screen.getByText(/Desglose Mixto de Pago/i)).toBeInTheDocument();
+    expect(screen.getByText(/Anticipo Efectivo \(Bs\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saldo Digital QR \(Bs\)/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Nro\. Comprobante QR bancario \*/i)).toBeInTheDocument();
+  });
 });

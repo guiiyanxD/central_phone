@@ -730,8 +730,6 @@ export default function PosPage() {
       let refText: string | undefined = undefined;
       if (saldoACobrar === 0) {
         refText = `PERMUTA_TOTAL [Ref: ${comprobanteRef.trim() || 'N/A'}]`;
-      } else if (metodoPagoCodigo === 'MIXTO') {
-        refText = `MIXTO: Ef. Bs ${Number(montoEfectivoMixtoBs).toFixed(2)} + QR Bs ${(saldoACobrar - Number(montoEfectivoMixtoBs)).toFixed(2)} [Ref: ${comprobanteRef.trim()}]`;
       } else {
         refText = comprobanteRef.trim() || undefined;
       }
@@ -739,8 +737,6 @@ export default function PosPage() {
       const backendMetodoPago =
         saldoACobrar === 0
           ? 'EFECTIVO'
-          : metodoPagoCodigo === 'MIXTO'
-          ? 'QR_SIMPLE'
           : metodoPagoCodigo;
 
       const payload = {

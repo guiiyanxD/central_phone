@@ -112,6 +112,7 @@ export class SeedService implements OnModuleInit {
         { codigo: 'QR_SIMPLE', nombre: 'QR Oficial CentralPhone (BCP)', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
         { codigo: 'QR_ESTATICO', nombre: 'QR Oficial CentralPhone', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
         { codigo: 'TRANSFERENCIA', nombre: 'Transferencia Bancaria', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
+        { codigo: 'MIXTO', nombre: 'Pago Mixto (Efectivo + QR)', tipoEstrategia: TipoEstrategiaPago.STATIC_QR },
       ];
 
       for (const m of metodos) {

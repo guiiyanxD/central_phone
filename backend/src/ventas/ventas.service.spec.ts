@@ -14,6 +14,7 @@ import {
   QrPaymentStrategy,
   TransferPaymentStrategy,
   PosCardPaymentStrategy,
+  MixedPaymentStrategy,
   PaymentStrategyRegistry,
 } from './strategies';
 
@@ -34,6 +35,7 @@ describe('VentasService', () => {
         QrPaymentStrategy,
         TransferPaymentStrategy,
         PosCardPaymentStrategy,
+        MixedPaymentStrategy,
         PaymentStrategyRegistry,
         { provide: PrismaService, useValue: prisma },
       ],
@@ -630,6 +632,62 @@ describe('VentasService', () => {
       );
 
       expect(resultado.montoPermutaBs).toBe(1500);
+    });
+
+    it('debe registrar exitosamente un pago MIXTO dividiendo montoEfectivoBs y montoDigitalBs', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 4, codigo: 'MIXTO', nombre: 'Pago Mixto' } as any);
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido } as any);
+
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 1,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 4000,
+        variante: { modelo: { nombreModelo: 'iPhone 15' } },
+      } as any);
+
+      prisma.venta.create.mockResolvedValue({
+        id: 205,
+        totalVentaBs: 5000,
+        montoEfectivoBs: 2000,
+        montoDigitalBs: 3000,
+        comprobanteReferencia: 'BNB-12345678',
+      } as any);
+      prisma.detalleVenta.create.mockResolvedValue({ id: 1 } as any);
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 205,
+        totalVentaBs: 5000,
+        montoEfectivoBs: 2000,
+        montoDigitalBs: 3000,
+        comprobanteReferencia: 'BNB-12345678',
+        detalles: [],
+      } as any);
+
+      const res = await service.createVenta(
+        usuarioId,
+        sucursalId,
+        {
+          metodoPagoCodigo: 'MIXTO',
+          montoEfectivoMixtoBs: 2000,
+          comprobanteReferencia: 'BNB-12345678',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
+        },
+        'VENDEDOR',
+      );
+
+      expect(prisma.venta.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            totalVentaBs: 5000,
+            montoEfectivoBs: 2000,
+            montoDigitalBs: 3000,
+            comprobanteReferencia: 'BNB-12345678',
+          }),
+        })
+      );
+      expect(res.id).toBe(205);
     });
   });
 
