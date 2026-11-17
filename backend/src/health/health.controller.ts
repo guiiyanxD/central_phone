@@ -33,7 +33,11 @@ export class HealthController {
         },
       };
     } catch (error: any) {
-      this.logger.error(`Fallo en healthcheck de base de datos: ${error.message}`);
+      const safeMessage = (error.message || '').replace(
+        /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?::\d+)?\b/g,
+        '[REDACTED_IP]',
+      );
+      this.logger.error(`Fallo en healthcheck de base de datos: ${safeMessage}`);
       throw new ServiceUnavailableException({
         status: 'error',
         timestamp: new Date().toISOString(),

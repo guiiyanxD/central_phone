@@ -5,6 +5,7 @@ import {
   IsString,
   Length,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -31,6 +32,7 @@ export class UpdateDispositivoDto {
   porcentajeBateria?: number;
 
   @IsString()
+  @MaxLength(255, { message: 'Los detalles físicos no pueden superar los 255 caracteres.' })
   @IsOptional()
   detallesFisicos?: string;
 
