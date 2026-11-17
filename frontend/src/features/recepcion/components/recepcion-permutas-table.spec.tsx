@@ -120,6 +120,68 @@ describe('RecepcionPermutasTable Component', () => {
     expect(onOpenAnularModal).toHaveBeenCalledWith(mockPermutas[0]);
   });
 
+  it('debe mostrar desglose de Toma, Gastos de reparación e Inversión Total cuando existen gastos', () => {
+    const permutaConGastos = [
+      {
+        id: 40,
+        tipoIngreso: 'PERMUTA',
+        numeroComprobante: 'PERM-040',
+        fechaIngreso: '2026-11-17T11:44:00.000Z',
+        estado: 'REGISTRADA',
+        totalCostoBs: 7500,
+        totalGastosBs: 100,
+        inversionTotalBs: 7600,
+        proveedor: { id: 7, nombre: 'Williams Alvarez', telefono: '71000000' },
+        sucursal: { id: 2, nombre: 'Sucursal Ventura Sur' },
+        usuario: { id: 1, nombre: 'Alex' },
+        dispositivos: [
+          {
+            id: 246,
+            costoBs: 3500,
+            gastosInvertidosBs: 100,
+            precioVentaSugeridoBs: 4125,
+            variante: {
+              modelo: { nombreModelo: 'iPhone 13 Pro' },
+              color: 'Space Black',
+              capacidadGb: 128,
+            },
+          },
+          {
+            id: 247,
+            costoBs: 4000,
+            gastosInvertidosBs: 0,
+            precioVentaSugeridoBs: 4600,
+            variante: {
+              modelo: { nombreModelo: 'iPhone 13 Pro' },
+              color: 'Space Black',
+              capacidadGb: 128,
+            },
+          },
+        ],
+      },
+    ];
+
+    render(
+      <RecepcionPermutasTable
+        {...defaultProps}
+        permutasList={permutaConGastos}
+        meta={{ ...defaultProps.meta, total: 1 }}
+      />
+    );
+
+    // Debe mostrar la etiqueta de lote con 2 iPhones
+    expect(screen.getByText('2 iPhones en Lote')).toBeDefined();
+
+    // Debe mostrar el gasto reflejado en el equipo 1
+    expect(screen.getByText(/\(\+Bs 100[.,]00\)/)).toBeDefined();
+
+    // Debe mostrar en la columna de costo: Toma, Gastos e Inversión
+    expect(screen.getByText(/Toma:\s*Bs\s*7[.,]500[.,]00/i)).toBeDefined();
+    expect(screen.getByText(/\+Bs\s*100[.,]00\s*gastos/i)).toBeDefined();
+    expect(screen.getByText(/Inv:\s*Bs\s*7[.,]600[.,]00/i)).toBeDefined();
+    expect(screen.getByText(/Sug:\s*Bs\s*8[.,]725[.,]00/i)).toBeDefined();
+  });
+
   it('debe mostrar mensaje vacío cuando no hay permutas registradas', () => {
     render(<RecepcionPermutasTable {...defaultProps} permutasList={[]} meta={{ ...defaultProps.meta, total: 0 }} />);
 

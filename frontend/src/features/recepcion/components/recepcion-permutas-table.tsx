@@ -224,6 +224,20 @@ export function RecepcionPermutasTable({
                       disp?.costoBs ||
                       0
                   );
+                  const totalGastos = Number(
+                    rec.totalGastosBs ??
+                      rec.dispositivos?.reduce(
+                        (acc: number, d: any) =>
+                          acc +
+                          (Number(d.gastosInvertidosBs) ||
+                            (Array.isArray(d.gastos)
+                              ? d.gastos.reduce((gSum: number, g: any) => gSum + (Number(g.costoBs) || 0), 0)
+                              : 0)),
+                        0
+                      ) ??
+                      0
+                  );
+                  const inversionTotal = Number(rec.inversionTotalBs ?? (totalCosto + totalGastos));
                   const precioSugerido = Number(
                     rec.dispositivos && rec.dispositivos.length > 1
                       ? rec.dispositivos.reduce((acc: number, d: any) => acc + (Number(d.precioVentaSugeridoBs) || 0), 0)
@@ -271,6 +285,12 @@ export function RecepcionPermutasTable({
                               {rec.dispositivos.map((d: any, i: number) => {
                                 const cGb = d.variante?.capacidadGb || 0;
                                 const cLabel = cGb > 0 ? (cGb >= 1024 ? `${cGb / 1024}TB` : `${cGb}GB`) : '';
+                                const gBs = Number(
+                                  d.gastosInvertidosBs ??
+                                    (Array.isArray(d.gastos)
+                                      ? d.gastos.reduce((s: number, g: any) => s + (Number(g.costoBs) || 0), 0)
+                                      : 0)
+                                );
                                 return (
                                   <div key={d.id || i} className="text-[11px] text-slate-800 flex items-center justify-between gap-2 border-b border-slate-100 last:border-0 pb-0.5">
                                     <span className="font-semibold truncate">
@@ -278,6 +298,11 @@ export function RecepcionPermutasTable({
                                     </span>
                                     <span className="font-mono text-[10px] text-slate-500 shrink-0">
                                       Bs {Number(d.costoBs || 0).toFixed(2)}
+                                      {gBs > 0 && (
+                                        <span className="text-purple-700 font-bold ml-1" title="Gastos de puesta a punto">
+                                          (+Bs {gBs.toFixed(2)})
+                                        </span>
+                                      )}
                                     </span>
                                   </div>
                                 );
@@ -383,9 +408,23 @@ export function RecepcionPermutasTable({
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="flex flex-col items-end gap-0.5 font-mono">
                           {isAdmin ? (
-                            <span className="text-xs font-bold text-slate-900">
-                              Bs {totalCosto.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
+                            totalGastos > 0 ? (
+                              <>
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  Toma: Bs {totalCosto.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                <span className="text-[10px] font-bold text-purple-700">
+                                  +Bs {totalGastos.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} gastos
+                                </span>
+                                <span className="text-xs font-bold text-slate-900">
+                                  Inv: Bs {inversionTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-900">
+                                Bs {totalCosto.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            )
                           ) : (
                             <span className="text-slate-400">•••</span>
                           )}

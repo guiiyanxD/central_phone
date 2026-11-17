@@ -476,6 +476,53 @@ describe('RecepcionService', () => {
       expect(res.resumenFinanciero.margenRealizadoBs).toBe(1060); // 5120 - (4000 + 2*30) = 1060
     });
 
+    it('debe incluir gastos activos de reparación en la inversión total y margen proyectado neto en findOne', async () => {
+      prisma.notaIngreso.findUnique.mockResolvedValue({
+        id: 40,
+        tipoIngreso: 'PERMUTA',
+        totalCostoBs: 7500,
+        dispositivos: [
+          {
+            id: 246,
+            costoBs: 3500,
+            costoUsd: 0,
+            precioVentaSugeridoBs: 4125,
+            estadoInventario: 'DISPONIBLE',
+            detalleVentas: [],
+            gastos: [
+              { id: 4, concepto: 'Cambio de pantalla', costoBs: 100, estado: 'ACTIVO' },
+              { id: 5, concepto: 'Gasto anulado', costoBs: 50, estado: 'ANULADO' },
+            ],
+          },
+          {
+            id: 247,
+            costoBs: 4000,
+            costoUsd: 0,
+            precioVentaSugeridoBs: 4600,
+            estadoInventario: 'DISPONIBLE',
+            detalleVentas: [],
+            gastos: [],
+          },
+        ],
+        lotesAccesorio: [],
+      } as any);
+
+      const res = await service.findOne(40, 'ADMIN');
+      expect(res.id).toBe(40);
+      expect(res.totalGastosBs).toBe(100);
+      expect(res.inversionTotalBs).toBe(7600); // 7500 + 100
+      expect(res.dispositivos[0].gastosInvertidosBs).toBe(100);
+      expect(res.dispositivos[0].inversionTotalBs).toBe(3600);
+      expect(res.dispositivos[1].gastosInvertidosBs).toBe(0);
+      expect(res.dispositivos[1].inversionTotalBs).toBe(4000);
+
+      expect(res.resumenFinanciero.totalCostoBs).toBe(7500);
+      expect(res.resumenFinanciero.totalGastosBs).toBe(100);
+      expect(res.resumenFinanciero.inversionTotalBs).toBe(7600);
+      expect(res.resumenFinanciero.totalVentaProyectadaBs).toBe(8725); // 4125 + 4600
+      expect(res.resumenFinanciero.margenProyectadoBs).toBe(1125); // 8725 - 7600 = 1125 (exact 15% net margin)
+    });
+
     it('debe purgar costos mayoristas si quien consulta no es ADMIN (CENTRALPHONE-CONF-003)', async () => {
       prisma.notaIngreso.findUnique.mockResolvedValue({
         id: 25,
@@ -582,6 +629,49 @@ describe('RecepcionService', () => {
       );
       expect(res.data[0].tipoIngreso).toBe('PERMUTA');
       expect(res.data[0].proveedor.telefono).toBe('77889900');
+    });
+
+    it('debe calcular gastos y total de inversión en findAll para ADMIN y purgarlos para VENDEDOR', async () => {
+      const mockNotas = [
+        {
+          id: 40,
+          tipoIngreso: 'PERMUTA',
+          totalCostoBs: 7500,
+          dispositivos: [
+            {
+              id: 246,
+              costoBs: 3500,
+              gastos: [{ id: 4, concepto: 'Cambio de pantalla', costoBs: 100, estado: 'ACTIVO' }],
+            },
+            {
+              id: 247,
+              costoBs: 4000,
+              gastos: [],
+            },
+          ],
+        },
+      ];
+
+      prisma.notaIngreso.findMany.mockResolvedValue(mockNotas as any);
+      prisma.notaIngreso.count.mockResolvedValue(1);
+
+      // Consulta como ADMIN
+      const adminRes = await service.findAll({ tipoIngreso: 'PERMUTA' }, 'ADMIN');
+      expect(adminRes.data[0].totalCostoBs).toBe(7500);
+      expect(adminRes.data[0].totalGastosBs).toBe(100);
+      expect(adminRes.data[0].inversionTotalBs).toBe(7600);
+      expect(adminRes.data[0].dispositivos[0].gastosInvertidosBs).toBe(100);
+      expect(adminRes.data[0].dispositivos[0].inversionTotalBs).toBe(3600);
+
+      // Consulta como VENDEDOR
+      prisma.notaIngreso.findMany.mockResolvedValue(mockNotas as any);
+      const vendedorRes = await service.findAll({ tipoIngreso: 'PERMUTA' }, 'VENDEDOR', 1);
+      expect(vendedorRes.data[0].totalCostoBs).toBeUndefined();
+      expect(vendedorRes.data[0].totalGastosBs).toBeUndefined();
+      expect(vendedorRes.data[0].inversionTotalBs).toBeUndefined();
+      expect(vendedorRes.data[0].dispositivos[0].costoBs).toBeUndefined();
+      expect(vendedorRes.data[0].dispositivos[0].gastosInvertidosBs).toBeUndefined();
+      expect(vendedorRes.data[0].dispositivos[0].inversionTotalBs).toBeUndefined();
     });
 
     it('debe forzar el filtro de sucursalId para vendedores no administradores (BOLA/IDOR)', async () => {

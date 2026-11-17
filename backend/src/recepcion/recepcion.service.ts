@@ -546,6 +546,15 @@ export class RecepcionService {
               costoBs: true,
               precioVentaSugeridoBs: true,
               estadoInventario: true,
+              gastos: {
+                where: { estado: 'ACTIVO' },
+                select: {
+                  id: true,
+                  concepto: true,
+                  costoBs: true,
+                  aplicoEnCaja: true,
+                },
+              },
               variante: {
                 select: {
                   id: true,
@@ -570,21 +579,57 @@ export class RecepcionService {
       this.prisma.notaIngreso.count({ where }),
     ]);
 
-    if (userRole && userRole !== 'ADMIN') {
-      data.forEach((item: any) => {
-        delete item.totalCostoBs;
-        if (item.dispositivos) {
-          item.dispositivos.forEach((d: any) => {
-            delete d.costoBs;
-          });
-        }
-      });
-    }
+    const safeData = data.map((item: any) => {
+      let totalGastosNotaBs = 0;
+      let dispositivosMapped = item.dispositivos;
+
+      if (dispositivosMapped) {
+        dispositivosMapped = dispositivosMapped.map((d: any) => {
+          const gastosActivos = d.gastos || [];
+          const gastosInvertidosBs = roundMoney(
+            gastosActivos.reduce((sum: number, g: any) => sum + Number(g.costoBs || 0), 0),
+          );
+          totalGastosNotaBs += gastosInvertidosBs;
+          const costoBsNum = Number(d.costoBs || 0);
+          const inversionTotalBs = roundMoney(costoBsNum + gastosInvertidosBs);
+
+          if (userRole && userRole !== 'ADMIN') {
+            const { costoBs, gastos, ...safeDisp } = d;
+            return safeDisp;
+          }
+
+          return {
+            ...d,
+            gastosInvertidosBs,
+            inversionTotalBs,
+          };
+        });
+      }
+
+      const totalCostoBsNum = Number(item.totalCostoBs || 0);
+      const totalGastosBs = roundMoney(totalGastosNotaBs);
+      const inversionTotalBs = roundMoney(totalCostoBsNum + totalGastosBs);
+
+      if (userRole && userRole !== 'ADMIN') {
+        const { totalCostoBs, ...safeItem } = item;
+        return {
+          ...safeItem,
+          dispositivos: dispositivosMapped,
+        };
+      }
+
+      return {
+        ...item,
+        dispositivos: dispositivosMapped,
+        totalGastosBs,
+        inversionTotalBs,
+      };
+    });
 
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
-      data,
+      data: safeData,
       meta: {
         total,
         page,
@@ -607,6 +652,13 @@ export class RecepcionService {
           include: {
             variante: {
               include: { modelo: true },
+            },
+            gastos: {
+              where: { estado: 'ACTIVO' },
+              include: {
+                usuario: { select: { id: true, nombre: true } },
+              },
+              orderBy: { fechaRegistro: 'desc' },
             },
             detalleVentas: {
               where: { venta: { estado: EstadoVenta.COMPLETADA } },
@@ -671,11 +723,20 @@ export class RecepcionService {
     let totalVentaProyectadaDispositivosBs = 0;
     let totalCostoDispositivosBs = 0;
     let totalCostoUsd = 0;
+    let totalGastosDispositivosBs = 0;
 
     for (const d of nota.dispositivos) {
       const costoBs = Number(d.costoBs || 0);
       const costoUsd = Number(d.costoUsd || 0);
       const precioSugeridoBs = Number(d.precioVentaSugeridoBs || 0);
+
+      const gastosActivos = ((d as any).gastos || []).filter((g: any) => g.estado === 'ACTIVO');
+      const gastosInvertidosBs = roundMoney(
+        gastosActivos.reduce((sum: number, g: any) => sum + Number(g.costoBs || 0), 0),
+      );
+      totalGastosDispositivosBs += gastosInvertidosBs;
+      (d as any).gastosInvertidosBs = gastosInvertidosBs;
+      (d as any).inversionTotalBs = roundMoney(costoBs + gastosInvertidosBs);
 
       totalCostoDispositivosBs += costoBs;
       totalCostoUsd += costoUsd;
@@ -688,7 +749,7 @@ export class RecepcionService {
         dispositivosVendidos++;
         const precioCobrado = ventaCompletada ? Number(ventaCompletada.subtotalBs) : precioSugeridoBs;
         totalVentaRealizadaDispositivosBs += precioCobrado;
-        costoRealizadoDispositivosBs += costoBs;
+        costoRealizadoDispositivosBs += roundMoney(costoBs + gastosInvertidosBs);
       }
     }
 
@@ -726,6 +787,9 @@ export class RecepcionService {
 
     const totalCostoBs =
       Number(nota.totalCostoBs) || totalCostoDispositivosBs + totalCostoAccesoriosBs;
+    const totalGastosBs = roundMoney(totalGastosDispositivosBs);
+    const inversionTotalBs = roundMoney(totalCostoBs + totalGastosBs);
+
     const totalDispositivos = nota.dispositivos.length;
     const totalAccesorios = accesoriosTotalUnidades;
     const totalUnidadesIngresadas = totalDispositivos + totalAccesorios;
@@ -737,7 +801,7 @@ export class RecepcionService {
 
     const totalVentaProyectadaBs =
       totalVentaProyectadaDispositivosBs + totalVentaProyectadaAccesoriosBs;
-    const margenProyectadoBs = totalVentaProyectadaBs - totalCostoBs;
+    const margenProyectadoBs = roundMoney(totalVentaProyectadaBs - inversionTotalBs);
     const porcentajeMargenProyectado =
       totalVentaProyectadaBs > 0
         ? Math.round((margenProyectadoBs / totalVentaProyectadaBs) * 1000) / 10
@@ -750,12 +814,14 @@ export class RecepcionService {
         ? Math.round((totalVentaRealizadaBs / totalVentaProyectadaBs) * 1000) / 10
         : 0;
 
-    const costoRealizadoBs = costoRealizadoDispositivosBs + costoRealizadoAccesoriosBs;
-    const margenRealizadoBs = totalVentaRealizadaBs - costoRealizadoBs;
+    const costoRealizadoBs = roundMoney(costoRealizadoDispositivosBs + costoRealizadoAccesoriosBs);
+    const margenRealizadoBs = roundMoney(totalVentaRealizadaBs - costoRealizadoBs);
 
     const resumenFinanciero = {
       totalCostoBs,
       totalCostoUsd,
+      totalGastosBs,
+      inversionTotalBs,
       totalDispositivos,
       totalAccesorios,
       totalUnidadesIngresadas,
@@ -766,6 +832,7 @@ export class RecepcionService {
       porcentajeMargenProyectado,
       totalVentaRealizadaBs,
       porcentajeVentaRealizada,
+      costoRealizadoBs,
       margenRealizadoBs,
     };
 
@@ -773,7 +840,10 @@ export class RecepcionService {
       nota.dispositivos?.forEach((disp: any) => {
         delete disp.costoBs;
         delete disp.costoUsd;
+        delete disp.gastosInvertidosBs;
+        delete disp.inversionTotalBs;
         delete disp.detalleVentas;
+        delete disp.gastos;
       });
       nota.lotesAccesorio?.forEach((lote: any) => {
         delete lote.costoUnitarioBs;
@@ -796,6 +866,8 @@ export class RecepcionService {
 
     return {
       ...nota,
+      totalGastosBs,
+      inversionTotalBs,
       resumenFinanciero,
     };
   }

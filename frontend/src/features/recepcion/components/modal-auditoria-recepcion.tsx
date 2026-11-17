@@ -133,11 +133,17 @@ export function ModalAuditoriaRecepcion({
                     Inversión Total
                   </span>
                   <p className="text-xl font-bold font-mono text-slate-900 mt-1">
-                    Bs {Number(rf.totalCostoBs || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Bs {Number(rf.inversionTotalBs ?? rf.totalCostoBs ?? 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5 font-mono">
-                    $ {Number(rf.totalCostoUsd || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                  </p>
+                  {Number(rf.totalGastosBs || 0) > 0 ? (
+                    <p className="text-[10px] text-purple-700 font-medium mt-0.5 font-mono">
+                      Toma: Bs {Number(rf.totalCostoBs || 0).toFixed(2)} • Gastos: Bs {Number(rf.totalGastosBs).toFixed(2)}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5 font-mono">
+                      $ {Number(rf.totalCostoUsd || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                    </p>
+                  )}
                 </div>
 
                 <div className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-xs">
@@ -245,8 +251,15 @@ export function ModalAuditoriaRecepcion({
                         {dispositivos.map((d: any) => {
                           const costo = Number(d.costoBs || 0);
                           const costoUsd = Number(d.costoUsd || 0);
+                          const gastosInvertidos = Number(
+                            d.gastosInvertidosBs ??
+                              (Array.isArray(d.gastos)
+                                ? d.gastos.reduce((s: number, g: any) => s + (Number(g.costoBs) || 0), 0)
+                                : 0)
+                          );
+                          const inversionTotal = Number(d.inversionTotalBs ?? (costo + gastosInvertidos));
                           const precioSugerido = Number(d.precioVentaSugeridoBs || 0);
-                          const margen = precioSugerido - costo;
+                          const margen = precioSugerido - inversionTotal;
                           const isSold = d.estadoInventario === 'VENDIDO' || (d.detalleVentas && d.detalleVentas.length > 0);
                           const precioCobrado = d.detalleVentas?.[0]?.subtotalBs ? Number(d.detalleVentas[0].subtotalBs) : null;
 
@@ -281,7 +294,17 @@ export function ModalAuditoriaRecepcion({
                                 </Badge>
                               </td>
                               <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-900">
-                                Bs {costo.toFixed(2)}
+                                <div>Bs {costo.toFixed(2)}</div>
+                                {gastosInvertidos > 0 && (
+                                  <>
+                                    <div className="text-[10px] text-purple-700 font-bold" title="Gastos de puesta a punto">
+                                      (+Bs {gastosInvertidos.toFixed(2)})
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 font-normal">
+                                      Inv: Bs {inversionTotal.toFixed(2)}
+                                    </div>
+                                  </>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right font-mono text-slate-600">
                                 $ {costoUsd.toFixed(2)}
