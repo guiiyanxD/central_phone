@@ -1150,6 +1150,7 @@ describe('ModelosService', () => {
         { id: 50, costoBs: 3600 },
         { id: 51, costoBs: 4000 },
       ] as any);
+      prisma.loteAccesorio.findMany.mockResolvedValue([]);
       prisma.notaIngreso.update.mockResolvedValue({ id: 10, totalCostoBs: 7600 } as any);
 
       const res = await service.updateDispositivo(
