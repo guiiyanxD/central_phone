@@ -13,7 +13,7 @@ import { CreateNotaIngresoDto } from './dto/create-nota-ingreso.dto';
 import { UpdateNotaIngresoDto } from './dto/update-nota-ingreso.dto';
 import { AnularNotaIngresoDto } from './dto/anular-nota-ingreso.dto';
 import { QueryNotasIngresoDto } from './dto/query-notas-ingreso.dto';
-import { CreatePermutaDto } from './dto/create-permuta.dto';
+import { CreatePermutaDto, DispositivoPermutaDto } from './dto/create-permuta.dto';
 import { UpdatePermutaDto } from './dto/update-permuta.dto';
 import { roundMoney } from '../common/utils/money.util';
 import {

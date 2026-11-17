@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfiguracionService } from '../configuracion/configuracion.service';
-import { CreateVentaDto } from './dto/create-venta.dto';
+import { CreateVentaDto, PermutaTradeInDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
 import {
   CategoriaMargen,
