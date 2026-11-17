@@ -98,7 +98,9 @@ export function ModalAuditoriaCaja({
                     Bs {detRf.totalVentasTotal.toFixed(2)}
                   </p>
                   <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                    Efec: Bs {detRf.totalVentasEfectivo.toFixed(2)} • QR: Bs {detRf.totalVentasDigitales.toFixed(2)}
+                    {detRf.totalPermutasBs > 0
+                      ? `Efec: Bs ${detRf.totalVentasEfectivo.toFixed(2)} • QR: Bs ${detRf.totalVentasDigitales.toFixed(2)} • Permutas: Bs ${detRf.totalPermutasBs.toFixed(2)}`
+                      : `Efec: Bs ${detRf.totalVentasEfectivo.toFixed(2)} • QR: Bs ${detRf.totalVentasDigitales.toFixed(2)}`}
                   </p>
                 </div>
 
@@ -147,12 +149,18 @@ export function ModalAuditoriaCaja({
                   </div>
                   <p className="text-base font-bold font-mono text-white">
                     {isAdmin && detRf.gananciaNetaVentas !== undefined
-                      ? `+Bs ${detRf.gananciaNetaVentas.toFixed(2)}`
+                      ? detRf.gananciaNetaVentas >= 0
+                        ? `+Bs ${detRf.gananciaNetaVentas.toFixed(2)}`
+                        : `-Bs ${Math.abs(detRf.gananciaNetaVentas).toFixed(2)}`
                       : `Bs ${detRf.saldoTeoricoEfectivo.toFixed(2)}`}
                   </p>
                   <p className="text-[10px] text-slate-300 truncate mt-0.5">
                     {isAdmin && detRf.totalCostoMercaderia !== undefined
-                      ? `CMV: Bs ${detRf.totalCostoMercaderia.toFixed(2)} • Neta op: Bs ${detRf.gananciaNetaOperativa?.toFixed(2)}`
+                      ? `CMV: Bs ${detRf.totalCostoMercaderia.toFixed(2)} • Neta op: ${detRf.gananciaNetaOperativa !== undefined
+                        ? detRf.gananciaNetaOperativa >= 0
+                          ? `+Bs ${detRf.gananciaNetaOperativa.toFixed(2)}`
+                          : `-Bs ${Math.abs(detRf.gananciaNetaOperativa).toFixed(2)}`
+                        : 'Bs 0.00'}`
                       : 'Saldo calculado en gaveta'}
                   </p>
                 </div>

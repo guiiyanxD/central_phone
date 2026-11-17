@@ -69,10 +69,12 @@ export interface DetalleCajaResponse {
     montoInicialEfectivo: number;
     totalVentasEfectivo: number;
     totalVentasDigitales: number;
+    totalVentasCobrado?: number;
     totalVentasTotal: number;
     totalGastosEfectivo: number;
     totalGastosOtros: number;
     totalGastosTotal: number;
+    totalPermutasBs: number;
     saldoTeoricoEfectivo: number;
     montoFinalEfectivo: number | null;
     diferenciaEfectivo: number | null;

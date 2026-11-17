@@ -719,12 +719,91 @@ describe('CajaService', () => {
       expect(res.caja.ventas[0].gananciaNetaBs).toBe(400);
       expect(res.resumenFinanciero.totalVentasEfectivo).toBe(1000);
       expect(res.resumenFinanciero.totalVentasDigitales).toBe(250);
+      expect(res.resumenFinanciero.totalVentasCobrado).toBe(1250);
       expect(res.resumenFinanciero.totalVentasTotal).toBe(1250);
       expect(res.resumenFinanciero.totalGastosEfectivo).toBe(50);
       expect(res.resumenFinanciero.saldoTeoricoEfectivo).toBe(1250); // 300 + 1000 - 50 = 1250
       expect(res.resumenFinanciero.totalCostoMercaderia).toBe(650); // 600 + 50
       expect(res.resumenFinanciero.gananciaNetaVentas).toBe(600); // 1250 - 650
       expect(res.resumenFinanciero.gananciaNetaOperativa).toBe(550); // 600 - 50
+    });
+
+    it('debe calcular la ganancia comercial real correctamente cuando existen ventas con permuta (trade-in)', async () => {
+      const mockCajaConPermuta = {
+        ...mockCajaDetalle,
+        id: 13,
+        montoInicialEfectivo: 10,
+        gastosOperativos: [],
+        gastosDispositivo: [],
+        ventas: [
+          {
+            id: 55,
+            totalVentaBs: 15500,
+            montoPermutaBs: 2500,
+            montoEfectivoBs: 13000,
+            montoDigitalBs: 0,
+            estado: 'COMPLETADA',
+            metodoPago: { codigo: 'EFECTIVO', nombre: 'Efectivo en Caja' },
+            cliente: { nombreCompleto: 'Cliente 1' },
+            usuario: { id: 1, nombre: 'Admin' },
+            detalles: [
+              {
+                id: 1,
+                cantidad: 1,
+                costoUnitarioBs: 13000,
+                precioUnitarioBs: 15500,
+                subtotalBs: 15500,
+                dispositivo: {
+                  id: 1,
+                  numeroSerie: 'SN55',
+                  imei1: '111111111111111',
+                  variante: { color: 'Orange', capacidadGb: 256, modelo: { nombreModelo: 'iPhone 17 Pro' } },
+                },
+              },
+            ],
+          },
+          {
+            id: 56,
+            totalVentaBs: 18000,
+            montoPermutaBs: 9000,
+            montoEfectivoBs: 0,
+            montoDigitalBs: 9000,
+            estado: 'COMPLETADA',
+            metodoPago: { codigo: 'STATIC_QR', nombre: 'QR Simple Oficial' },
+            cliente: { nombreCompleto: 'Cliente 2' },
+            usuario: { id: 1, nombre: 'Admin' },
+            detalles: [
+              {
+                id: 2,
+                cantidad: 1,
+                costoUnitarioBs: 17553,
+                precioUnitarioBs: 18000,
+                subtotalBs: 18000,
+                dispositivo: {
+                  id: 2,
+                  numeroSerie: 'SN56',
+                  imei1: '222222222222222',
+                  variante: { color: 'Glacier', capacidadGb: 256, modelo: { nombreModelo: 'iPhone 18 Pro Max' } },
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      prisma.cajaDiaria.findUnique.mockResolvedValue(mockCajaConPermuta as any);
+
+      const res = await service.getCajaDetalle(13, 'ADMIN');
+
+      expect(res.resumenFinanciero.totalPermutasBs).toBe(11500); // 2500 + 9000
+      expect(res.resumenFinanciero.totalVentasEfectivo).toBe(13000);
+      expect(res.resumenFinanciero.totalVentasDigitales).toBe(9000);
+      expect(res.resumenFinanciero.totalVentasCobrado).toBe(22000); // 13000 + 9000
+      expect(res.resumenFinanciero.totalVentasTotal).toBe(33500); // 22000 + 11500
+      expect(res.resumenFinanciero.totalCostoMercaderia).toBe(30553); // 13000 + 17553
+      expect(res.resumenFinanciero.gananciaNetaVentas).toBe(2947); // 33500 - 30553 = +2947 (POSITIVA)
+      expect(res.resumenFinanciero.gananciaNetaOperativa).toBe(2947);
+      expect(res.resumenFinanciero.saldoTeoricoEfectivo).toBe(13010); // 10 inicial + 13000 efectivo = 13010
     });
 
     it('debe sanitizar los costos unitarios cuando el usuario es VENDEDOR', async () => {

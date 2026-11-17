@@ -163,6 +163,7 @@ export class CajaService {
 
     const saldoEfectivoEnCaja = roundMoney(montoInicial + totalVentasEfectivo - totalGastosEfectivo);
     const totalRecaudadoTotal = roundMoney(totalVentasEfectivo + totalVentasDigitales);
+    const totalVentasTotal = roundMoney(totalRecaudadoTotal + totalPermutasBs);
 
     return {
       caja,
@@ -171,6 +172,7 @@ export class CajaService {
         totalVentasEfectivo,
         totalVentasDigitales,
         totalRecaudadoTotal,
+        totalVentasTotal,
         totalGastosEfectivo,
         totalGastosOtros,
         totalGastosOperativos: roundMoney(totalGastosEfectivo + totalGastosOtros),
@@ -1019,7 +1021,8 @@ export class CajaService {
     }
 
     const totalGastosTotal = roundMoney(totalGastosEfectivo + totalGastosOtros);
-    const totalVentasTotal = roundMoney(totalVentasEfectivo + totalVentasDigitales);
+    const totalVentasCobrado = roundMoney(totalVentasEfectivo + totalVentasDigitales);
+    const totalVentasTotal = roundMoney(totalVentasCobrado + totalPermutasBs);
     const saldoTeoricoEfectivo = roundMoney(
       montoInicial + totalVentasEfectivo - totalGastosEfectivo,
     );
@@ -1040,6 +1043,7 @@ export class CajaService {
         montoInicialEfectivo: montoInicial,
         totalVentasEfectivo,
         totalVentasDigitales,
+        totalVentasCobrado,
         totalVentasTotal,
         totalGastosEfectivo,
         totalGastosOtros,
