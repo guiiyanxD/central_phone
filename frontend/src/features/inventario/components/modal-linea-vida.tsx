@@ -30,20 +30,25 @@ import { Badge } from '@/components/ui/badge';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { cn, formatCondicionDispositivo } from '@/lib/utils';
+import { ModalEditarDispositivoInline } from './modal-editar-dispositivo-inline';
 
 interface ModalLineaVidaProps {
   isOpen: boolean;
   onClose: () => void;
   imei: string | null;
+  onUpdated?: () => void;
 }
 
-export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
+export function ModalLineaVida({ isOpen, onClose, imei, onUpdated }: ModalLineaVidaProps) {
   const { user } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
 
   const [data, setData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal para edición técnica y financiera de dispositivo (Exclusivo ADMIN)
+  const [modalEditarDispositivoOpen, setModalEditarDispositivoOpen] = useState(false);
 
   // Estados para gestión de gastos (Creación, Edición y Anulación)
   const [modalGastoOpen, setModalGastoOpen] = useState(false);
@@ -170,6 +175,7 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
 
       setModalGastoOpen(false);
       fetchLineaVida();
+      onUpdated?.();
     } catch (err: any) {
       setGastoFormError(err.message || 'Error al guardar el gasto.');
     } finally {
@@ -203,11 +209,18 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
       setModalAnularGastoOpen(false);
       setGastoParaAnular(null);
       fetchLineaVida();
+      onUpdated?.();
     } catch (err: any) {
       alert(err.message || 'Error al anular el gasto.');
     } finally {
       setIsAnulandoGasto(false);
     }
+  };
+
+  const handleDispositivoUpdated = () => {
+    setGastoSuccessMsg('Información técnica y costo del dispositivo actualizados correctamente.');
+    fetchLineaVida();
+    onUpdated?.();
   };
 
   return (
@@ -335,6 +348,19 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                   </p>
                 )}
               </div>
+              {isAdmin && data.dispositivo.estadoInventario !== 'VENDIDO' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2.5 h-7 px-2.5 text-[11px] gap-1.5 border-amber-400/50 text-amber-300 hover:text-white hover:bg-amber-600 hover:border-amber-600 transition-all font-semibold"
+                  onClick={() => setModalEditarDispositivoOpen(true)}
+                  title="Editar información técnica y costo del dispositivo"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar Dispositivo
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1026,6 +1052,16 @@ export function ModalLineaVida({ isOpen, onClose, imei }: ModalLineaVidaProps) {
                 </form>
               </div>
             </div>
+          )}
+
+          {/* SUB-MODAL: EDITAR INFORMACIÓN TÉCNICA Y COSTO (EXCLUSIVO ADMIN) */}
+          {modalEditarDispositivoOpen && (
+            <ModalEditarDispositivoInline
+              isOpen={modalEditarDispositivoOpen}
+              onClose={() => setModalEditarDispositivoOpen(false)}
+              dispositivo={data.dispositivo}
+              onSuccess={handleDispositivoUpdated}
+            />
           )}
         </div>
       ) : null}

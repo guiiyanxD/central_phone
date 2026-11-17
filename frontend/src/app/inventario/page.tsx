@@ -326,6 +326,7 @@ export default function InventarioPage() {
         isOpen={Boolean(selectedImeiForLifeline)}
         onClose={() => setSelectedImeiForLifeline(null)}
         imei={selectedImeiForLifeline}
+        onUpdated={() => fetchDispositivos(dispositivosMeta.page)}
       />
     </div>
   );

@@ -268,6 +268,21 @@ export const modelosApi = {
     request<LineaVidaResponse>(
       `/modelos/dispositivos/${encodeURIComponent(imei)}/linea-vida`
     ),
+  updateDispositivo: (
+    dispositivoId: number,
+    data: {
+      imei1?: string;
+      imei2?: string;
+      numeroSerie?: string;
+      porcentajeBateria?: number;
+      detallesFisicos?: string;
+      costoBs?: number;
+    },
+  ) =>
+    request<any>(`/modelos/dispositivos/${dispositivoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
   addGastoDispositivo: (
     dispositivoId: number,
     data: {

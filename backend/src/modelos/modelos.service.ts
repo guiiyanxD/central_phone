@@ -16,6 +16,7 @@ import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
+import { UpdateDispositivoDto } from './dto/update-dispositivo.dto';
 import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
 import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
 import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
@@ -1265,6 +1266,137 @@ export class ModelosService {
         totalGastosActivosBs: roundMoney(sumaGastos),
         inversionTotalBs: roundMoney(Number(gasto.dispositivo.costoBs) + sumaGastos),
       };
+    });
+  }
+
+  // --- MODIFICACIÓN TÉCNICA Y FINANCIERA DE DISPOSITIVO (EXCLUSIVO ADMIN) ---
+  async updateDispositivo(id: number, dto: UpdateDispositivoDto, usuarioId: number) {
+    const dispositivo = await this.prisma.dispositivo.findUnique({
+      where: { id },
+      include: {
+        detalleVentas: {
+          where: { venta: { estado: EstadoVenta.COMPLETADA } },
+        },
+        gastos: {
+          where: { estado: 'ACTIVO' },
+        },
+        notaIngreso: true,
+      },
+    });
+
+    if (!dispositivo) {
+      throw new NotFoundException(`El dispositivo con ID ${id} no existe.`);
+    }
+
+    if (
+      dispositivo.estadoInventario === EstadoInventario.VENDIDO ||
+      (dispositivo.detalleVentas && dispositivo.detalleVentas.length > 0)
+    ) {
+      throw new BadRequestException(
+        `No se pueden modificar los datos del equipo '${dispositivo.numeroSerie}' porque ya ha sido vendido.`,
+      );
+    }
+
+    // Validar unicidad si cambian número de serie, imei1 o imei2
+    if (dto.numeroSerie && dto.numeroSerie.trim() !== dispositivo.numeroSerie) {
+      const exists = await this.prisma.dispositivo.findUnique({
+        where: { numeroSerie: dto.numeroSerie.trim() },
+      });
+      if (exists && exists.id !== id) {
+        throw new ConflictException(
+          `El número de serie '${dto.numeroSerie.trim()}' ya está registrado en otro dispositivo.`,
+        );
+      }
+    }
+
+    if (dto.imei1 && dto.imei1.trim() !== dispositivo.imei1) {
+      const exists = await this.prisma.dispositivo.findUnique({
+        where: { imei1: dto.imei1.trim() },
+      });
+      if (exists && exists.id !== id) {
+        throw new ConflictException(
+          `El IMEI 1 '${dto.imei1.trim()}' ya está registrado en otro dispositivo.`,
+        );
+      }
+    }
+
+    if (dto.imei2 && dto.imei2.trim() !== dispositivo.imei2) {
+      const exists = await this.prisma.dispositivo.findUnique({
+        where: { imei2: dto.imei2.trim() },
+      });
+      if (exists && exists.id !== id) {
+        throw new ConflictException(
+          `El IMEI 2 '${dto.imei2.trim()}' ya está registrado en otro dispositivo.`,
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updateData: any = {};
+      if (dto.numeroSerie) updateData.numeroSerie = dto.numeroSerie.trim();
+      if (dto.imei1) updateData.imei1 = dto.imei1.trim();
+      if (dto.imei2 !== undefined) updateData.imei2 = dto.imei2 ? dto.imei2.trim() : null;
+      if (dto.porcentajeBateria !== undefined) updateData.porcentajeBateria = dto.porcentajeBateria;
+      if (dto.detallesFisicos !== undefined) updateData.detallesFisicos = dto.detallesFisicos?.trim() || null;
+
+      let costoModificado = false;
+      let nuevoCostoBs = Number(dispositivo.costoBs);
+
+      if (dto.costoBs !== undefined) {
+        nuevoCostoBs = roundMoney(dto.costoBs);
+        if (nuevoCostoBs !== Number(dispositivo.costoBs)) {
+          updateData.costoBs = nuevoCostoBs;
+          costoModificado = true;
+
+          // Recalcular precio de venta sugerido con gastos activos existentes
+          const sumaGastos = (dispositivo.gastos || []).reduce(
+            (sum, g) => sum + Number(g.costoBs),
+            0,
+          );
+          const cat = mapearCondicionACategoriaMargen(dispositivo.condicion);
+          updateData.precioVentaSugeridoBs = await this.calcularPrecioSugerido(
+            cat,
+            nuevoCostoBs,
+            sumaGastos,
+            tx,
+          );
+        }
+      }
+
+      const updated = await tx.dispositivo.update({
+        where: { id },
+        data: updateData,
+        include: {
+          variante: { include: { modelo: true } },
+          sucursal: true,
+        },
+      });
+
+      // Si el costo del dispositivo cambió, actualizar totalCostoBs en la NotaIngreso vinculada
+      if (costoModificado && dispositivo.notaIngresoId) {
+        const todosDispositivosNota = await tx.dispositivo.findMany({
+          where: { notaIngresoId: dispositivo.notaIngresoId },
+          select: { id: true, costoBs: true },
+        });
+
+        const nuevoTotalNota = roundMoney(
+          todosDispositivosNota.reduce((sum, d) => {
+            const costo = d.id === id ? nuevoCostoBs : Number(d.costoBs);
+            return sum + costo;
+          }, 0),
+        );
+
+        await tx.notaIngreso.update({
+          where: { id: dispositivo.notaIngresoId },
+          data: { totalCostoBs: nuevoTotalNota },
+        });
+      }
+
+      this.logger.log(
+        `Dispositivo ID ${id} (${dispositivo.numeroSerie}) actualizado exitosamente por usuario ${usuarioId}.`,
+      );
+
+      return updated;
     });
   }
 }

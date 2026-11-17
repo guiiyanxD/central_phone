@@ -1119,4 +1119,84 @@ describe('ModelosService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('updateDispositivo', () => {
+    const mockDisp = {
+      id: 50,
+      numeroSerie: 'SN-IP13-001',
+      imei1: '358900112233445',
+      imei2: '358900112233446',
+      porcentajeBateria: 85,
+      detallesFisicos: 'Batería original',
+      costoBs: 3500,
+      condicion: 'SEMINUEVO',
+      estadoInventario: 'DISPONIBLE',
+      notaIngresoId: 10,
+      detalleVentas: [],
+      gastos: [{ id: 1, costoBs: 100, estado: 'ACTIVO' }],
+    };
+
+    it('debe actualizar los datos técnicos y costo recalculando nota y precio sugerido', async () => {
+      prisma.dispositivo.findUnique.mockResolvedValueOnce(mockDisp as any);
+      prisma.dispositivo.findUnique.mockResolvedValueOnce(null); // serial check
+      prisma.dispositivo.findUnique.mockResolvedValueOnce(null); // imei1 check
+      prisma.dispositivo.update.mockResolvedValue({
+        ...mockDisp,
+        porcentajeBateria: 90,
+        costoBs: 3600,
+        precioVentaSugeridoBs: 4290,
+      } as any);
+      prisma.dispositivo.findMany.mockResolvedValue([
+        { id: 50, costoBs: 3600 },
+        { id: 51, costoBs: 4000 },
+      ] as any);
+      prisma.notaIngreso.update.mockResolvedValue({ id: 10, totalCostoBs: 7600 } as any);
+
+      const res = await service.updateDispositivo(
+        50,
+        {
+          porcentajeBateria: 90,
+          costoBs: 3600,
+          detallesFisicos: 'Batería nueva',
+        },
+        1,
+      );
+
+      expect(res.porcentajeBateria).toBe(90);
+      expect(prisma.dispositivo.update).toHaveBeenCalled();
+      expect(prisma.notaIngreso.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { totalCostoBs: 7600 },
+      });
+    });
+
+    it('debe rechazar si el dispositivo no existe', async () => {
+      prisma.dispositivo.findUnique.mockResolvedValue(null);
+
+      await expect(service.updateDispositivo(999, { porcentajeBateria: 90 }, 1)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe rechazar si el dispositivo ya fue VENDIDO', async () => {
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        ...mockDisp,
+        estadoInventario: 'VENDIDO',
+      } as any);
+
+      await expect(service.updateDispositivo(50, { costoBs: 3800 }, 1)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('debe rechazar si el número de serie ya pertenece a otro equipo', async () => {
+      prisma.dispositivo.findUnique
+        .mockResolvedValueOnce(mockDisp as any)
+        .mockResolvedValueOnce({ id: 99, numeroSerie: 'SN-DUPLICADO' } as any);
+
+      await expect(
+        service.updateDispositivo(50, { numeroSerie: 'SN-DUPLICADO' }, 1),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
 });

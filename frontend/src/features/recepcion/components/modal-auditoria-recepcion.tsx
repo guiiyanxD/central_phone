@@ -1,16 +1,45 @@
 import React, { useState } from 'react';
-import { Smartphone, Package, AlertCircle, AlertOctagon } from 'lucide-react';
+import {
+  Smartphone,
+  Package,
+  AlertCircle,
+  AlertOctagon,
+  Wrench,
+  Eye,
+  CheckCircle2,
+  X,
+  Plus,
+  DollarSign,
+  Calendar,
+  RefreshCw,
+} from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { formatCondicionDispositivo } from '@/lib/utils';
+import { api, ApiError } from '@/lib/api';
+import { ModalLineaVida } from '@/features/inventario/components/modal-linea-vida';
+
+const getLocalDateTimeString = (date: Date = new Date()) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+};
 
 interface ModalAuditoriaRecepcionProps {
   isOpen: boolean;
   onClose: () => void;
   recepcionDetalleData: any;
   isLoadingRecDetalle: boolean;
+  onRefreshDetalle?: () => void;
+  onUpdated?: () => void;
 }
 
 export function ModalAuditoriaRecepcion({
@@ -18,8 +47,77 @@ export function ModalAuditoriaRecepcion({
   onClose,
   recepcionDetalleData,
   isLoadingRecDetalle,
+  onRefreshDetalle,
+  onUpdated,
 }: ModalAuditoriaRecepcionProps) {
   const [recDetalleTab, setRecDetalleTab] = useState<'dispositivos' | 'accesorios'>('dispositivos');
+
+  // Estados para modal de Línea de Vida
+  const [selectedImeiForLifeline, setSelectedImeiForLifeline] = useState<string | null>(null);
+
+  // Estados para modal de Registrar Gasto
+  const [gastoModalOpen, setGastoModalOpen] = useState(false);
+  const [dispositivoParaGasto, setDispositivoParaGasto] = useState<any | null>(null);
+  const [conceptoGasto, setConceptoGasto] = useState('');
+  const [costoBsGasto, setCostoBsGasto] = useState<number | ''>('');
+  const [fechaGasto, setFechaGasto] = useState('');
+  const [observacionGasto, setObservacionGasto] = useState('');
+  const [aplicoEnCajaGasto, setAplicoEnCajaGasto] = useState(true);
+  const [isSubmittingGasto, setIsSubmittingGasto] = useState(false);
+  const [gastoFormError, setGastoFormError] = useState<string | null>(null);
+  const [gastoSuccessMsg, setGastoSuccessMsg] = useState<string | null>(null);
+
+  const handleOpenGastoModal = (disp: any) => {
+    setDispositivoParaGasto(disp);
+    setConceptoGasto('');
+    setCostoBsGasto('');
+    setFechaGasto(getLocalDateTimeString(new Date()));
+    setObservacionGasto('');
+    setAplicoEnCajaGasto(true);
+    setGastoFormError(null);
+    setGastoModalOpen(true);
+  };
+
+  const handleSaveGasto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dispositivoParaGasto) return;
+
+    if (!conceptoGasto.trim()) {
+      setGastoFormError('El concepto del gasto es obligatorio.');
+      return;
+    }
+
+    if (typeof costoBsGasto !== 'number' || costoBsGasto <= 0) {
+      setGastoFormError('El costo del gasto debe ser un número mayor a 0 Bs.');
+      return;
+    }
+
+    setIsSubmittingGasto(true);
+    setGastoFormError(null);
+
+    try {
+      await api.modelos.addGastoDispositivo(dispositivoParaGasto.id, {
+        concepto: conceptoGasto.trim(),
+        costoBs: costoBsGasto,
+        fechaGasto: fechaGasto ? new Date(fechaGasto).toISOString() : undefined,
+        observacion: observacionGasto.trim() || undefined,
+        aplicoEnCaja: aplicoEnCajaGasto,
+      });
+
+      setGastoSuccessMsg(
+        `Gasto "${conceptoGasto.trim()}" (Bs ${costoBsGasto.toFixed(2)}) registrado exitosamente.`
+      );
+      setGastoModalOpen(false);
+      onRefreshDetalle?.();
+      onUpdated?.();
+    } catch (err: any) {
+      setGastoFormError(
+        err instanceof ApiError ? err.message : 'Error al registrar el gasto de reparación.'
+      );
+    } finally {
+      setIsSubmittingGasto(false);
+    }
+  };
 
   return (
     <Modal
@@ -200,6 +298,23 @@ export function ModalAuditoriaRecepcion({
                 </div>
               </div>
 
+              {/* Mensaje de éxito si se registró un gasto */}
+              {gastoSuccessMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center justify-between text-xs animate-in fade-in">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    {gastoSuccessMsg}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setGastoSuccessMsg(null)}
+                    className="text-emerald-700 hover:text-emerald-900"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Sub-Pestañas: Dispositivos vs Accesorios */}
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <div className="flex items-center gap-1">
@@ -245,6 +360,7 @@ export function ModalAuditoriaRecepcion({
                           <th className="py-2.5 px-3 text-right">Precio Sugerido</th>
                           <th className="py-2.5 px-3 text-center">Estado Comercial</th>
                           <th className="py-2.5 px-3 text-right">Margen Est.</th>
+                          <th className="py-2.5 px-3 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -332,6 +448,33 @@ export function ModalAuditoriaRecepcion({
                               </td>
                               <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
                                 Bs {margen.toFixed(2)}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  {!isSold && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-[10px] gap-1 border-purple-200 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all shadow-xs"
+                                      onClick={() => handleOpenGastoModal(d)}
+                                      title="Registrar gasto técnico para este equipo"
+                                    >
+                                      <Wrench className="h-3 w-3" />
+                                      <span>+ Gasto</span>
+                                    </Button>
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                    onClick={() => setSelectedImeiForLifeline(d.imei1 || d.numeroSerie)}
+                                    title="Consultar Línea de Vida completa"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -441,6 +584,164 @@ export function ModalAuditoriaRecepcion({
             </div>
           );
         })()
+      )}
+
+      {/* SUB-MODAL: REGISTRAR GASTO TÉCNICO DESDE RECEPCIÓN */}
+      {gastoModalOpen && dispositivoParaGasto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700">
+                  <Wrench className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Registrar Gasto Técnico</h4>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    {dispositivoParaGasto.variante?.modelo?.nombreModelo || 'iPhone'} • S/N: {dispositivoParaGasto.numeroSerie}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGastoModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {gastoFormError && (
+              <div className="mx-4 mt-3 p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                <span>{gastoFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveGasto} className="p-4 space-y-3">
+              <div>
+                <Label htmlFor="recGastoConcepto" className="text-xs font-semibold text-slate-700">
+                  Concepto del Gasto <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  id="recGastoConcepto"
+                  value={conceptoGasto}
+                  onChange={(e) => setConceptoGasto(e.target.value)}
+                  placeholder="Ej: Cambio de pantalla OLED, Batería original, Flex..."
+                  className="mt-1 text-xs"
+                  disabled={isSubmittingGasto}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <Label htmlFor="recGastoCosto" className="text-xs font-semibold text-slate-700">
+                    Costo (Bs) <span className="text-rose-500">*</span>
+                  </Label>
+                  <div className="relative mt-1">
+                    <DollarSign className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      id="recGastoCosto"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={costoBsGasto}
+                      onChange={(e) => setCostoBsGasto(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="150.00"
+                      className="pl-8 text-xs font-mono font-bold text-slate-900"
+                      disabled={isSubmittingGasto}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="recGastoFecha" className="text-xs font-semibold text-slate-700">
+                    Fecha y Hora <span className="text-rose-500">*</span>
+                  </Label>
+                  <Input
+                    id="recGastoFecha"
+                    type="datetime-local"
+                    value={fechaGasto}
+                    onChange={(e) => setFechaGasto(e.target.value)}
+                    className="mt-1 text-xs font-mono"
+                    disabled={isSubmittingGasto}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="recGastoObs" className="text-xs font-semibold text-slate-700">
+                  Observación Adicional
+                </Label>
+                <Input
+                  id="recGastoObs"
+                  value={observacionGasto}
+                  onChange={(e) => setObservacionGasto(e.target.value)}
+                  placeholder="Repuesto provisto por taller externo, garantía 30 días..."
+                  className="mt-1 text-xs"
+                  disabled={isSubmittingGasto}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="recGastoCaja"
+                  checked={aplicoEnCajaGasto}
+                  onChange={(e) => setAplicoEnCajaGasto(e.target.checked)}
+                  className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+                  disabled={isSubmittingGasto}
+                />
+                <label htmlFor="recGastoCaja" className="text-xs font-medium text-slate-700 cursor-pointer">
+                  Aplica como egreso en la caja del turno activo
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGastoModalOpen(false)}
+                  disabled={isSubmittingGasto}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isSubmittingGasto}
+                  className="bg-purple-700 hover:bg-purple-800 text-white font-medium"
+                >
+                  {isSubmittingGasto ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Registrar Gasto'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL LÍNEA DE VIDA VINCULADO DIRECTO */}
+      {selectedImeiForLifeline && (
+        <ModalLineaVida
+          isOpen={Boolean(selectedImeiForLifeline)}
+          onClose={() => setSelectedImeiForLifeline(null)}
+          imei={selectedImeiForLifeline}
+          onUpdated={() => {
+            onRefreshDetalle?.();
+            onUpdated?.();
+          }}
+        />
       )}
     </Modal>
   );

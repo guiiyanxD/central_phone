@@ -19,6 +19,7 @@ import { UpdateTipoDispositivoDto } from './dto/update-tipo-dispositivo.dto';
 import { AddVarianteDto } from './dto/add-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { QueryDispositivosDto } from './dto/query-dispositivos.dto';
+import { UpdateDispositivoDto } from './dto/update-dispositivo.dto';
 import { CreateGastoDispositivoDto } from './dto/create-gasto-dispositivo.dto';
 import { UpdateGastoDispositivoDto } from './dto/update-gasto-dispositivo.dto';
 import { AnularGastoDispositivoDto } from './dto/anular-gasto-dispositivo.dto';
@@ -54,6 +55,18 @@ export class ModelosController {
     @CurrentUser('rol') userRole?: string,
   ) {
     return this.modelosService.getLineaVidaImei(imei, userRole);
+  }
+
+  // Modificación técnica y financiera de dispositivo (Exclusivo ADMIN)
+  @Patch('dispositivos/:id')
+  @UseGuards(RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  async updateDispositivo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDispositivoDto,
+    @CurrentUser('id') usuarioId: number,
+  ) {
+    return this.modelosService.updateDispositivo(id, dto, usuarioId);
   }
 
   // --- TIPOS DE DISPOSITIVOS ---

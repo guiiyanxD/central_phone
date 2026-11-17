@@ -1469,6 +1469,18 @@ export default function RecepcionMercaderiaPage() {
         onClose={() => setModalRecDetalleOpen(false)}
         recepcionDetalleData={recepcionDetalleData}
         isLoadingRecDetalle={isLoadingRecDetalle}
+        onRefreshDetalle={async () => {
+          if (recepcionDetalleData?.id) {
+            try {
+              const data = await api.recepcion.getNotaIngresoById(recepcionDetalleData.id);
+              setRecepcionDetalleData(data);
+            } catch {}
+          }
+        }}
+        onUpdated={() => {
+          fetchRecepciones();
+          fetchPermutas();
+        }}
       />
 
       {/* MODAL PARA CREAR PROVEEDOR AL VUELO */}
