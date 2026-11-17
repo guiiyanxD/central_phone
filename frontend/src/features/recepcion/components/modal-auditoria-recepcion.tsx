@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Smartphone,
   Package,
@@ -12,6 +12,7 @@ import {
   DollarSign,
   Calendar,
   RefreshCw,
+  Pencil,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { formatCondicionDispositivo } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 import { ModalLineaVida } from '@/features/inventario/components/modal-linea-vida';
+import {
+  ModalEditarDispositivoInline,
+  DispositivoEditableData,
+} from '@/features/inventario/components/modal-editar-dispositivo-inline';
 
 const getLocalDateTimeString = (date: Date = new Date()) => {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -50,10 +56,16 @@ export function ModalAuditoriaRecepcion({
   onRefreshDetalle,
   onUpdated,
 }: ModalAuditoriaRecepcionProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.rol === 'ADMIN';
+
   const [recDetalleTab, setRecDetalleTab] = useState<'dispositivos' | 'accesorios'>('dispositivos');
 
   // Estados para modal de Línea de Vida
   const [selectedImeiForLifeline, setSelectedImeiForLifeline] = useState<string | null>(null);
+
+  // Estado para modal de Edición Inline de Dispositivo (Exclusivo ADMIN)
+  const [editingDispositivo, setEditingDispositivo] = useState<DispositivoEditableData | null>(null);
 
   // Estados para modal de Registrar Gasto
   const [gastoModalOpen, setGastoModalOpen] = useState(false);
@@ -66,6 +78,15 @@ export function ModalAuditoriaRecepcion({
   const [isSubmittingGasto, setIsSubmittingGasto] = useState(false);
   const [gastoFormError, setGastoFormError] = useState<string | null>(null);
   const [gastoSuccessMsg, setGastoSuccessMsg] = useState<string | null>(null);
+
+  // Temporizador de auto-cierre para feedback de éxito
+  useEffect(() => {
+    if (!gastoSuccessMsg) return;
+    const timer = setTimeout(() => {
+      setGastoSuccessMsg(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [gastoSuccessMsg]);
 
   const handleOpenGastoModal = (disp: any) => {
     setDispositivoParaGasto(disp);
@@ -308,7 +329,8 @@ export function ModalAuditoriaRecepcion({
                   <button
                     type="button"
                     onClick={() => setGastoSuccessMsg(null)}
-                    className="text-emerald-700 hover:text-emerald-900"
+                    className="text-emerald-700 hover:text-emerald-900 p-1 rounded-md"
+                    aria-label="Cerrar notificación"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -451,16 +473,45 @@ export function ModalAuditoriaRecepcion({
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1.5">
+                                  {isAdmin && !isSold && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 px-2 text-xs gap-1 border-amber-300 text-amber-800 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-all shadow-xs"
+                                      onClick={() => {
+                                        setEditingDispositivo({
+                                          id: d.id,
+                                          modelo: d.variante?.modelo?.nombreModelo,
+                                          color: d.variante?.color,
+                                          capacidadGb: d.variante?.capacidadGb,
+                                          numeroSerie: d.numeroSerie,
+                                          imei1: d.imei1,
+                                          imei2: d.imei2,
+                                          porcentajeBateria: d.porcentajeBateria,
+                                          detallesFisicos: d.detallesFisicos,
+                                          costoBs: d.costoBs,
+                                          estadoInventario: d.estadoInventario,
+                                        });
+                                      }}
+                                      title="Editar información técnica y costo del equipo (Admin)"
+                                      aria-label={`Editar información técnica y costo del equipo ${d.variante?.modelo?.nombreModelo || ''}`}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                      <span>Editar</span>
+                                    </Button>
+                                  )}
                                   {!isSold && (
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      className="h-7 px-2 text-[10px] gap-1 border-purple-200 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all shadow-xs"
+                                      className="h-8 px-2 text-xs gap-1 border-purple-200 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all shadow-xs"
                                       onClick={() => handleOpenGastoModal(d)}
                                       title="Registrar gasto técnico para este equipo"
+                                      aria-label={`Registrar gasto técnico para el equipo ${d.numeroSerie || ''}`}
                                     >
-                                      <Wrench className="h-3 w-3" />
+                                      <Wrench className="h-3.5 w-3.5" />
                                       <span>+ Gasto</span>
                                     </Button>
                                   )}
@@ -468,11 +519,12 @@ export function ModalAuditoriaRecepcion({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                    className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                                     onClick={() => setSelectedImeiForLifeline(d.imei1 || d.numeroSerie)}
                                     title="Consultar Línea de Vida completa"
+                                    aria-label={`Consultar Línea de Vida completa para el equipo ${d.numeroSerie || ''}`}
                                   >
-                                    <Eye className="h-3.5 w-3.5" />
+                                    <Eye className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </td>
@@ -606,6 +658,7 @@ export function ModalAuditoriaRecepcion({
                 type="button"
                 onClick={() => setGastoModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+                aria-label="Cerrar ventana de registro de gasto"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -630,6 +683,7 @@ export function ModalAuditoriaRecepcion({
                   placeholder="Ej: Cambio de pantalla OLED, Batería original, Flex..."
                   className="mt-1 text-xs"
                   disabled={isSubmittingGasto}
+                  autoFocus
                   required
                 />
               </div>
@@ -647,6 +701,7 @@ export function ModalAuditoriaRecepcion({
                       step="0.01"
                       min="0.01"
                       value={costoBsGasto}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => setCostoBsGasto(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="150.00"
                       className="pl-8 text-xs font-mono font-bold text-slate-900"
@@ -738,6 +793,19 @@ export function ModalAuditoriaRecepcion({
           onClose={() => setSelectedImeiForLifeline(null)}
           imei={selectedImeiForLifeline}
           onUpdated={() => {
+            onRefreshDetalle?.();
+            onUpdated?.();
+          }}
+        />
+      )}
+
+      {/* SUB-MODAL: EDICIÓN INLINE DE DISPOSITIVO PARA ADMIN */}
+      {editingDispositivo && (
+        <ModalEditarDispositivoInline
+          isOpen={Boolean(editingDispositivo)}
+          onClose={() => setEditingDispositivo(null)}
+          dispositivo={editingDispositivo}
+          onSuccess={() => {
             onRefreshDetalle?.();
             onUpdated?.();
           }}
