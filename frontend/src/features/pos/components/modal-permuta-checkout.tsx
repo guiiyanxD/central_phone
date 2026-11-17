@@ -60,6 +60,11 @@ export function ModalPermutaCheckout({
     return modelos.filter(
       (m) =>
         m.tipo === 'IPHONE' ||
+        m.tipo === 'IPAD' ||
+        m.tipo === 'AIRPODS' ||
+        m.tipo === 'MAC' ||
+        m.tipo === 'WATCH' ||
+        m.tipo === 'OTRO' ||
         m.tipoDispositivo?.nombre === 'IPHONE' ||
         m.nombreModelo.toUpperCase().includes('IPHONE')
     );
