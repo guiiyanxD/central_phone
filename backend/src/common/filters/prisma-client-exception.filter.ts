@@ -56,12 +56,19 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
         break;
     }
 
-    response.status(status).json({
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    const responseBody: Record<string, any> = {
       statusCode: status,
       message,
       error: errorType,
-      prismaCode: exception.code,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    if (!isProduction) {
+      responseBody.prismaCode = exception.code;
+    }
+
+    response.status(status).json(responseBody);
   }
 }
