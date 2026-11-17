@@ -1017,15 +1017,15 @@ describe('RecepcionService', () => {
       expect(result).toBeDefined();
     });
 
-    it('debe rechazar permuta si el equipo no es de tipo IPHONE', async () => {
+    it('debe permitir permuta de smartphones de otras marcas (ej: Samsung) con IMEI válido', async () => {
       prisma.varianteDispositivo.findUnique.mockResolvedValue({
         id: 10,
         modelo: { nombreModelo: 'Samsung S24', tipo: 'SMARTPHONE' },
       } as any);
 
-      await expect(
-        service.createPermuta(basePermutaDto, usuarioId, 1),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.createPermuta(basePermutaDto, usuarioId, 1);
+      expect(result).toBeDefined();
+      expect(prisma.dispositivo.create).toHaveBeenCalled();
     });
 
     it('debe rechazar permuta si la batería no está en rango 1-100', async () => {
@@ -1194,6 +1194,64 @@ describe('RecepcionService', () => {
           1,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe permitir registrar una permuta multidispositivo de una computadora Mac sin IMEI', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValueOnce({
+        id: 20,
+        modelo: { nombreModelo: 'MacBook Air M2', tipo: 'MAC' },
+      } as any);
+
+      const result = await service.createPermuta(
+        {
+          proveedorMinorista: basePermutaDto.proveedorMinorista,
+          sucursalId: 1,
+          dispositivo: {
+            varianteId: 20,
+            numeroSerie: 'C02G41ABQ05D',
+            costoBs: 5500,
+            detallesFisicos: '16GB RAM • 512GB SSD • [iCloud Libre] [Sin MDM]',
+          },
+        },
+        usuarioId,
+        1,
+      );
+
+      expect(prisma.dispositivo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            numeroSerie: 'C02G41ABQ05D',
+            imei1: null,
+            porcentajeBateria: null,
+            costoBs: 5500,
+            condicion: 'PERMUTA',
+          }),
+        }),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('debe exigir IMEI 1 obligatorio cuando el equipo en permuta es un teléfono celular', async () => {
+      prisma.varianteDispositivo.findUnique.mockResolvedValueOnce({
+        id: 10,
+        modelo: { nombreModelo: 'iPhone 15 Pro', tipo: 'IPHONE' },
+      } as any);
+
+      await expect(
+        service.createPermuta(
+          {
+            proveedorMinorista: basePermutaDto.proveedorMinorista,
+            sucursalId: 1,
+            dispositivo: {
+              varianteId: 10,
+              numeroSerie: 'SN-IPHONE-NO-IMEI',
+              costoBs: 4000,
+            },
+          },
+          usuarioId,
+          1,
+        ),
+      ).rejects.toThrow('requiere obligatoriamente un IMEI 1 válido');
     });
 
     it('debe actualizar el campo de Registro (detallesFisicos) al editar una permuta', async () => {

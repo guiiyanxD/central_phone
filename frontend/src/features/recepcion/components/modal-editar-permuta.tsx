@@ -21,6 +21,55 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 
+const CHIPS_MAC = ['iCloud Libre', 'Sin MDM', 'Sin Password EFI', 'Cargador Original', 'Batería Normal'];
+const CHIPS_PHONE = ['Libre Fábrica', 'R-SIM', 'Batería Cambiada', 'Detalles de Uso'];
+const CHIPS_OTHER = ['iCloud Libre', 'Sin MDM', 'Pantalla Original', 'Cargador Incluido'];
+
+function getDeviceChips(isMac: boolean, isPhone: boolean): string[] {
+  if (isMac) return CHIPS_MAC;
+  if (isPhone) return CHIPS_PHONE;
+  return CHIPS_OTHER;
+}
+
+function toggleDetalleChip(current: string, chip: string): string {
+  const items = current
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const exists = items.some((item) => item.toLowerCase() === chip.toLowerCase());
+  if (exists) {
+    return items.filter((item) => item.toLowerCase() !== chip.toLowerCase()).join(', ');
+  }
+  return items.length > 0 ? `${items.join(', ')}, ${chip}` : chip;
+}
+
+function getDeviceFamily(modeloNombre: string): { isPhone: boolean; isMac: boolean; isDesktop: boolean } {
+  const nombre = String(modeloNombre || '').toUpperCase();
+
+  const isDesktop =
+    nombre.includes('IMAC') ||
+    nombre.includes('MAC MINI') ||
+    nombre.includes('MAC STUDIO') ||
+    nombre.includes('DESKTOP');
+
+  const isMac =
+    isDesktop ||
+    nombre.includes('MACBOOK') ||
+    nombre.includes('MAC');
+
+  const isPhone =
+    !isMac &&
+    (nombre.includes('IPHONE') ||
+      nombre.includes('GALAXY') ||
+      nombre.includes('SAMSUNG') ||
+      nombre.includes('XIAOMI') ||
+      nombre.includes('PIXEL') ||
+      nombre.includes('MOTOROLA') ||
+      nombre.includes('PHONE'));
+
+  return { isPhone, isMac, isDesktop };
+}
+
 export interface DispositivoEditItem {
   id: number;
   modeloNombre: string;
@@ -138,7 +187,12 @@ export function ModalEditarPermuta({
     // Validar dispositivos
     for (let i = 0; i < dispositivos.length; i++) {
       const d = dispositivos[i];
-      if (d.porcentajeBateria === '' || d.porcentajeBateria < 1 || d.porcentajeBateria > 100) {
+      const { isPhone, isDesktop } = getDeviceFamily(d.modeloNombre);
+      if (isPhone && (d.porcentajeBateria === '' || d.porcentajeBateria < 1 || d.porcentajeBateria > 100)) {
+        setErrorMsg(`El porcentaje de batería del equipo #${i + 1} (${d.modeloNombre}) debe estar entre 1% y 100%.`);
+        return;
+      }
+      if (!isPhone && !isDesktop && d.porcentajeBateria !== '' && (d.porcentajeBateria < 1 || d.porcentajeBateria > 100)) {
         setErrorMsg(`El porcentaje de batería del equipo #${i + 1} (${d.modeloNombre}) debe estar entre 1% y 100%.`);
         return;
       }
@@ -193,6 +247,9 @@ export function ModalEditarPermuta({
   }, []);
 
   const currentDisp = dispositivos[selectedTabIdx];
+  const { isPhone, isMac, isDesktop } = currentDisp
+    ? getDeviceFamily(currentDisp.modeloNombre)
+    : { isPhone: true, isMac: false, isDesktop: false };
 
   return (
     <Modal
@@ -206,7 +263,7 @@ export function ModalEditarPermuta({
           <span>Editar Permuta #ING-{permuta?.id}</span>
         </div>
       }
-      description={`Modifica los datos del cliente, batería, fecha u observaciones de esta permuta (${dispositivos.length} ${dispositivos.length === 1 ? 'iPhone' : 'iPhones'}).`}
+      description={`Modifica los datos del cliente, batería, fecha u observaciones de esta permuta (${dispositivos.length} ${dispositivos.length === 1 ? 'dispositivo' : 'dispositivos'}).`}
       className="max-w-2xl p-6"
     >
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
@@ -363,15 +420,18 @@ export function ModalEditarPermuta({
                   <div>
                     <Label htmlFor="editBateria" className="text-xs mb-1 flex items-center gap-1">
                       <Battery className="h-3.5 w-3.5 text-slate-500" />
-                      <span>Salud de Batería (%) <span className="text-rose-500">*</span></span>
+                      <span>
+                        Salud de Batería (%) {isPhone && <span className="text-rose-500">*</span>}
+                        {isDesktop && <span className="text-slate-400 font-normal"> (N/A)</span>}
+                      </span>
                     </Label>
                     <Input
                       id="editBateria"
                       type="number"
                       min={1}
                       max={100}
-                      disabled={currentDisp.isSold}
-                      value={currentDisp.porcentajeBateria}
+                      disabled={currentDisp.isSold || isDesktop}
+                      value={isDesktop ? '' : currentDisp.porcentajeBateria}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateSelectedDevice(
@@ -380,7 +440,7 @@ export function ModalEditarPermuta({
                         )
                       }
                       className="text-xs h-9 font-mono"
-                      required
+                      required={isPhone}
                     />
                   </div>
 
@@ -421,7 +481,7 @@ export function ModalEditarPermuta({
                   {/* Número de Serie */}
                   <div>
                     <Label htmlFor="editSerie" className="text-xs mb-1 block">
-                      Número de Serie
+                      Número de Serie {!isPhone && <span className="text-rose-500">*</span>}
                     </Label>
                     <Input
                       id="editSerie"
@@ -435,23 +495,24 @@ export function ModalEditarPermuta({
                   {/* IMEI 1 */}
                   <div>
                     <Label htmlFor="editImei1" className="text-xs mb-1 block">
-                      IMEI 1
+                      IMEI 1 {isPhone ? <span className="text-rose-500">*</span> : isMac ? <span className="text-slate-400 font-normal">(No aplica en Mac Wi-Fi)</span> : null}
                     </Label>
                     <Input
                       id="editImei1"
                       disabled={currentDisp.isSold}
                       value={currentDisp.imei1}
                       onChange={(e) => updateSelectedDevice('imei1', e.target.value)}
+                      placeholder={isMac ? "N/A en Mac Wi-Fi" : "35..."}
                       className="text-xs h-9 font-mono"
                     />
                   </div>
 
-                  {/* Registro / Situación de Liberación */}
+                  {/* Registro / Situación de Liberación con Chips */}
                   <div className="sm:col-span-2">
                     <Label htmlFor="editRegistro" className="text-xs mb-1 flex items-center justify-between">
                       <span className="flex items-center gap-1">
                         <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Registro <span className="text-slate-400 font-normal">(Operador / Liberación)</span></span>
+                        <span>Registro <span className="text-slate-400 font-normal">(Operador / Auditoría)</span></span>
                       </span>
                     </Label>
                     <Input
@@ -459,9 +520,37 @@ export function ModalEditarPermuta({
                       disabled={currentDisp.isSold}
                       value={currentDisp.detallesFisicos}
                       onChange={(e) => updateSelectedDevice('detallesFisicos', e.target.value)}
-                      placeholder="Ej: Liberado de fábrica / Bloqueado AT&T / R-SIM"
+                      placeholder={isMac ? "Ej: iCloud Libre, Sin MDM, Batería Normal" : "Ej: Liberado de fábrica / Bloqueado AT&T / R-SIM"}
                       className="text-xs h-9"
                     />
+                    {!currentDisp.isSold && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {getDeviceChips(isMac, isPhone).map((chip) => {
+                          const isSelected = (currentDisp.detallesFisicos || '')
+                            .toLowerCase()
+                            .includes(chip.toLowerCase());
+                          return (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() =>
+                                updateSelectedDevice(
+                                  'detallesFisicos',
+                                  toggleDetalleChip(currentDisp.detallesFisicos || '', chip)
+                                )
+                              }
+                              className={`text-[10px] px-2 py-0.5 rounded-md border font-medium transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-100 text-purple-800 border-purple-300 font-semibold'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {isSelected ? `✓ ${chip}` : `+ ${chip}`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

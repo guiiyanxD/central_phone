@@ -25,9 +25,9 @@ export class PermutaTradeInDto {
   @IsOptional()
   nuevaVariante?: NuevaVarianteInlineDto;
 
-  @IsString({ message: 'El IMEI 1 del teléfono en permuta es obligatorio.' })
-  @IsNotEmpty({ message: 'IMEI 1 requerido para permuta.' })
-  imei1: string;
+  @IsString({ message: 'El IMEI 1 debe ser una cadena de texto.' })
+  @IsOptional()
+  imei1?: string;
 
   @IsString()
   @IsOptional()
@@ -40,8 +40,8 @@ export class PermutaTradeInDto {
   @IsInt({ message: 'El porcentaje de batería debe ser un número entero.' })
   @Min(1, { message: 'El porcentaje de batería mínimo es 1%.' })
   @Max(100, { message: 'El porcentaje de batería máximo es 100%.' })
-  @IsNotEmpty({ message: 'El porcentaje de salud de batería es obligatorio.' })
-  porcentajeBateria: number;
+  @IsOptional()
+  porcentajeBateria?: number;
 
   @IsString()
   @IsOptional()

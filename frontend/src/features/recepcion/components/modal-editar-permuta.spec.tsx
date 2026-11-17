@@ -150,4 +150,14 @@ describe('ModalEditarPermuta Component', () => {
     const costoInput = screen.getByLabelText(/Costo de Toma/i) as HTMLInputElement;
     expect(costoInput.disabled).toBe(false);
   });
+
+  it('debe permitir interactuar con los chips de auditoría rápida', () => {
+    render(<ModalEditarPermuta {...defaultProps} />);
+
+    const chipBateria = screen.getByRole('button', { name: /\+ Batería Cambiada/i });
+    fireEvent.click(chipBateria);
+
+    const registroInput = screen.getByLabelText(/Registro/i) as HTMLInputElement;
+    expect(registroInput.value).toContain('Batería Cambiada');
+  });
 });

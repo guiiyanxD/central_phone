@@ -759,6 +759,74 @@ describe('VentasService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('debe registrar exitosamente una venta con trade-in de una computadora Mac sin IMEI', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido } as any);
+
+      prisma.dispositivo.findUnique
+        .mockResolvedValueOnce({
+          id: 10,
+          sucursalId: 1,
+          estadoInventario: EstadoInventario.DISPONIBLE,
+          costoBs: 4000,
+          variante: { modelo: { nombreModelo: 'iPhone 15' } },
+        } as any)
+        .mockResolvedValueOnce(null); // Serie no existe
+
+      prisma.dispositivo.updateMany.mockResolvedValue({ count: 1 } as any);
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 30,
+        modelo: { tipo: 'MAC', nombreModelo: 'MacBook Air M2' },
+      } as any);
+
+      prisma.proveedor.findFirst.mockResolvedValue(null);
+      prisma.proveedor.create.mockResolvedValue({ id: 99, nombre: 'Cliente Permuta: Juan Carlos Perez' } as any);
+      prisma.notaIngreso.create.mockResolvedValue({ id: 57, numeroComprobante: 'PERM-POS-MAC123' } as any);
+      prisma.dispositivo.create.mockResolvedValue({
+        id: 85,
+        numeroSerie: 'C02G41ABQ05D',
+        condicion: 'PERMUTA',
+        costoBs: 3000,
+      } as any);
+
+      prisma.venta.create.mockResolvedValue({ id: 102 } as any);
+      prisma.detalleVenta.create.mockResolvedValue({ id: 1 } as any);
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 102,
+        totalVentaBs: 5000,
+        montoPermutaBs: 3000,
+        montoEfectivoBs: 2000,
+        permutaDispositivoId: 85,
+      } as any);
+
+      const resultado = await service.createVenta(usuarioId, sucursalId, {
+        metodoPagoCodigo: 'EFECTIVO',
+        cliente: clienteValido,
+        dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
+        permutas: [
+          {
+            varianteId: 30,
+            numeroSerie: 'C02G41ABQ05D',
+            valorTomaBs: 3000,
+            detallesFisicos: '16GB RAM • [iCloud Libre] [Sin MDM]',
+          },
+        ],
+      });
+
+      expect(resultado).toBeDefined();
+      expect(prisma.dispositivo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            numeroSerie: 'C02G41ABQ05D',
+            imei1: null,
+            porcentajeBateria: null,
+            costoBs: 3000,
+          }),
+        }),
+      );
+    });
+
     it('debe registrar exitosamente un pago MIXTO dividiendo montoEfectivoBs y montoDigitalBs', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 4, codigo: 'MIXTO', nombre: 'Pago Mixto' } as any);

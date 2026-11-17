@@ -76,15 +76,16 @@ describe('RecepcionPermutaForm Component', () => {
     (api.recepcion.createPermuta as any).mockResolvedValue({ id: 101 });
   });
 
-  it('debe renderizar la sección de especificaciones de iPhones y el campo Registro', async () => {
+  it('debe renderizar la sección de especificaciones de dispositivos y el campo Registro con chips de auditoría', async () => {
     render(<RecepcionPermutaForm {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/2. Especificaciones de los iPhones Recibidos/i)).toBeDefined();
+      expect(screen.getByText(/2. Especificaciones de los Dispositivos Recibidos/i)).toBeDefined();
     });
 
     expect(screen.getByLabelText(/Registro/i)).toBeDefined();
     expect(screen.getByPlaceholderText(/Liberado de fábrica/i)).toBeDefined();
+    expect(screen.getByRole('button', { name: /\+ Libre Fábrica/i })).toBeDefined();
   });
 
   it('debe enviar el valor de "Registro" como detallesFisicos al registrar la permuta', async () => {
@@ -124,7 +125,7 @@ describe('RecepcionPermutaForm Component', () => {
     expect(defaultProps.onSuccess).toHaveBeenCalledWith({ id: 101 });
   });
 
-  it('debe permitir agregar múltiples iPhones y enviar el lote consolidado', async () => {
+  it('debe permitir agregar múltiples dispositivos y enviar el lote consolidado', async () => {
     render(<RecepcionPermutaForm {...defaultProps} />);
 
     // Llenar datos del cliente
@@ -140,12 +141,12 @@ describe('RecepcionPermutaForm Component', () => {
     fireEvent.change(imeiInputs[0], { target: { value: '351111111111111' } });
     fireEvent.change(costoInputs[0], { target: { value: '3000' } });
 
-    // Agregar segundo iPhone
-    const addBtn = screen.getByRole('button', { name: /\+ Agregar otro iPhone/i });
+    // Agregar segundo dispositivo
+    const addBtn = screen.getByRole('button', { name: /\+ Agregar otro Dispositivo/i });
     fireEvent.click(addBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Total iPhones/i)).toBeDefined();
+      expect(screen.getByText(/Total Dispositivos/i)).toBeDefined();
     });
 
     // Llenar iPhone #2
@@ -159,7 +160,7 @@ describe('RecepcionPermutaForm Component', () => {
     fireEvent.change(costoInputsAfter[1], { target: { value: '5000' } });
 
     // Confirmar permuta multi-equipo
-    const submitBtn = screen.getByRole('button', { name: /Registrar Permuta \(2 iPhones\)/i });
+    const submitBtn = screen.getByRole('button', { name: /Registrar Permuta \(2 dispositivos\)/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -180,10 +181,10 @@ describe('RecepcionPermutaForm Component', () => {
     });
   });
 
-  it('debe duplicar las especificaciones de un iPhone al pulsar "Duplicar"', async () => {
+  it('debe duplicar las especificaciones de un dispositivo al pulsar "Duplicar"', async () => {
     render(<RecepcionPermutaForm {...defaultProps} />);
 
-    // Llenar iPhone #1 con costo 3500 y detalles
+    // Llenar dispositivo #1 con costo 3500 y detalles
     const costoInput = screen.getByLabelText(/Costo de Toma/i);
     fireEvent.change(costoInput, { target: { value: '3500' } });
 
@@ -194,6 +195,67 @@ describe('RecepcionPermutaForm Component', () => {
       const costoInputs = screen.getAllByLabelText(/Costo de Toma/i);
       expect(costoInputs.length).toBe(2);
       expect((costoInputs[1] as HTMLInputElement).value).toBe('3500');
+    });
+  });
+
+  it('debe permitir recibir una MacBook en permuta con número de serie y sin IMEI', async () => {
+    const modelosConMac = [
+      ...mockModelos,
+      {
+        id: 3,
+        nombreModelo: 'MacBook Pro 14 M3',
+        tipo: 'MAC',
+        variantes: [
+          {
+            id: 30,
+            color: 'Space Black',
+            capacidadGb: 512,
+            tipoSim: 'N/A',
+          },
+        ],
+      },
+    ];
+
+    render(<RecepcionPermutaForm {...defaultProps} modelos={modelosConMac} />);
+
+    fireEvent.change(screen.getByLabelText(/Nombre \*/i), { target: { value: 'Laura' } });
+    fireEvent.change(screen.getByLabelText(/Teléfono de Contacto/i), { target: { value: '70112233' } });
+
+    // Cambiar a MacBook Pro
+    const modeloSelect = screen.getByLabelText(/Modelo del Dispositivo/i);
+    fireEvent.change(modeloSelect, { target: { value: '3' } });
+
+    // Llenar N° de Serie y costo, dejando IMEI 1 vacío
+    const serieInput = screen.getByLabelText(/N° de Serie \*/i);
+    fireEvent.change(serieInput, { target: { value: 'C02G41ABQ05D' } });
+
+    const costoInput = screen.getByLabelText(/Costo de Toma/i);
+    fireEvent.change(costoInput, { target: { value: '7500' } });
+
+    // Clic en chip de auditoría iCloud Libre
+    const icloudChip = screen.getByRole('button', { name: /\+ iCloud Libre/i });
+    fireEvent.click(icloudChip);
+
+    const submitBtn = screen.getByRole('button', { name: /Registrar Permuta/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(api.recepcion.createPermuta).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proveedorMinorista: expect.objectContaining({
+            nombre: 'Laura',
+          }),
+          dispositivos: expect.arrayContaining([
+            expect.objectContaining({
+              varianteId: 30,
+              numeroSerie: 'C02G41ABQ05D',
+              imei1: undefined,
+              costoBs: 7500,
+              detallesFisicos: 'iCloud Libre',
+            }),
+          ]),
+        }),
+      );
     });
   });
 });

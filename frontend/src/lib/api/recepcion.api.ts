@@ -48,7 +48,7 @@ export interface CreatePermutaData {
     telefono: string;
   };
   sucursalId: number;
-  dispositivo: {
+  dispositivo?: {
     varianteId?: number;
     nuevaVariante?: {
       modeloId: number;
@@ -57,11 +57,34 @@ export interface CreatePermutaData {
       tipoSim?: string;
     };
     numeroSerie: string;
-    imei1: string;
+    imei1?: string;
     imei2?: string;
-    porcentajeBateria: number;
+    porcentajeBateria?: number;
     costoBs: number;
+    detallesFisicos?: string;
   };
+  dispositivos?: Array<{
+    varianteId?: number;
+    nuevaVariante?: {
+      modeloId: number;
+      color: string;
+      capacidadGb: number;
+      tipoSim?: string;
+    };
+    numeroSerie: string;
+    imei1?: string;
+    imei2?: string;
+    porcentajeBateria?: number;
+    costoBs: number;
+    detallesFisicos?: string;
+    gastosIniciales?: Array<{
+      concepto: string;
+      costoBs: number;
+      observacion?: string;
+      aplicoEnCaja?: boolean;
+      fechaGasto?: string;
+    }>;
+  }>;
   gastosIniciales?: Array<{
     concepto: string;
     costoBs: number;
