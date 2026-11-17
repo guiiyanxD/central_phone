@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw, AlertCircle, User, Phone } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -12,24 +12,37 @@ import { ProveedorItem } from '@/features/proveedores/types';
 interface ModalCrearProveedorMinoristaInlineProps {
   isOpen: boolean;
   onClose: () => void;
-  onProveedorCreado: (proveedor: ProveedorItem) => void;
+  onProveedorCreado?: (proveedor: ProveedorItem) => void;
+  onSuccess?: (proveedor: ProveedorItem) => void;
+  telefonoInicial?: string;
+  nombreInicial?: string;
 }
 
 export function ModalCrearProveedorMinoristaInline({
   isOpen,
   onClose,
   onProveedorCreado,
+  onSuccess,
+  telefonoInicial,
+  nombreInicial,
 }: ModalCrearProveedorMinoristaInlineProps) {
-  const [nombre, setNombre] = useState('');
+  const [nombre, setNombre] = useState(nombreInicial || '');
   const [apellido, setApellido] = useState('');
-  const [telefono, setTelefono] = useState('');
+  const [telefono, setTelefono] = useState(telefonoInicial || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      if (nombreInicial !== undefined) setNombre(nombreInicial);
+      if (telefonoInicial !== undefined) setTelefono(telefonoInicial);
+    }
+  }, [isOpen, nombreInicial, telefonoInicial]);
+
   const resetForm = () => {
-    setNombre('');
+    setNombre(nombreInicial || '');
     setApellido('');
-    setTelefono('');
+    setTelefono(telefonoInicial || '');
     setErrorMsg(null);
   };
 
@@ -62,7 +75,12 @@ export function ModalCrearProveedorMinoristaInline({
         tipo: 'MINORISTA',
       });
 
-      onProveedorCreado(nuevo);
+      if (onSuccess) {
+        onSuccess(nuevo);
+      }
+      if (onProveedorCreado) {
+        onProveedorCreado(nuevo);
+      }
       handleClose();
     } catch (err: any) {
       setErrorMsg(

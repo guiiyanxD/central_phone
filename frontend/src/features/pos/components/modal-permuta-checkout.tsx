@@ -96,7 +96,7 @@ export function ModalPermutaCheckout({
     if (isOpen) {
       setErrorMsg(null);
       if (initialPermutas && initialPermutas.length > 0) {
-        const loaded = initialPermutas.map((p, idx) => {
+        const loaded: PermutaFormItem[] = initialPermutas.map((p, idx) => {
           const foundMod = iphoneModelos.find((m) =>
             m.variantes?.some((v: any) => v.id === p.varianteId)
           );
@@ -107,8 +107,8 @@ export function ModalPermutaCheckout({
             imei1: p.imei1 || '',
             imei2: p.imei2 || '',
             numeroSerie: p.numeroSerie || '',
-            porcentajeBateria: p.porcentajeBateria || 85,
-            valorTomaBs: p.valorTomaBs || '',
+            porcentajeBateria: typeof p.porcentajeBateria === 'number' ? p.porcentajeBateria : 85,
+            valorTomaBs: (typeof p.valorTomaBs === 'number' && !isNaN(p.valorTomaBs)) ? p.valorTomaBs : '',
             detallesFisicos: p.detallesFisicos || '',
           };
         });
@@ -125,8 +125,8 @@ export function ModalPermutaCheckout({
             imei1: initialPermuta.imei1 || '',
             imei2: initialPermuta.imei2 || '',
             numeroSerie: initialPermuta.numeroSerie || '',
-            porcentajeBateria: initialPermuta.porcentajeBateria || 85,
-            valorTomaBs: initialPermuta.valorTomaBs || '',
+            porcentajeBateria: typeof initialPermuta.porcentajeBateria === 'number' ? initialPermuta.porcentajeBateria : 85,
+            valorTomaBs: (typeof initialPermuta.valorTomaBs === 'number' && !isNaN(initialPermuta.valorTomaBs)) ? initialPermuta.valorTomaBs : '',
             detallesFisicos: initialPermuta.detallesFisicos || '',
           },
         ]);
@@ -178,7 +178,8 @@ export function ModalPermutaCheckout({
     const permutasDto: PermutaTradeInDto[] = [];
     const summariesDto: PermutaSummaryItem[] = [];
 
-    for (const [idx, eq] of equipos.entries()) {
+    for (let idx = 0; idx < equipos.length; idx++) {
+      const eq = equipos[idx];
       const pos = idx + 1;
       if (!eq.varianteId) {
         setErrorMsg(`Equipo #${pos}: Debes seleccionar la variante (color y almacenamiento).`);
