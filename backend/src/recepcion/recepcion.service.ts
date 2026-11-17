@@ -1453,14 +1453,16 @@ export class RecepcionService {
     const imeisVistos = new Set<string>();
 
     for (const [index, disp] of listaDispositivos.entries()) {
-      const serie = disp.numeroSerie?.trim() || `SN-${disp.imei1?.trim()}`;
-      const imei1 = disp.imei1.trim();
+      const imei1 = disp.imei1?.trim() || null;
       const imei2 = disp.imei2?.trim() || null;
+      const serie = disp.numeroSerie?.trim() || (imei1 ? `SN-${imei1}` : null);
 
-      if (imeisVistos.has(imei1)) {
-        throw new BadRequestException(`El IMEI 1 '${imei1}' está duplicado en la lista de equipos.`);
+      if (imei1) {
+        if (imeisVistos.has(imei1)) {
+          throw new BadRequestException(`El IMEI 1 '${imei1}' está duplicado en la lista de equipos.`);
+        }
+        imeisVistos.add(imei1);
       }
-      imeisVistos.add(imei1);
 
       if (imei2) {
         if (imeisVistos.has(imei2)) {
@@ -1469,32 +1471,38 @@ export class RecepcionService {
         imeisVistos.add(imei2);
       }
 
-      if (seriesVistas.has(serie)) {
-        throw new BadRequestException(`El número de serie '${serie}' está duplicado en la lista de equipos.`);
+      if (serie) {
+        if (seriesVistas.has(serie)) {
+          throw new BadRequestException(`El número de serie '${serie}' está duplicado en la lista de equipos.`);
+        }
+        seriesVistas.add(serie);
+
+        const serieExistente = await this.prisma.dispositivo.findUnique({
+          where: { numeroSerie: serie },
+        });
+        if (serieExistente) {
+          throw new ConflictException(`El número de serie '${serie}' ya está registrado en el inventario.`);
+        }
       }
-      seriesVistas.add(serie);
 
       if (
         disp.porcentajeBateria !== undefined &&
-        (disp.porcentajeBateria < 1 || disp.porcentajeBateria > 100)
+        disp.porcentajeBateria !== null &&
+        (disp.porcentajeBateria as any) !== '' &&
+        (Number(disp.porcentajeBateria) < 1 || Number(disp.porcentajeBateria) > 100)
       ) {
         throw new BadRequestException(
           `El porcentaje de salud de batería del equipo #${index + 1} debe estar entre 1% y 100%.`,
         );
       }
 
-      const serieExistente = await this.prisma.dispositivo.findUnique({
-        where: { numeroSerie: serie },
-      });
-      if (serieExistente) {
-        throw new ConflictException(`El número de serie '${serie}' ya está registrado en el inventario.`);
-      }
-
-      const imei1Existente = await this.prisma.dispositivo.findUnique({
-        where: { imei1 },
-      });
-      if (imei1Existente) {
-        throw new ConflictException(`El IMEI 1 '${imei1}' ya está registrado en el inventario.`);
+      if (imei1) {
+        const imei1Existente = await this.prisma.dispositivo.findUnique({
+          where: { imei1 },
+        });
+        if (imei1Existente) {
+          throw new ConflictException(`El IMEI 1 '${imei1}' ya está registrado en el inventario.`);
+        }
       }
 
       if (imei2) {
@@ -1582,12 +1590,12 @@ export class RecepcionService {
       let inversionTotalAcumuladaBs = 0;
 
       for (const [index, disp] of listaDispositivos.entries()) {
-        const serie = disp.numeroSerie?.trim() || `SN-${disp.imei1.trim()}`;
-        const imei1 = disp.imei1.trim();
+        const imei1 = disp.imei1?.trim() || null;
         const imei2 = disp.imei2?.trim() || null;
+        const serie = disp.numeroSerie?.trim() || (imei1 ? `SN-${imei1}` : null);
         const costoBs = roundMoney(disp.costoBs);
 
-        // Resolver variante del iPhone
+        // Resolver variante del dispositivo
         let varianteId = disp.varianteId;
         if (!varianteId && disp.nuevaVariante) {
           const { modeloId, color, capacidadGb, tipoSim } = disp.nuevaVariante;
@@ -1630,12 +1638,48 @@ export class RecepcionService {
           throw new NotFoundException(`La variante con ID ${varianteId} no existe.`);
         }
 
-        if (
-          varianteDb.modelo.tipo !== 'IPHONE' &&
-          !varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE')
-        ) {
-          throw new BadRequestException('El módulo de permutas es exclusivo para dispositivos iPhone.');
+        if (!serie) {
+          throw new BadRequestException(
+            `El dispositivo #${index + 1} (${varianteDb.modelo.nombreModelo}) requiere un número de serie válido.`,
+          );
         }
+
+        const modeloTipo = (varianteDb.modelo.tipo || '').toUpperCase();
+        const esTelefono =
+          ['IPHONE', 'TELEFONO', 'SMARTPHONE', 'CELULAR'].includes(modeloTipo) ||
+          varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE') ||
+          varianteDb.modelo.nombreModelo.toUpperCase().includes('SAMSUNG');
+
+        if (esTelefono && !imei1) {
+          throw new BadRequestException(
+            `El dispositivo '${varianteDb.modelo.nombreModelo}' es un teléfono y requiere obligatoriamente un IMEI 1 válido.`,
+          );
+        }
+
+        if (
+          esTelefono &&
+          (disp.porcentajeBateria === undefined ||
+            disp.porcentajeBateria === null ||
+            (disp.porcentajeBateria as any) === '')
+        ) {
+          throw new BadRequestException(
+            `El dispositivo '${varianteDb.modelo.nombreModelo}' requiere especificar el porcentaje de salud de batería.`,
+          );
+        }
+
+        const esDesktop =
+          ['DESKTOP', 'IMAC', 'MAC_MINI', 'MAC_STUDIO'].includes(modeloTipo) ||
+          varianteDb.modelo.nombreModelo.toUpperCase().includes('MAC MINI') ||
+          varianteDb.modelo.nombreModelo.toUpperCase().includes('IMAC') ||
+          varianteDb.modelo.nombreModelo.toUpperCase().includes('MAC STUDIO');
+
+        const resolvedBateria = esDesktop
+          ? null
+          : disp.porcentajeBateria !== undefined &&
+            disp.porcentajeBateria !== null &&
+            (disp.porcentajeBateria as any) !== ''
+          ? Number(disp.porcentajeBateria)
+          : null;
 
         // Gastos particulares del equipo (más gastos globales si es el primer equipo)
         const gastosEquipo = [
@@ -1662,7 +1706,7 @@ export class RecepcionService {
             imei1,
             imei2,
             condicion: CondicionDispositivo.PERMUTA,
-            porcentajeBateria: disp.porcentajeBateria,
+            porcentajeBateria: resolvedBateria,
             detallesFisicos: disp.detallesFisicos?.trim() || null,
             costoBs,
             costoUsd: 0,

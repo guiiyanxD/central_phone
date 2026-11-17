@@ -34,6 +34,57 @@ import { api } from '@/lib/api';
 import { ReglaMargenPrecio } from '@/lib/api/configuracion.api';
 import { calcularPrecioSugeridoBs } from '@/lib/utils/pricing.util';
 
+const CHIPS_MAC = ['iCloud Libre', 'Sin MDM', 'Sin Password EFI', 'Cargador Original', 'Batería Normal'];
+const CHIPS_PHONE = ['Libre Fábrica', 'R-SIM', 'Batería Cambiada', 'Detalles de Uso'];
+const CHIPS_OTHER = ['iCloud Libre', 'Sin MDM', 'Pantalla Original', 'Cargador Incluido'];
+
+function getDeviceChips(isMac: boolean, isPhone: boolean): string[] {
+  if (isMac) return CHIPS_MAC;
+  if (isPhone) return CHIPS_PHONE;
+  return CHIPS_OTHER;
+}
+
+function toggleDetalleChip(current: string, chip: string): string {
+  const items = current
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const exists = items.some((item) => item.toLowerCase() === chip.toLowerCase());
+  if (exists) {
+    return items.filter((item) => item.toLowerCase() !== chip.toLowerCase()).join(', ');
+  }
+  return items.length > 0 ? `${items.join(', ')}, ${chip}` : chip;
+}
+
+function getDeviceFamily(modelo: any): { isPhone: boolean; isMac: boolean; isDesktop: boolean } {
+  const tipo = String(modelo?.tipo || modelo?.tipoDispositivo?.nombre || '').toUpperCase();
+  const nombre = String(modelo?.nombreModelo || '').toUpperCase();
+
+  const isDesktop =
+    ['DESKTOP', 'IMAC', 'MAC_MINI', 'MAC_STUDIO'].includes(tipo) ||
+    nombre.includes('IMAC') ||
+    nombre.includes('MAC MINI') ||
+    nombre.includes('MAC STUDIO');
+
+  const isMac =
+    isDesktop ||
+    ['MAC', 'MACBOOK', 'LAPTOP'].includes(tipo) ||
+    nombre.includes('MACBOOK') ||
+    nombre.includes('MAC');
+
+  const isPhone =
+    !isMac &&
+    (['IPHONE', 'TELEFONO', 'SMARTPHONE', 'CELULAR'].includes(tipo) ||
+      nombre.includes('IPHONE') ||
+      nombre.includes('GALAXY') ||
+      nombre.includes('SAMSUNG') ||
+      nombre.includes('XIAOMI') ||
+      nombre.includes('PIXEL') ||
+      nombre.includes('MOTOROLA'));
+
+  return { isPhone, isMac, isDesktop };
+}
+
 export interface GastoRow {
   id: string;
   concepto: string;
@@ -74,20 +125,14 @@ export function RecepcionPermutaForm({
   onSuccess,
   onOpenInlineVarianteModal,
 }: RecepcionPermutaFormProps) {
-  // Filtrar modelos exclusivos de iPhone
-  const iphoneModelos = useMemo(
-    () =>
-      modelos.filter(
-        (m) =>
-          m.tipo === 'IPHONE' ||
-          m.tipoDispositivo?.nombre === 'IPHONE' ||
-          m.nombreModelo.toUpperCase().includes('IPHONE')
-      ),
-    [modelos]
-  );
+  // Catálogo completo disponible para permuta (multidispositivo: iPhone, Mac, iPad, Android, etc.)
+  const disponiblesModelos = useMemo(() => {
+    return modelos && modelos.length > 0 ? modelos : [];
+  }, [modelos]);
+  const iphoneModelos = disponiblesModelos; // Alias para compatibilidad
 
-  const defaultModeloId = iphoneModelos[0]?.id || (modelos[0]?.id || 1);
-  const defaultVarianteId = iphoneModelos[0]?.variantes?.[0]?.id || null;
+  const defaultModeloId = disponiblesModelos[0]?.id || 1;
+  const defaultVarianteId = disponiblesModelos[0]?.variantes?.[0]?.id || null;
 
   // Estados de datos de proveedor minorista
   const [nombreCliente, setNombreCliente] = useState('');
@@ -365,60 +410,80 @@ export function RecepcionPermutaForm({
     }
 
     if (equipos.length === 0) {
-      setErrorMsg('Debes agregar al menos un iPhone a la permuta.');
+      setErrorMsg('Debes agregar al menos un dispositivo a la permuta.');
       return;
     }
 
-    // 2. Validaciones de cada iPhone y unicidad en memoria
+    // 2. Validaciones de cada dispositivo y unicidad en memoria
     const imeisVistos = new Set<string>();
     const seriesVistas = new Set<string>();
 
     for (let i = 0; i < equipos.length; i++) {
       const eq = equipos[i];
       const eqNum = i + 1;
+      const selectedModelo = disponiblesModelos.find((m) => m.id === Number(eq.modeloId));
+      const { isPhone, isDesktop } = getDeviceFamily(selectedModelo);
 
       if (!eq.varianteId) {
-        setErrorMsg(`El iPhone #${eqNum} requiere que selecciones una variante (Color/Capacidad).`);
+        setErrorMsg(`El equipo #${eqNum} (${selectedModelo?.nombreModelo || 'Dispositivo'}) requiere que selecciones una variante (Color/Capacidad).`);
         return;
       }
 
-      const imei1Clean = eq.imei1.trim();
-      if (!imei1Clean || imei1Clean.length < 14) {
-        setErrorMsg(`El iPhone #${eqNum} requiere un IMEI 1 válido de al menos 14-15 dígitos numéricos.`);
-        return;
+      const imei1Clean = eq.imei1?.trim() || '';
+      const serieInputClean = eq.numeroSerie?.trim() || '';
+
+      if (isPhone) {
+        if (!imei1Clean || imei1Clean.length < 14) {
+          setErrorMsg(`El equipo #${eqNum} (${selectedModelo?.nombreModelo}) es un teléfono y requiere un IMEI 1 válido de al menos 14-15 dígitos numéricos.`);
+          return;
+        }
+      } else {
+        if (!serieInputClean && !imei1Clean) {
+          setErrorMsg(`El equipo #${eqNum} (${selectedModelo?.nombreModelo}) requiere un número de serie válido.`);
+          return;
+        }
       }
 
-      if (imeisVistos.has(imei1Clean)) {
-        setErrorMsg(`El IMEI 1 '${imei1Clean}' del iPhone #${eqNum} está repetido dentro del mismo lote.`);
-        return;
+      if (imei1Clean) {
+        if (imeisVistos.has(imei1Clean)) {
+          setErrorMsg(`El IMEI 1 '${imei1Clean}' del equipo #${eqNum} está repetido dentro del mismo lote.`);
+          return;
+        }
+        imeisVistos.add(imei1Clean);
       }
-      imeisVistos.add(imei1Clean);
 
-      if (eq.imei2.trim()) {
+      if (eq.imei2?.trim()) {
         const imei2Clean = eq.imei2.trim();
         if (imeisVistos.has(imei2Clean)) {
-          setErrorMsg(`El IMEI 2 '${imei2Clean}' del iPhone #${eqNum} ya fue registrado en este lote.`);
+          setErrorMsg(`El IMEI 2 '${imei2Clean}' del equipo #${eqNum} ya fue registrado en este lote.`);
           return;
         }
         imeisVistos.add(imei2Clean);
       }
 
-      // Serie (autogeneración con prefijo SN- si está en blanco)
-      const serieClean = (eq.numeroSerie.trim() || `SN-${imei1Clean}`).toUpperCase();
-      if (seriesVistas.has(serieClean)) {
-        setErrorMsg(`El número de serie '${serieClean}' del iPhone #${eqNum} está repetido en este lote.`);
-        return;
+      // Serie (autogeneración con prefijo SN- si es teléfono y está en blanco)
+      const serieClean = (serieInputClean || (imei1Clean ? `SN-${imei1Clean}` : '')).toUpperCase();
+      if (serieClean) {
+        if (seriesVistas.has(serieClean)) {
+          setErrorMsg(`El número de serie '${serieClean}' del equipo #${eqNum} está repetido en este lote.`);
+          return;
+        }
+        seriesVistas.add(serieClean);
       }
-      seriesVistas.add(serieClean);
 
-      if (eq.porcentajeBateria === '' || eq.porcentajeBateria < 1 || eq.porcentajeBateria > 100) {
-        setErrorMsg(`El porcentaje de salud de batería del iPhone #${eqNum} debe estar entre 1% y 100%.`);
+      if (isPhone) {
+        if (eq.porcentajeBateria === '' || eq.porcentajeBateria < 1 || eq.porcentajeBateria > 100) {
+          setErrorMsg(`El porcentaje de salud de batería del equipo #${eqNum} debe estar entre 1% y 100%.`);
+          return;
+        }
+      } else if (!isDesktop && eq.porcentajeBateria !== '' && (eq.porcentajeBateria < 1 || eq.porcentajeBateria > 100)) {
+        setErrorMsg(`El porcentaje de salud de batería del equipo #${eqNum} debe estar entre 1% y 100%.`);
         return;
       }
 
       const numCosto = typeof eq.costoBs === 'number' ? eq.costoBs : 0;
       if (numCosto <= 0) {
-        setErrorMsg(`El costo de compra/toma en Bs del iPhone #${eqNum} debe ser mayor a 0.`);
+        setErrorMsg(`El costo de compra/toma en Bs del equipo #${eqNum} debe ser mayor a 0.`);
         return;
       }
 
@@ -426,11 +491,11 @@ export function RecepcionPermutaForm({
       for (let gIdx = 0; gIdx < eq.gastos.length; gIdx++) {
         const g = eq.gastos[gIdx];
         if (!g.concepto.trim()) {
-          setErrorMsg(`El gasto #${gIdx + 1} del iPhone #${eqNum} requiere una descripción o concepto.`);
+          setErrorMsg(`El gasto #${gIdx + 1} del equipo #${eqNum} requiere una descripción o concepto.`);
           return;
         }
         if (typeof g.costoBs !== 'number' || g.costoBs <= 0) {
-          setErrorMsg(`El gasto #${gIdx + 1} (${g.concepto}) del iPhone #${eqNum} debe tener un costo mayor a 0.`);
+          setErrorMsg(`El gasto #${gIdx + 1} (${g.concepto}) del equipo #${eqNum} debe tener un costo mayor a 0.`);
           return;
         }
       }
@@ -439,15 +504,24 @@ export function RecepcionPermutaForm({
     setIsSubmitting(true);
     try {
       const dispositivosPayload = equipos.map((eq) => {
+        const selectedModelo = disponiblesModelos.find((m) => m.id === Number(eq.modeloId));
+        const { isDesktop } = getDeviceFamily(selectedModelo);
         const numCosto = typeof eq.costoBs === 'number' ? Math.max(0, eq.costoBs) : 0;
-        const serieFinal = (eq.numeroSerie.trim() || `SN-${eq.imei1.trim()}`).toUpperCase();
+        const imei1Final = eq.imei1?.trim() || undefined;
+        const serieFinal = (eq.numeroSerie?.trim() || (imei1Final ? `SN-${imei1Final}` : '')).toUpperCase();
+        const batFinal = isDesktop
+          ? undefined
+          : eq.porcentajeBateria !== ''
+          ? Number(eq.porcentajeBateria)
+          : undefined;
+
         return {
           varianteId: Number(eq.varianteId),
           numeroSerie: serieFinal,
-          imei1: eq.imei1.trim(),
-          imei2: eq.imei2.trim() || undefined,
-          porcentajeBateria: Number(eq.porcentajeBateria),
-          detallesFisicos: eq.detallesFisicos.trim() || undefined,
+          imei1: imei1Final,
+          imei2: eq.imei2?.trim() || undefined,
+          porcentajeBateria: batFinal,
+          detallesFisicos: eq.detallesFisicos?.trim() || undefined,
           costoBs: numCosto,
           gastosIniciales: eq.gastos.map((g) => ({
             concepto: g.concepto.trim(),
@@ -455,7 +529,7 @@ export function RecepcionPermutaForm({
             fechaGasto: g.fechaGasto
               ? new Date(`${g.fechaGasto}T12:00:00`).toISOString()
               : new Date().toISOString(),
-            observacion: g.observacion.trim() || undefined,
+            observacion: g.observacion?.trim() || undefined,
             aplicoEnCaja: g.aplicoEnCaja,
           })),
         };
@@ -680,17 +754,17 @@ export function RecepcionPermutaForm({
         </CardContent>
       </Card>
 
-      {/* SECCIÓN 2: LISTA DE IPHONES RECIBIDOS */}
+      {/* SECCIÓN 2: LISTA DE DISPOSITIVOS RECIBIDOS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Smartphone className="h-5 w-5 text-purple-700" />
             <div>
               <h2 className="text-sm font-bold text-slate-900">
-                2. Especificaciones de los iPhones Recibidos ({totalEquipos})
+                2. Especificaciones de los Dispositivos Recibidos ({totalEquipos})
               </h2>
               <p className="text-xs text-slate-500">
-                Detalla cada teléfono con sus identificadores de hardware únicos y gastos de reparación.
+                Detalla cada equipo (iPhone, Mac, iPad, Android, etc.) con sus identificadores de hardware y gastos de reparación.
               </p>
             </div>
           </div>
@@ -702,12 +776,13 @@ export function RecepcionPermutaForm({
             className="text-xs h-8 gap-1.5 text-purple-700 border-purple-300 hover:bg-purple-50 font-semibold"
           >
             <Plus className="h-3.5 w-3.5 text-purple-700" />
-            <span>Agregar otro iPhone</span>
+            <span>Agregar otro Dispositivo</span>
           </Button>
         </div>
 
         {equipos.map((eq, index) => {
-          const selectedModelo = iphoneModelos.find((m) => m.id === Number(eq.modeloId));
+          const selectedModelo = disponiblesModelos.find((m) => m.id === Number(eq.modeloId));
+          const { isPhone, isMac, isDesktop } = getDeviceFamily(selectedModelo);
           const variantesDisponibles = selectedModelo?.variantes || [];
           const selectedVariante = variantesDisponibles.find((v: any) => v.id === Number(eq.varianteId));
 
@@ -734,11 +809,11 @@ export function RecepcionPermutaForm({
                   </div>
                   <div className="min-w-0">
                     <span className="font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                      {selectedModelo?.nombreModelo || 'iPhone'}
+                      {selectedModelo?.nombreModelo || 'Dispositivo'}
                       {selectedVariante ? ` - ${selectedVariante.color} (${selectedVariante.capacidadGb >= 1024 ? `${selectedVariante.capacidadGb / 1024}TB` : `${selectedVariante.capacidadGb}GB`})` : ''}
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono">
-                      {eq.imei1 ? `IMEI: ${eq.imei1}` : 'Sin IMEI asignado'}
+                      {eq.imei1 ? `IMEI: ${eq.imei1}` : (eq.numeroSerie ? `Serie: ${eq.numeroSerie}` : 'Sin identificador')}
                       {numCosto > 0 ? ` • Bs ${numCosto.toFixed(2)}` : ''}
                     </span>
                   </div>
@@ -787,10 +862,10 @@ export function RecepcionPermutaForm({
               {eq.isExpanded && (
                 <CardContent className="p-4 sm:p-5 space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Modelo iPhone */}
+                    {/* Modelo Dispositivo */}
                     <div>
                       <Label htmlFor={`modelo-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 block">
-                        Modelo iPhone <span className="text-rose-500">*</span>
+                        Modelo del Dispositivo <span className="text-rose-500">*</span>
                       </Label>
                       <Select
                         id={`modelo-${eq.id}`}
@@ -798,7 +873,7 @@ export function RecepcionPermutaForm({
                         onChange={(e) => updateEquipo(index, 'modeloId', Number(e.target.value))}
                         className="text-xs h-9 font-semibold"
                       >
-                        {iphoneModelos.map((m) => (
+                        {disponiblesModelos.map((m) => (
                           <option key={m.id} value={m.id}>
                             {m.nombreModelo}
                           </option>
@@ -845,16 +920,22 @@ export function RecepcionPermutaForm({
                     {/* IMEI 1 */}
                     <div>
                       <Label htmlFor={`imei1-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 block">
-                        IMEI 1 <span className="text-rose-500">*</span>
+                        {isPhone ? (
+                          <>IMEI 1 <span className="text-rose-500">*</span></>
+                        ) : isMac ? (
+                          <>IMEI 1 <span className="text-slate-400 font-normal">(No aplica a Mac Wi-Fi)</span></>
+                        ) : (
+                          <>IMEI 1 <span className="text-slate-400 font-normal">(Opcional Celular)</span></>
+                        )}
                       </Label>
                       <Input
                         id={`imei1-${eq.id}`}
-                        placeholder="35..."
+                        placeholder={isMac ? "N/A en Mac Wi-Fi" : "35..."}
                         maxLength={16}
                         value={eq.imei1}
                         onChange={(e) => updateEquipo(index, 'imei1', e.target.value)}
                         className="text-xs h-9 font-mono"
-                        required
+                        required={isPhone}
                       />
                     </div>
 
@@ -865,7 +946,7 @@ export function RecepcionPermutaForm({
                       </Label>
                       <Input
                         id={`imei2-${eq.id}`}
-                        placeholder="35..."
+                        placeholder={isMac ? "N/A" : "35..."}
                         maxLength={16}
                         value={eq.imei2}
                         onChange={(e) => updateEquipo(index, 'imei2', e.target.value)}
@@ -877,26 +958,29 @@ export function RecepcionPermutaForm({
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <Label htmlFor={`serie-${eq.id}`} className="text-xs font-semibold text-slate-700">
-                          N° de Serie
+                          N° de Serie {!isPhone && <span className="text-rose-500">*</span>}
                         </Label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (eq.imei1) {
-                              updateEquipo(index, 'numeroSerie', `SN-${eq.imei1.trim()}`);
-                            }
-                          }}
-                          className="text-[10px] text-slate-500 hover:text-slate-900"
-                        >
-                          Autogenerar
-                        </button>
+                        {isPhone && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (eq.imei1) {
+                                updateEquipo(index, 'numeroSerie', `SN-${eq.imei1.trim()}`);
+                              }
+                            }}
+                            className="text-[10px] text-slate-500 hover:text-slate-900 cursor-pointer"
+                          >
+                            Autogenerar
+                          </button>
+                        )}
                       </div>
                       <Input
                         id={`serie-${eq.id}`}
-                        placeholder="F2L..."
+                        placeholder={isMac ? "Ej: C02G41ABQ05D" : "F2L..."}
                         value={eq.numeroSerie}
                         onChange={(e) => updateEquipo(index, 'numeroSerie', e.target.value)}
                         className="text-xs h-9 font-mono uppercase"
+                        required={!isPhone && !eq.imei1}
                       />
                     </div>
 
@@ -904,15 +988,19 @@ export function RecepcionPermutaForm({
                     <div>
                       <Label htmlFor={`bateria-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
                         <Battery className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Batería (%) <span className="text-rose-500">*</span></span>
+                        <span>
+                          Batería (%) {isPhone && <span className="text-rose-500">*</span>}
+                          {isDesktop && <span className="text-slate-400 font-normal"> (N/A)</span>}
+                        </span>
                       </Label>
                       <Input
                         id={`bateria-${eq.id}`}
                         type="number"
                         min={1}
                         max={100}
-                        placeholder="85"
-                        value={eq.porcentajeBateria}
+                        placeholder={isDesktop ? "N/A" : "85"}
+                        disabled={isDesktop}
+                        value={isDesktop ? '' : eq.porcentajeBateria}
                         onChange={(e) =>
                           updateEquipo(
                             index,
@@ -921,7 +1009,7 @@ export function RecepcionPermutaForm({
                           )
                         }
                         className="text-xs h-9 font-mono"
-                        required
+                        required={isPhone}
                       />
                     </div>
 
@@ -950,23 +1038,50 @@ export function RecepcionPermutaForm({
                       />
                     </div>
 
-                    {/* Registro / Situación de Liberación */}
-                    <div>
+                    {/* Registro / Situación de Liberación con Chips */}
+                    <div className="lg:col-span-2">
                       <Label htmlFor={`registro-${eq.id}`} className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
                         <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Registro <span className="text-slate-400 font-normal">(Operador)</span></span>
+                        <span>Registro <span className="text-slate-400 font-normal">(Operador / Auditoría)</span></span>
                       </Label>
                       <Input
                         id={`registro-${eq.id}`}
-                        placeholder="Liberado de fábrica..."
+                        placeholder={isMac ? "Ej: iCloud Libre, Sin MDM, Batería Normal..." : "Liberado de fábrica..."}
                         value={eq.detallesFisicos}
                         onChange={(e) => updateEquipo(index, 'detallesFisicos', e.target.value)}
                         className="text-xs h-9"
                       />
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {getDeviceChips(isMac, isPhone).map((chip) => {
+                          const isSelected = (eq.detallesFisicos || '')
+                            .toLowerCase()
+                            .includes(chip.toLowerCase());
+                          return (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() =>
+                                updateEquipo(
+                                  index,
+                                  'detallesFisicos',
+                                  toggleDetalleChip(eq.detallesFisicos || '', chip)
+                                )
+                              }
+                              className={`text-[10px] px-2 py-0.5 rounded-md border font-medium transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-100 text-purple-800 border-purple-300 font-semibold'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {isSelected ? `✓ ${chip}` : `+ ${chip}`}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Subsección: Gastos de Puesta a Punto de este iPhone */}
+                  {/* Subsección: Gastos de Puesta a Punto de este Equipo */}
                   <div className="pt-2 border-t border-slate-100 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
@@ -1069,7 +1184,7 @@ export function RecepcionPermutaForm({
                     )}
                   </div>
 
-                  {/* Resumen Financiero Individual de este iPhone */}
+                  {/* Resumen Financiero Individual de este Equipo */}
                   <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-4 flex-wrap">
                       <div>
@@ -1111,7 +1226,7 @@ export function RecepcionPermutaForm({
           );
         })}
 
-        {/* Botón para agregar otro iPhone */}
+        {/* Botón para agregar otro Dispositivo */}
         <Button
           type="button"
           variant="outline"
@@ -1119,7 +1234,7 @@ export function RecepcionPermutaForm({
           className="w-full h-11 border-dashed border-2 border-purple-300 bg-purple-50/30 hover:bg-purple-50 text-purple-800 font-bold text-xs flex items-center justify-center gap-2 rounded-xl transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4 text-purple-700" />
-          <span>+ Agregar otro iPhone a esta permuta</span>
+          <span>+ Agregar otro Dispositivo a esta permuta</span>
         </Button>
       </div>
 
@@ -1130,9 +1245,9 @@ export function RecepcionPermutaForm({
             {/* Métricas Consolidadas */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
               <div className="bg-white p-2.5 rounded-lg border border-purple-100 shadow-2xs">
-                <span className="text-[10px] text-slate-500 font-semibold block uppercase">Total iPhones</span>
+                <span className="text-[10px] text-slate-500 font-semibold block uppercase">Total Dispositivos</span>
                 <span className="text-base font-bold text-purple-950 font-mono">
-                  {totalEquipos} {totalEquipos === 1 ? 'equipo' : 'equipos'}
+                  {totalEquipos} {totalEquipos === 1 ? 'dispositivo' : 'dispositivos'}
                 </span>
               </div>
 
@@ -1180,7 +1295,7 @@ export function RecepcionPermutaForm({
                 ) : (
                   <>
                     <Receipt className="h-4 w-4" />
-                    <span>Registrar Permuta ({totalEquipos} {totalEquipos === 1 ? 'iPhone' : 'iPhones'})</span>
+                    <span>Registrar Permuta ({totalEquipos} {totalEquipos === 1 ? 'dispositivo' : 'dispositivos'})</span>
                   </>
                 )}
               </Button>

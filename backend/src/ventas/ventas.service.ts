@@ -365,13 +365,15 @@ export class VentasService {
           }
           sumaValorToma += valorToma;
 
-          const imei1 = p.imei1.trim();
-          if (imeisVistos.has(imei1)) {
-            throw new BadRequestException(
-              `El IMEI 1 '${imei1}' está duplicado entre los equipos entregados en permuta.`,
-            );
+          if (p.imei1?.trim()) {
+            const imei1 = p.imei1.trim();
+            if (imeisVistos.has(imei1)) {
+              throw new BadRequestException(
+                `El IMEI 1 '${imei1}' está duplicado entre los equipos entregados en permuta.`,
+              );
+            }
+            imeisVistos.add(imei1);
           }
-          imeisVistos.add(imei1);
 
           if (p.imei2?.trim()) {
             const imei2 = p.imei2.trim();
@@ -440,33 +442,42 @@ export class VentasService {
         // Crear cada Dispositivo físico recibido en permuta
         for (const [index, p] of listaPermutas.entries()) {
           const valorToma = roundMoney(p.valorTomaBs);
-          const imei1 = p.imei1.trim();
+          const imei1 = p.imei1?.trim() || null;
           const imei2 = p.imei2?.trim() || null;
-          const serie = p.numeroSerie?.trim() || `SN-${imei1}`;
+          const serie = p.numeroSerie?.trim() || (imei1 ? `SN-${imei1}` : null);
 
           // Validar unicidad previa en BD
-          const existingImei = await tx.dispositivo.findUnique({ where: { imei1 } });
-          if (existingImei) {
-            throw new ConflictException(
-              `El IMEI 1 '${imei1}' del teléfono en permuta ya está registrado en el inventario.`,
-            );
+          if (imei1) {
+            const existingImei = await tx.dispositivo.findUnique({ where: { imei1 } });
+            if (existingImei) {
+              throw new ConflictException(
+                `El IMEI 1 '${imei1}' del dispositivo en permuta ya está registrado en el inventario.`,
+              );
+            }
           }
           if (imei2) {
             const existingImei2 = await tx.dispositivo.findUnique({ where: { imei2 } });
             if (existingImei2) {
               throw new ConflictException(
-                `El IMEI 2 '${imei2}' del teléfono en permuta ya está registrado en el inventario.`,
+                `El IMEI 2 '${imei2}' del dispositivo en permuta ya está registrado en el inventario.`,
               );
             }
           }
-          const existingSerie = await tx.dispositivo.findUnique({ where: { numeroSerie: serie } });
-          if (existingSerie) {
-            throw new ConflictException(
-              `El número de serie '${serie}' del teléfono en permuta ya está registrado en el inventario.`,
+
+          if (!serie) {
+            throw new BadRequestException(
+              `El dispositivo #${index + 1} recibido en permuta requiere especificar un número de serie.`,
             );
           }
 
-          // Resolver variante del iPhone en permuta
+          const existingSerie = await tx.dispositivo.findUnique({ where: { numeroSerie: serie } });
+          if (existingSerie) {
+            throw new ConflictException(
+              `El número de serie '${serie}' del dispositivo en permuta ya está registrado en el inventario.`,
+            );
+          }
+
+          // Resolver variante del dispositivo en permuta
           let varianteId = p.varianteId;
           if (!varianteId && p.nuevaVariante) {
             const { modeloId, color, capacidadGb, tipoSim } = p.nuevaVariante;
@@ -485,7 +496,7 @@ export class VentasService {
 
           if (!varianteId) {
             throw new BadRequestException(
-              `Debes especificar una variante para el teléfono #${index + 1} recibido en permuta.`,
+              `Debes especificar una variante para el dispositivo #${index + 1} recibido en permuta.`,
             );
           }
 
@@ -496,12 +507,43 @@ export class VentasService {
           if (!varianteDb) {
             throw new NotFoundException(`La variante con ID ${varianteId} no existe.`);
           }
-          if (
-            varianteDb.modelo.tipo !== 'IPHONE' &&
-            !varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE')
-          ) {
-            throw new BadRequestException('El módulo de permutas es exclusivo para dispositivos iPhone.');
+
+          const modeloTipo = (varianteDb.modelo.tipo || '').toUpperCase();
+          const esTelefono =
+            ['IPHONE', 'TELEFONO', 'SMARTPHONE', 'CELULAR'].includes(modeloTipo) ||
+            varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE') ||
+            varianteDb.modelo.nombreModelo.toUpperCase().includes('SAMSUNG');
+
+          if (esTelefono && !imei1) {
+            throw new BadRequestException(
+              `El dispositivo '${varianteDb.modelo.nombreModelo}' es un teléfono y requiere obligatoriamente un IMEI 1 válido.`,
+            );
           }
+
+          if (
+            esTelefono &&
+            (p.porcentajeBateria === undefined ||
+              p.porcentajeBateria === null ||
+              (p.porcentajeBateria as any) === '')
+          ) {
+            throw new BadRequestException(
+              `El dispositivo '${varianteDb.modelo.nombreModelo}' requiere especificar el porcentaje de salud de batería.`,
+            );
+          }
+
+          const esDesktop =
+            ['DESKTOP', 'IMAC', 'MAC_MINI', 'MAC_STUDIO'].includes(modeloTipo) ||
+            varianteDb.modelo.nombreModelo.toUpperCase().includes('MAC MINI') ||
+            varianteDb.modelo.nombreModelo.toUpperCase().includes('IMAC') ||
+            varianteDb.modelo.nombreModelo.toUpperCase().includes('MAC STUDIO');
+
+          const resolvedBateria = esDesktop
+            ? null
+            : p.porcentajeBateria !== undefined &&
+              p.porcentajeBateria !== null &&
+              (p.porcentajeBateria as any) !== ''
+            ? Number(p.porcentajeBateria)
+            : null;
 
           // Crear Dispositivo recibido en permuta con margen de precio sugerido centralizado
           const precioSugeridoBs = this.configuracionService
@@ -522,7 +564,7 @@ export class VentasService {
               imei1,
               imei2,
               condicion: CondicionDispositivo.PERMUTA,
-              porcentajeBateria: p.porcentajeBateria,
+              porcentajeBateria: resolvedBateria,
               detallesFisicos: p.detallesFisicos?.trim() || null,
               costoBs: valorToma,
               costoUsd: 0,

@@ -117,7 +117,7 @@ describe('ModalPermutaCheckout', () => {
     expect(onCloseMock).toHaveBeenCalled();
   });
 
-  it('debe permitir agregar un segundo equipo con el botón "+ Agregar otro iPhone en Permuta" y calcular el total acumulado', () => {
+  it('debe permitir agregar un segundo equipo con el botón "+ Agregar otro Dispositivo en Permuta" y calcular el total acumulado', () => {
     const onApplyPermutasMock = vi.fn();
     render(
       <ModalPermutaCheckout
@@ -129,10 +129,66 @@ describe('ModalPermutaCheckout', () => {
       />
     );
 
-    const addBtn = screen.getByRole('button', { name: /\+ Agregar otro iPhone en Permuta/i });
+    const addBtn = screen.getByRole('button', { name: /\+ Agregar otro Dispositivo en Permuta/i });
     fireEvent.click(addBtn);
 
-    expect(screen.getByText('iPhone en Permuta #1')).toBeDefined();
-    expect(screen.getByText('iPhone en Permuta #2')).toBeDefined();
+    expect(screen.getByText('Dispositivo en Permuta #1')).toBeDefined();
+    expect(screen.getByText('Dispositivo en Permuta #2')).toBeDefined();
+  });
+
+  it('debe permitir aplicar permuta de una Mac con número de serie y sin IMEI', () => {
+    const onApplyMock = vi.fn();
+    const mockModelosConMac = [
+      ...mockModelos,
+      {
+        id: 5,
+        nombreModelo: 'MacBook Air M2',
+        tipo: 'MAC',
+        variantes: [{ id: 50, color: 'Midnight', capacidadGb: 256, tipoSim: 'N/A' }],
+      },
+    ];
+
+    render(
+      <ModalPermutaCheckout
+        isOpen={true}
+        onClose={vi.fn()}
+        totalBs={9000}
+        modelos={mockModelosConMac}
+        initialPermuta={{
+          varianteId: 50,
+          valorTomaBs: 4500,
+          imei1: '',
+          numeroSerie: 'C02H1234MD6R',
+          detallesFisicos: '',
+        }}
+        onApplyPermuta={onApplyMock}
+      />
+    );
+
+    // Verificar que N° de Serie está presente para la Mac
+    const serieInput = screen.getByLabelText(/N° de Serie \*/i);
+    expect(serieInput).toBeDefined();
+
+    // Audit chip: Sin MDM
+    const chipMdm = screen.getByRole('button', { name: /\+ Sin MDM/i });
+    fireEvent.click(chipMdm);
+
+    const submitBtn = screen.getByRole('button', { name: /Aplicar Permuta/i });
+    expect(submitBtn.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(submitBtn);
+
+    expect(onApplyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        varianteId: 50,
+        numeroSerie: 'C02H1234MD6R',
+        imei1: undefined,
+        valorTomaBs: 4500,
+        detallesFisicos: 'Sin MDM',
+      }),
+      expect.objectContaining({
+        modeloNombre: 'MacBook Air M2',
+        valorTomaBs: 4500,
+      })
+    );
   });
 });

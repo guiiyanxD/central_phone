@@ -9,10 +9,10 @@ export interface MetodoPagoItem {
 
 export interface PermutaTradeInDto {
   varianteId: number;
-  imei1: string;
+  imei1?: string;
   imei2?: string;
   numeroSerie?: string;
-  porcentajeBateria: number;
+  porcentajeBateria?: number;
   detallesFisicos?: string;
   valorTomaBs: number;
 }
