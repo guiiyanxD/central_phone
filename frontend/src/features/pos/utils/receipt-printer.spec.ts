@@ -200,4 +200,61 @@ describe('receipt-printer Utility', () => {
     expect(content).toContain('Método de Pago: </span><span class="bold">Mixto (Efectivo + QR)</span>');
     expect(content).not.toContain('99887766');
   });
+
+  it('debe reflejar múltiples iPhones en permuta en el ticket térmico con sus respectivos IMEIs y valores', () => {
+    const mockSaleMultiPermuta: any = {
+      id: 104,
+      totalVentaBs: 10000,
+      montoPermutaBs: 4500,
+      montoEfectivoBs: 5500,
+      montoDigitalBs: 0,
+      fechaHora: '2026-10-22T15:00:00Z',
+      caja: {
+        sucursal: { nombre: 'Sucursal Central', ciudad: 'Santa Cruz' },
+      },
+      usuario: { nombre: 'Vendedor Pos' },
+      cliente: { nombreCompleto: 'Carlos Gomez', telefono: '78899001' },
+      detalles: [],
+      metodoPago: { codigo: 'EFECTIVO', nombre: 'Efectivo' },
+      permutaNotaIngreso: {
+        dispositivos: [
+          {
+            id: 1,
+            imei1: '111111111111111',
+            costoBs: 2500,
+            porcentajeBateria: 85,
+            variante: {
+              color: 'Titanio Natural',
+              capacidadGb: 256,
+              modelo: { nombreModelo: 'iPhone 15 Pro' },
+            },
+          },
+          {
+            id: 2,
+            imei1: '222222222222222',
+            costoBs: 2000,
+            porcentajeBateria: 88,
+            variante: {
+              color: 'Azul',
+              capacidadGb: 128,
+              modelo: { nombreModelo: 'iPhone 14' },
+            },
+          },
+        ],
+      },
+    };
+
+    printReceipt(mockSaleMultiPermuta);
+
+    const iframes = document.querySelectorAll('iframe');
+    const iframe = iframes[iframes.length - 1];
+    const content = iframe.contentDocument?.body.innerHTML || '';
+
+    expect(content).toContain('*** RETOMA / PERMUTA DE CLIENTE (2 Equipos) ***');
+    expect(content).toContain('iPhone 15 Pro (Titanio Natural 256GB)');
+    expect(content).toContain('111111111111111');
+    expect(content).toContain('iPhone 14 (Azul 128GB)');
+    expect(content).toContain('222222222222222');
+    expect(content).toContain('- Bs 4500.00');
+  });
 });

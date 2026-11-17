@@ -95,6 +95,12 @@ export class CreateVentaDto {
   @IsOptional()
   permuta?: PermutaTradeInDto;
 
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PermutaTradeInDto)
+  @IsOptional()
+  permutas?: PermutaTradeInDto[];
+
   @IsNumber()
   @IsOptional()
   montoEfectivoMixtoBs?: number;

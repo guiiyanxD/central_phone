@@ -1344,10 +1344,22 @@ export class RecepcionService {
     const {
       proveedorMinorista,
       sucursalId,
+      dispositivos: dispositivosInput,
       dispositivo,
-      gastosIniciales = [],
+      gastosIniciales: gastosGlobales = [],
       observaciones,
     } = dto;
+
+    const listaDispositivos: DispositivoPermutaDto[] =
+      dispositivosInput && dispositivosInput.length > 0
+        ? dispositivosInput
+        : dispositivo
+          ? [dispositivo]
+          : [];
+
+    if (listaDispositivos.length === 0) {
+      throw new BadRequestException('Debes proporcionar al menos un dispositivo para registrar la permuta.');
+    }
 
     const fechaEfectiva = this.validarFechaIngreso(dto.fechaIngreso);
 
@@ -1364,35 +1376,66 @@ export class RecepcionService {
       throw new NotFoundException(`La sucursal con ID ${sucursalId} no existe.`);
     }
 
-    const serie = dispositivo.numeroSerie.trim();
-    const imei1 = dispositivo.imei1.trim();
-    const imei2 = dispositivo.imei2?.trim() || null;
+    // 1. Validar unicidad de serie e IMEIs (dentro de la lista y contra la base de datos)
+    const seriesVistas = new Set<string>();
+    const imeisVistos = new Set<string>();
 
-    // 1. Validar unicidad previa de serie e IMEI
-    const serieExistente = await this.prisma.dispositivo.findUnique({
-      where: { numeroSerie: serie },
-    });
-    if (serieExistente) {
-      throw new ConflictException(`El número de serie '${serie}' ya está registrado en el inventario.`);
-    }
+    for (const [index, disp] of listaDispositivos.entries()) {
+      const serie = disp.numeroSerie?.trim() || `SN-${disp.imei1?.trim()}`;
+      const imei1 = disp.imei1.trim();
+      const imei2 = disp.imei2?.trim() || null;
 
-    const imei1Existente = await this.prisma.dispositivo.findUnique({
-      where: { imei1 },
-    });
-    if (imei1Existente) {
-      throw new ConflictException(`El IMEI 1 '${imei1}' ya está registrado en el inventario.`);
-    }
+      if (imeisVistos.has(imei1)) {
+        throw new BadRequestException(`El IMEI 1 '${imei1}' está duplicado en la lista de equipos.`);
+      }
+      imeisVistos.add(imei1);
 
-    if (imei2) {
-      const imei2Existente = await this.prisma.dispositivo.findUnique({
-        where: { imei2 },
+      if (imei2) {
+        if (imeisVistos.has(imei2)) {
+          throw new BadRequestException(`El IMEI 2 '${imei2}' está duplicado en la lista de equipos.`);
+        }
+        imeisVistos.add(imei2);
+      }
+
+      if (seriesVistas.has(serie)) {
+        throw new BadRequestException(`El número de serie '${serie}' está duplicado en la lista de equipos.`);
+      }
+      seriesVistas.add(serie);
+
+      if (
+        disp.porcentajeBateria !== undefined &&
+        (disp.porcentajeBateria < 1 || disp.porcentajeBateria > 100)
+      ) {
+        throw new BadRequestException(
+          `El porcentaje de salud de batería del equipo #${index + 1} debe estar entre 1% y 100%.`,
+        );
+      }
+
+      const serieExistente = await this.prisma.dispositivo.findUnique({
+        where: { numeroSerie: serie },
       });
-      if (imei2Existente) {
-        throw new ConflictException(`El IMEI 2 '${imei2}' ya está registrado en el inventario.`);
+      if (serieExistente) {
+        throw new ConflictException(`El número de serie '${serie}' ya está registrado en el inventario.`);
+      }
+
+      const imei1Existente = await this.prisma.dispositivo.findUnique({
+        where: { imei1 },
+      });
+      if (imei1Existente) {
+        throw new ConflictException(`El IMEI 1 '${imei1}' ya está registrado en el inventario.`);
+      }
+
+      if (imei2) {
+        const imei2Existente = await this.prisma.dispositivo.findUnique({
+          where: { imei2 },
+        });
+        if (imei2Existente) {
+          throw new ConflictException(`El IMEI 2 '${imei2}' ya está registrado en el inventario.`);
+        }
       }
     }
 
-    // 2. Transacción Atómica ACID para crear permuta, iPhone y gastos
+    // 2. Transacción Atómica ACID para crear permuta, iPhones y gastos
     return this.prisma.$transaction(async (tx) => {
       // Buscar o crear proveedor minorista
       let proveedor = null;
@@ -1424,74 +1467,12 @@ export class RecepcionService {
         });
       }
 
-      // Resolver variante del iPhone
-      let varianteId = dispositivo.varianteId;
-      if (!varianteId && dispositivo.nuevaVariante) {
-        const { modeloId, color, capacidadGb, tipoSim } = dispositivo.nuevaVariante;
-        const modelo = await tx.modeloDispositivo.findUnique({ where: { id: modeloId } });
-        if (!modelo) {
-          throw new NotFoundException(`El modelo con ID ${modeloId} no existe.`);
-        }
-        let variante = await tx.varianteDispositivo.findFirst({
-          where: {
-            modeloId,
-            color: color.trim(),
-            capacidadGb,
-            tipoSim: tipoSim?.trim() || 'SIM Físico',
-          },
-        });
-        if (!variante) {
-          variante = await tx.varianteDispositivo.create({
-            data: {
-              modeloId,
-              color: color.trim(),
-              capacidadGb,
-              tipoSim: tipoSim?.trim() || 'SIM Físico',
-            },
-          });
-        }
-        varianteId = variante.id;
-      }
-
-      if (!varianteId) {
-        throw new BadRequestException('Debes seleccionar una variante existente o crear una nueva variante al vuelo.');
-      }
-
-      const varianteDb = await tx.varianteDispositivo.findUnique({
-        where: { id: varianteId },
-        include: { modelo: true },
-      });
-      if (!varianteDb) {
-        throw new NotFoundException(`La variante con ID ${varianteId} no existe.`);
-      }
-
-      if (
-        varianteDb.modelo.tipo !== 'IPHONE' &&
-        !varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE')
-      ) {
-        throw new BadRequestException('El módulo de permutas es exclusivo para dispositivos iPhone.');
-      }
-
-      if (
-        dispositivo.porcentajeBateria !== undefined &&
-        (dispositivo.porcentajeBateria < 1 || dispositivo.porcentajeBateria > 100)
-      ) {
-        throw new BadRequestException('El porcentaje de salud de batería debe estar entre 1% y 100%.');
-      }
-
-      // 3. Cálculos Financieros: Margen centralizado sobre costo compra + suma de gastos iniciales
-      const costoBs = roundMoney(dispositivo.costoBs);
-      const sumaGastos = roundMoney(
-        gastosIniciales.reduce((sum, g) => sum + (Number(g.costoBs) || 0), 0),
-      );
-      const precioSugeridoBs = await this.calcularPrecioSugerido(
-        CategoriaMargen.PERMUTA,
-        costoBs,
-        sumaGastos,
-        tx,
+      // Calcular costo total sumando todos los equipos
+      const totalCostoBs = roundMoney(
+        listaDispositivos.reduce((sum, d) => sum + roundMoney(d.costoBs), 0),
       );
 
-      // 4. Crear Nota de Ingreso de tipo PERMUTA
+      // Crear Nota de Ingreso de tipo PERMUTA
       const nota = await tx.notaIngreso.create({
         data: {
           proveedorId: proveedor.id,
@@ -1500,50 +1481,127 @@ export class RecepcionService {
           tipoIngreso: 'PERMUTA',
           numeroComprobante: `PERMUTA-${Date.now().toString().slice(-6)}`,
           observaciones: observaciones?.trim() || null,
-          totalCostoBs: costoBs,
+          totalCostoBs,
           estado: 'REGISTRADA',
           ...(fechaEfectiva ? { fechaIngreso: fechaEfectiva } : {}),
         },
       });
 
-      // 5. Crear Dispositivo físico
-      const nuevoDispositivo = await tx.dispositivo.create({
-        data: {
-          varianteId,
-          sucursalId,
-          notaIngresoId: nota.id,
-          numeroSerie: serie,
-          imei1,
-          imei2,
-          condicion: CondicionDispositivo.PERMUTA,
-          porcentajeBateria: dispositivo.porcentajeBateria,
-          detallesFisicos: dispositivo.detallesFisicos?.trim() || null,
-          costoBs,
-          costoUsd: 0,
-          precioVentaSugeridoBs: precioSugeridoBs,
-          precioVentaSugeridoUsd: 0,
-          estadoInventario: EstadoInventario.DISPONIBLE,
-        },
-      });
+      // Validar si algún gasto requiere caja abierta
+      let cajaActivaId: number | null = null;
+      const todosLosGastos = [
+        ...gastosGlobales,
+        ...listaDispositivos.flatMap((d) => d.gastosIniciales || []),
+      ];
+      const requiereCaja = todosLosGastos.some((g) => g.aplicoEnCaja !== false);
+      if (requiereCaja) {
+        const cajaActiva = await tx.cajaDiaria.findFirst({
+          where: { sucursalId, estado: 'ABIERTA' },
+        });
+        if (!cajaActiva) {
+          throw new BadRequestException(
+            'No existe una sesión de caja abierta en la sucursal para registrar el egreso de gastos en efectivo.',
+          );
+        }
+        cajaActivaId = cajaActiva.id;
+      }
 
-      // 6. Registrar gastos iniciales si existen
-      if (gastosIniciales.length > 0) {
-        const requiereCaja = gastosIniciales.some((g) => g.aplicoEnCaja !== false);
-        let cajaActivaId: number | null = null;
+      const dispositivosCreados = [];
+      let inversionTotalAcumuladaBs = 0;
 
-        if (requiereCaja) {
-          const cajaActiva = await tx.cajaDiaria.findFirst({
-            where: { sucursalId, estado: 'ABIERTA' },
-          });
-          if (!cajaActiva) {
-            throw new BadRequestException(
-              'No existe una sesión de caja abierta en la sucursal para registrar el egreso de gastos en efectivo.',
-            );
+      for (const [index, disp] of listaDispositivos.entries()) {
+        const serie = disp.numeroSerie?.trim() || `SN-${disp.imei1.trim()}`;
+        const imei1 = disp.imei1.trim();
+        const imei2 = disp.imei2?.trim() || null;
+        const costoBs = roundMoney(disp.costoBs);
+
+        // Resolver variante del iPhone
+        let varianteId = disp.varianteId;
+        if (!varianteId && disp.nuevaVariante) {
+          const { modeloId, color, capacidadGb, tipoSim } = disp.nuevaVariante;
+          const modelo = await tx.modeloDispositivo.findUnique({ where: { id: modeloId } });
+          if (!modelo) {
+            throw new NotFoundException(`El modelo con ID ${modeloId} no existe.`);
           }
-          cajaActivaId = cajaActiva.id;
+          let variante = await tx.varianteDispositivo.findFirst({
+            where: {
+              modeloId,
+              color: color.trim(),
+              capacidadGb,
+              tipoSim: tipoSim?.trim() || 'SIM Físico',
+            },
+          });
+          if (!variante) {
+            variante = await tx.varianteDispositivo.create({
+              data: {
+                modeloId,
+                color: color.trim(),
+                capacidadGb,
+                tipoSim: tipoSim?.trim() || 'SIM Físico',
+              },
+            });
+          }
+          varianteId = variante.id;
         }
 
-        for (const g of gastosIniciales) {
+        if (!varianteId) {
+          throw new BadRequestException(
+            `Debes seleccionar una variante para el equipo #${index + 1} o crear una nueva variante al vuelo.`,
+          );
+        }
+
+        const varianteDb = await tx.varianteDispositivo.findUnique({
+          where: { id: varianteId },
+          include: { modelo: true },
+        });
+        if (!varianteDb) {
+          throw new NotFoundException(`La variante con ID ${varianteId} no existe.`);
+        }
+
+        if (
+          varianteDb.modelo.tipo !== 'IPHONE' &&
+          !varianteDb.modelo.nombreModelo.toUpperCase().includes('IPHONE')
+        ) {
+          throw new BadRequestException('El módulo de permutas es exclusivo para dispositivos iPhone.');
+        }
+
+        // Gastos particulares del equipo (más gastos globales si es el primer equipo)
+        const gastosEquipo = [
+          ...(disp.gastosIniciales || []),
+          ...(index === 0 ? gastosGlobales : []),
+        ];
+        const sumaGastos = roundMoney(
+          gastosEquipo.reduce((sum, g) => sum + (Number(g.costoBs) || 0), 0),
+        );
+
+        const precioSugeridoBs = await this.calcularPrecioSugerido(
+          CategoriaMargen.PERMUTA,
+          costoBs,
+          sumaGastos,
+          tx,
+        );
+
+        const nuevoDispositivo = await tx.dispositivo.create({
+          data: {
+            varianteId,
+            sucursalId,
+            notaIngresoId: nota.id,
+            numeroSerie: serie,
+            imei1,
+            imei2,
+            condicion: CondicionDispositivo.PERMUTA,
+            porcentajeBateria: disp.porcentajeBateria,
+            detallesFisicos: disp.detallesFisicos?.trim() || null,
+            costoBs,
+            costoUsd: 0,
+            precioVentaSugeridoBs: precioSugeridoBs,
+            precioVentaSugeridoUsd: 0,
+            estadoInventario: EstadoInventario.DISPONIBLE,
+          },
+        });
+
+        // Registrar gastos para este dispositivo
+        for (const g of gastosEquipo) {
           const costoGasto = roundMoney(g.costoBs);
           const aplicoCaja = g.aplicoEnCaja !== false && cajaActivaId !== null;
 
@@ -1561,19 +1619,29 @@ export class RecepcionService {
             },
           });
         }
+
+        inversionTotalAcumuladaBs += roundMoney(costoBs + sumaGastos);
+        dispositivosCreados.push({
+          id: nuevoDispositivo.id,
+          imei1,
+          costoBs,
+          precioSugeridoBs,
+        });
       }
 
       this.logger.log(
-        `Permuta registrada: Nota #${nota.id}, iPhone IMEI: ${imei1}, Costo: Bs ${costoBs}, Precio Sugerido: Bs ${precioSugeridoBs}`,
+        `Permuta registrada: Nota #${nota.id}, Equipos: ${dispositivosCreados.length}, Costo Total: Bs ${totalCostoBs}`,
       );
 
       return {
         success: true,
-        message: 'Permuta registrada exitosamente.',
+        message: `Permuta de ${dispositivosCreados.length} equipo(s) registrada exitosamente.`,
         notaId: nota.id,
-        dispositivoId: nuevoDispositivo.id,
-        precioSugeridoBs,
-        inversionTotalBs: roundMoney(costoBs + sumaGastos),
+        dispositivoId: dispositivosCreados[0]?.id,
+        dispositivos: dispositivosCreados,
+        totalEquipos: dispositivosCreados.length,
+        totalCostoBs,
+        inversionTotalBs: roundMoney(inversionTotalAcumuladaBs),
       };
     }, { timeout: 15000, maxWait: 5000 });
   }

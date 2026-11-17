@@ -97,48 +97,95 @@ export function printReceipt(completedSale: any) {
   const montoPermuta = Number(completedSale.montoPermutaBs || 0);
   const saldoCobrado = Number(completedSale.totalVentaBs) - montoPermuta;
 
-  const permutaDisp = completedSale.permutaDispositivo;
-  const permutaSum = completedSale.permutaSummary;
-  const permutaDto = completedSale.permuta;
+  // Normalizar lista de dispositivos en permuta (1 o múltiples)
+  let listaPermutasDisp: any[] = [];
+  if (completedSale.permutaNotaIngreso?.dispositivos && completedSale.permutaNotaIngreso.dispositivos.length > 0) {
+    listaPermutasDisp = completedSale.permutaNotaIngreso.dispositivos.map((d: any) => {
+      const cap = d.variante?.capacidadGb > 0 ? `${d.variante.capacidadGb}GB` : '';
+      const color = d.variante?.color || '';
+      return {
+        modelo: d.variante?.modelo?.nombreModelo || 'iPhone',
+        variante: [color, cap].filter(Boolean).join(' '),
+        imei: d.imei1 || d.numeroSerie || '',
+        bateria: d.porcentajeBateria,
+        valorToma: Number(d.costoBs || 0),
+      };
+    });
+  } else if (completedSale.permutaSummaries && completedSale.permutaSummaries.length > 0) {
+    listaPermutasDisp = completedSale.permutaSummaries.map((s: any, idx: number) => {
+      const p = completedSale.permutaTradeIns?.[idx];
+      return {
+        modelo: s.modeloNombre || 'iPhone',
+        variante: s.varianteDetalle || '',
+        imei: s.imei1 || p?.imei1 || '',
+        bateria: p?.porcentajeBateria || null,
+        valorToma: Number(s.valorTomaBs || p?.valorTomaBs || 0),
+      };
+    });
+  } else if (completedSale.permutaDispositivo || completedSale.permutaSummary || completedSale.permuta) {
+    const permutaDisp = completedSale.permutaDispositivo;
+    const permutaSum = completedSale.permutaSummary;
+    const permutaDto = completedSale.permuta;
 
-  const permutaModelo =
-    permutaDisp?.variante?.modelo?.nombreModelo ||
-    permutaSum?.modeloNombre ||
-    'iPhone';
+    const permutaModelo =
+      permutaDisp?.variante?.modelo?.nombreModelo ||
+      permutaSum?.modeloNombre ||
+      'iPhone';
 
-  const permutaColor = permutaDisp?.variante?.color || '';
-  const permutaCap =
-    permutaDisp?.variante?.capacidadGb > 0
-      ? `${permutaDisp.variante.capacidadGb}GB`
-      : '';
-  const permutaVarianteDetalle =
-    [permutaColor, permutaCap].filter(Boolean).join(' ') ||
-    permutaSum?.varianteDetalle ||
-    '';
+    const permutaColor = permutaDisp?.variante?.color || '';
+    const permutaCap =
+      permutaDisp?.variante?.capacidadGb > 0
+        ? `${permutaDisp.variante.capacidadGb}GB`
+        : '';
+    const permutaVarianteDetalle =
+      [permutaColor, permutaCap].filter(Boolean).join(' ') ||
+      permutaSum?.varianteDetalle ||
+      '';
 
-  const permutaImei =
-    permutaDisp?.imei1 ||
-    permutaSum?.imei1 ||
-    permutaDto?.imei1 ||
-    '';
+    const permutaImei =
+      permutaDisp?.imei1 ||
+      permutaSum?.imei1 ||
+      permutaDto?.imei1 ||
+      '';
 
-  const permutaBateria =
-    permutaDisp?.porcentajeBateria ||
-    permutaDto?.porcentajeBateria ||
-    null;
+    const permutaBateria =
+      permutaDisp?.porcentajeBateria ||
+      permutaDto?.porcentajeBateria ||
+      null;
+
+    listaPermutasDisp = [
+      {
+        modelo: permutaModelo,
+        variante: permutaVarianteDetalle,
+        imei: permutaImei,
+        bateria: permutaBateria,
+        valorToma: montoPermuta,
+      },
+    ];
+  }
 
   const permutaHtml =
     montoPermuta > 0
       ? `
         <div class="divider"></div>
         <div style="border: 1px dashed #000; padding: 4px 6px; margin: 4px 0; font-size: 9.5px; background: #fafafa;">
-          <div style="font-weight: bold; text-align: center; letter-spacing: 0.5px;">*** RETOMA / PERMUTA DE CLIENTE ***</div>
-          <div style="margin-top: 2px;">Equipo: <span class="bold">${permutaModelo}${permutaVarianteDetalle ? ` (${permutaVarianteDetalle})` : ''}</span></div>
-          <div>IMEI 1: <span class="bold">${permutaImei || 'S/N'}</span></div>
-          ${permutaBateria ? `<div>Salud Batería: <span class="bold">${permutaBateria}%</span></div>` : ''}
-          <div style="display:flex; justify-content:space-between; margin-top:2px; border-top: 1px dotted #ccc; padding-top: 2px;">
+          <div style="font-weight: bold; text-align: center; letter-spacing: 0.5px;">*** RETOMA / PERMUTA DE CLIENTE${listaPermutasDisp.length > 1 ? ` (${listaPermutasDisp.length} Equipos)` : ''} ***</div>
+          ${listaPermutasDisp
+            .map(
+              (p, idx) => `
+            <div style="margin-top: 3px; border-bottom: 1px dotted #e5e5e5; padding-bottom: 2px;">
+              ${listaPermutasDisp.length > 1 ? `<div style="font-weight: bold;">Equipo #${idx + 1}:</div>` : ''}
+              <div>Equipo: <span class="bold">${p.modelo}${p.variante ? ` (${p.variante})` : ''}</span></div>
+              <div>IMEI 1: <span class="bold">${p.imei || 'S/N'}</span></div>
+              ${p.bateria ? `<div>Salud Batería: <span class="bold">${p.bateria}%</span></div>` : ''}
+              ${listaPermutasDisp.length > 1 && p.valorToma ? `<div>Valor Acordado: <span class="bold">Bs ${p.valorToma.toFixed(2)}</span></div>` : ''}
+            </div>
+          `
+            )
+            .join('')}
+          <div style="display:flex; justify-content:space-between; margin-top:3px; border-top: 1px solid #000; padding-top: 2px; font-weight: bold;">
             <span>Crédito Aplicado:</span>
-            <span class="bold">- Bs ${montoPermuta.toFixed(2)}</span>
+            <span>- Bs ${montoPermuta.toFixed(2)}</span>
           </div>
         </div>
       `

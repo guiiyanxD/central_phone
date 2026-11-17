@@ -31,6 +31,7 @@ export interface CreateVentaData {
     precioVentaBs: number;
   }>;
   permuta?: PermutaTradeInDto;
+  permutas?: PermutaTradeInDto[];
   montoEfectivoMixtoBs?: number;
 }
 

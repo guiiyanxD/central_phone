@@ -1046,6 +1046,66 @@ describe('RecepcionService', () => {
       });
     });
 
+    it('debe registrar exitosamente una permuta con múltiples dispositivos (dispositivos: [...])', async () => {
+      const result = await service.createPermuta(
+        {
+          proveedorMinorista: basePermutaDto.proveedorMinorista,
+          sucursalId: 1,
+          dispositivos: [
+            {
+              varianteId: 1,
+              numeroSerie: 'SN-MULTI-1',
+              imei1: '354928110000010',
+              porcentajeBateria: 88,
+              costoBs: 2000,
+            },
+            {
+              varianteId: 1,
+              numeroSerie: 'SN-MULTI-2',
+              imei1: '354928110000020',
+              porcentajeBateria: 85,
+              costoBs: 2500,
+            },
+          ],
+        },
+        usuarioId,
+        1,
+      );
+
+      expect(result.totalEquipos).toBe(2);
+      expect(result.totalCostoBs).toBe(4500);
+      expect(prisma.dispositivo.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('debe rechazar permuta si hay IMEIs duplicados en la lista de dispositivos', async () => {
+      await expect(
+        service.createPermuta(
+          {
+            proveedorMinorista: basePermutaDto.proveedorMinorista,
+            sucursalId: 1,
+            dispositivos: [
+              {
+                varianteId: 1,
+                numeroSerie: 'SN-DUP-1',
+                imei1: '354928110000099',
+                porcentajeBateria: 88,
+                costoBs: 2000,
+              },
+              {
+                varianteId: 1,
+                numeroSerie: 'SN-DUP-2',
+                imei1: '354928110000099', // Duplicado
+                porcentajeBateria: 85,
+                costoBs: 2000,
+              },
+            ],
+          },
+          usuarioId,
+          1,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('debe actualizar el campo de Registro (detallesFisicos) al editar una permuta', async () => {
       prisma.notaIngreso.findUnique.mockResolvedValue({
         id: 50,

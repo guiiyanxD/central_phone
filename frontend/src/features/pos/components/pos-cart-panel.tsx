@@ -48,12 +48,19 @@ interface PosCartPanelProps {
   isSubmittingSale: boolean;
   onProcessCheckout: () => void;
   permutaTradeIn?: PermutaTradeInDto | null;
+  permutasTradeIn?: PermutaTradeInDto[];
   permutaSummary?: {
     modeloNombre: string;
     varianteDetalle: string;
     imei1: string;
     valorTomaBs: number;
   } | null;
+  permutasSummaries?: Array<{
+    modeloNombre: string;
+    varianteDetalle: string;
+    imei1: string;
+    valorTomaBs: number;
+  }>;
   onOpenModalPermuta?: () => void;
   onRemovePermuta?: () => void;
 }
@@ -87,11 +94,23 @@ export function PosCartPanel({
   isSubmittingSale,
   onProcessCheckout,
   permutaTradeIn,
+  permutasTradeIn,
   permutaSummary,
+  permutasSummaries,
   onOpenModalPermuta,
   onRemovePermuta,
 }: PosCartPanelProps) {
-  const montoPermuta = permutaTradeIn?.valorTomaBs || 0;
+  const listaPermutas =
+    permutasTradeIn && permutasTradeIn.length > 0
+      ? permutasTradeIn
+      : permutaTradeIn
+        ? [permutaTradeIn]
+        : [];
+
+  const montoPermuta = listaPermutas.reduce(
+    (sum, p) => sum + (Number(p.valorTomaBs) || 0),
+    0
+  );
   const saldoACobrar = Math.max(0, totalBs - montoPermuta);
 
   // Validación estricta de cobro en efectivo (ID-POS-002):
@@ -325,7 +344,7 @@ export function PosCartPanel({
         {/* Sección de Permuta (Trade-In) */}
         {cart.length > 0 && (
           <div className="space-y-1.5">
-            {!permutaTradeIn && onOpenModalPermuta ? (
+            {listaPermutas.length === 0 && onOpenModalPermuta ? (
               <button
                 type="button"
                 onClick={onOpenModalPermuta}
@@ -334,44 +353,98 @@ export function PosCartPanel({
                 <RefreshCw className="h-3.5 w-3.5 text-emerald-600" />
                 <span>Aplicar Permuta (Trade-In como crédito)</span>
               </button>
-            ) : permutaTradeIn && permutaSummary ? (
+            ) : listaPermutas.length === 1 && (permutaSummary || permutasSummaries?.[0]) ? (
+              (() => {
+                const p = listaPermutas[0];
+                const sum = permutasSummaries?.[0] || permutaSummary!;
+                return (
+                  <div className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50/80 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                        <span className="text-[11px] font-bold text-emerald-900">
+                          Permuta: {sum.modeloNombre}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold font-mono text-emerald-700">
+                        - Bs {Number(p.valorTomaBs).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-emerald-800">
+                      <span>
+                        {sum.varianteDetalle} • IMEI: ...{p.imei1.slice(-5)}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {onOpenModalPermuta && (
+                          <button
+                            type="button"
+                            onClick={onOpenModalPermuta}
+                            className="font-medium underline hover:text-emerald-950 px-1"
+                          >
+                            Editar
+                          </button>
+                        )}
+                        {onRemovePermuta && (
+                          <button
+                            type="button"
+                            onClick={onRemovePermuta}
+                            className="font-medium text-rose-600 hover:text-rose-800 px-1"
+                            title="Quitar permuta del ticket"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : listaPermutas.length > 1 ? (
               <div className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50/80 space-y-1.5 animate-in fade-in">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <RefreshCw className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
                     <span className="text-[11px] font-bold text-emerald-900">
-                      Permuta: {permutaSummary.modeloNombre}
+                      Permutas ({listaPermutas.length} iPhones en parte de pago)
                     </span>
                   </div>
                   <span className="text-xs font-bold font-mono text-emerald-700">
-                    - Bs {permutaTradeIn.valorTomaBs.toFixed(2)}
+                    - Bs {montoPermuta.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-emerald-800">
-                  <span>
-                    {permutaSummary.varianteDetalle} • IMEI: ...{permutaTradeIn.imei1.slice(-5)}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {onOpenModalPermuta && (
-                      <button
-                        type="button"
-                        onClick={onOpenModalPermuta}
-                        className="font-medium underline hover:text-emerald-950 px-1"
-                      >
-                        Editar
-                      </button>
-                    )}
-                    {onRemovePermuta && (
-                      <button
-                        type="button"
-                        onClick={onRemovePermuta}
-                        className="font-medium text-rose-600 hover:text-rose-800 px-1"
-                        title="Quitar permuta del ticket"
-                      >
-                        Quitar
-                      </button>
-                    )}
-                  </div>
+                <div className="text-[10px] text-emerald-800 space-y-0.5">
+                  {listaPermutas.map((p, i) => {
+                    const sum = permutasSummaries?.[i];
+                    return (
+                      <div key={i} className="flex justify-between items-center text-[10px]">
+                        <span>
+                          {i + 1}. {sum?.modeloNombre || 'iPhone'} {sum?.varianteDetalle || ''} (...{p.imei1.slice(-5)})
+                        </span>
+                        <span className="font-mono font-medium">Bs {Number(p.valorTomaBs).toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-emerald-200/60 text-[10px]">
+                  {onOpenModalPermuta && (
+                    <button
+                      type="button"
+                      onClick={onOpenModalPermuta}
+                      className="font-medium underline hover:text-emerald-950 px-1"
+                    >
+                      Editar
+                    </button>
+                  )}
+                  {onRemovePermuta && (
+                    <button
+                      type="button"
+                      onClick={onRemovePermuta}
+                      className="font-medium text-rose-600 hover:text-rose-800 px-1"
+                      title="Quitar permutas del ticket"
+                    >
+                      Quitar todas
+                    </button>
+                  )}
                 </div>
               </div>
             ) : null}

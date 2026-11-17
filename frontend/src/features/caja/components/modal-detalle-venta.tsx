@@ -301,41 +301,87 @@ export function ModalDetalleVenta({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-emerald-950 font-bold text-xs">
                 <RefreshCw className="h-4 w-4 text-emerald-700" />
-                <span>Teléfono Recibido en Permuta (Trade-In de Cliente)</span>
+                <span>
+                  {venta.permutaNotaIngreso?.dispositivos && venta.permutaNotaIngreso.dispositivos.length > 1
+                    ? `Teléfonos Recibidos en Permuta (${venta.permutaNotaIngreso.dispositivos.length} Equipos)`
+                    : 'Teléfono Recibido en Permuta (Trade-In de Cliente)'}
+                </span>
               </div>
               <span className="text-xs font-bold font-mono text-emerald-800 bg-white border border-emerald-300 px-2 py-0.5 rounded-full">
                 Crédito: - Bs {montoPermuta.toFixed(2)}
               </span>
             </div>
 
-            {venta.permutaDispositivo ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
-                <div>
-                  <span className="text-[10px] font-semibold text-emerald-900 block">Modelo Recibido</span>
-                  <span className="font-bold text-slate-900">
-                    {venta.permutaDispositivo.variante?.modelo?.nombreModelo || 'iPhone'}{' '}
-                    {venta.permutaDispositivo.variante?.color}{' '}
-                    {venta.permutaDispositivo.variante?.capacidadGb > 0
-                      ? `${venta.permutaDispositivo.variante.capacidadGb}GB`
-                      : ''}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-semibold text-emerald-900 block">Identificador IMEI 1</span>
-                  <span className="font-mono text-slate-900 font-bold">
-                    {venta.permutaDispositivo.imei1 || 'S/N'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-semibold text-emerald-900 block">Batería & Estado</span>
-                  <span className="font-semibold text-slate-900">
-                    {venta.permutaDispositivo.porcentajeBateria
-                      ? `${venta.permutaDispositivo.porcentajeBateria}% Batería`
-                      : 'Condición Normal'}{' '}
-                    • DISPONIBLE
-                  </span>
-                </div>
+            {venta.permutaNotaIngreso?.dispositivos && venta.permutaNotaIngreso.dispositivos.length > 1 ? (
+              <div className="space-y-2 pt-1">
+                {venta.permutaNotaIngreso.dispositivos.map((disp: any, i: number) => (
+                  <div
+                    key={disp.id || i}
+                    className="p-2.5 rounded-lg bg-white/90 border border-emerald-200 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs"
+                  >
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-900 block">
+                        Equipo #{i + 1}: Modelo
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        {disp.variante?.modelo?.nombreModelo || 'iPhone'}{' '}
+                        {disp.variante?.color}{' '}
+                        {disp.variante?.capacidadGb > 0 ? `${disp.variante.capacidadGb}GB` : ''}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-900 block">
+                        IMEI / Serie
+                      </span>
+                      <span className="font-mono text-slate-900 font-bold">
+                        {disp.imei1 || disp.numeroSerie || 'S/N'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-900 block">
+                        Batería & Costo Toma
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {disp.porcentajeBateria ? `${disp.porcentajeBateria}% Batería` : 'Normal'}{' '}
+                        • <span className="font-mono text-emerald-700">Bs {Number(disp.costoBs || 0).toFixed(2)}</span>
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
+            ) : venta.permutaDispositivo || (venta.permutaNotaIngreso?.dispositivos && venta.permutaNotaIngreso.dispositivos.length === 1) ? (
+              (() => {
+                const disp = venta.permutaDispositivo || venta.permutaNotaIngreso!.dispositivos[0];
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-900 block">Modelo Recibido</span>
+                      <span className="font-bold text-slate-900">
+                        {disp.variante?.modelo?.nombreModelo || 'iPhone'}{' '}
+                        {disp.variante?.color}{' '}
+                        {disp.variante?.capacidadGb > 0
+                          ? `${disp.variante.capacidadGb}GB`
+                          : ''}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-900 block">Identificador IMEI 1</span>
+                      <span className="font-mono text-slate-900 font-bold">
+                        {disp.imei1 || 'S/N'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-900 block">Batería & Estado</span>
+                      <span className="font-semibold text-slate-900">
+                        {disp.porcentajeBateria
+                          ? `${disp.porcentajeBateria}% Batería`
+                          : 'Condición Normal'}{' '}
+                        • DISPONIBLE
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
               <p className="text-xs text-emerald-900">
                 Se aplicó un crédito por retoma de equipo de <strong>Bs {montoPermuta.toFixed(2)}</strong> contra el subtotal de la compra.

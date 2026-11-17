@@ -89,6 +89,12 @@ export class DispositivoPermutaDto {
   @IsString()
   @IsOptional()
   detallesFisicos?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => GastoInicialPermutaDto)
+  @IsOptional()
+  gastosIniciales?: GastoInicialPermutaDto[];
 }
 
 export class CreatePermutaDto {
@@ -103,8 +109,14 @@ export class CreatePermutaDto {
 
   @ValidateNested()
   @Type(() => DispositivoPermutaDto)
-  @IsNotEmpty({ message: 'Los datos del dispositivo iPhone son obligatorios.' })
-  dispositivo: DispositivoPermutaDto;
+  @IsOptional()
+  dispositivo?: DispositivoPermutaDto;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DispositivoPermutaDto)
+  @IsOptional()
+  dispositivos?: DispositivoPermutaDto[];
 
   @IsArray()
   @ValidateNested({ each: true })

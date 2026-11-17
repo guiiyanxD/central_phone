@@ -116,4 +116,23 @@ describe('ModalPermutaCheckout', () => {
     );
     expect(onCloseMock).toHaveBeenCalled();
   });
+
+  it('debe permitir agregar un segundo equipo con el botón "+ Agregar otro iPhone en Permuta" y calcular el total acumulado', () => {
+    const onApplyPermutasMock = vi.fn();
+    render(
+      <ModalPermutaCheckout
+        isOpen={true}
+        onClose={vi.fn()}
+        totalBs={8000}
+        modelos={mockModelos}
+        onApplyPermutas={onApplyPermutasMock}
+      />
+    );
+
+    const addBtn = screen.getByRole('button', { name: /\+ Agregar otro iPhone en Permuta/i });
+    fireEvent.click(addBtn);
+
+    expect(screen.getByText('iPhone en Permuta #1')).toBeDefined();
+    expect(screen.getByText('iPhone en Permuta #2')).toBeDefined();
+  });
 });

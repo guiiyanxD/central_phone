@@ -218,9 +218,18 @@ export function RecepcionPermutasTable({
                         : `${capGb}GB`
                       : '';
                   const simLabel = disp?.variante?.tipoSim ? ` • ${disp.variante.tipoSim}` : '';
-                  const totalCosto = Number(rec.totalCostoBs || disp?.costoBs || 0);
-                  const precioSugerido = Number(disp?.precioVentaSugeridoBs || 0);
-                  const isSold = disp?.estadoInventario === 'VENDIDO';
+                  const totalCosto = Number(
+                    rec.totalCostoBs ||
+                      rec.dispositivos?.reduce((acc: number, d: any) => acc + (Number(d.costoBs) || 0), 0) ||
+                      disp?.costoBs ||
+                      0
+                  );
+                  const precioSugerido = Number(
+                    rec.dispositivos && rec.dispositivos.length > 1
+                      ? rec.dispositivos.reduce((acc: number, d: any) => acc + (Number(d.precioVentaSugeridoBs) || 0), 0)
+                      : disp?.precioVentaSugeridoBs || 0
+                  );
+                  const isSold = rec.dispositivos?.some((d: any) => d.estadoInventario === 'VENDIDO') || disp?.estadoInventario === 'VENDIDO';
 
                   return (
                     <tr key={rec.id} className="hover:bg-slate-50/60 transition-colors">
@@ -242,7 +251,40 @@ export function RecepcionPermutasTable({
 
                       {/* 2. iPhone Recibido (2da posición, jerarquía destacada) */}
                       <td className="py-3 px-4 min-w-[280px]">
-                        {disp ? (
+                        {rec.dispositivos && rec.dispositivos.length > 1 ? (
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 font-bold">
+                                {rec.dispositivos.length} iPhones en Lote
+                              </Badge>
+                              {isSold ? (
+                                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 font-semibold">
+                                  CON VENTAS
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 font-medium">
+                                  TODOS DISPONIBLES
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              {rec.dispositivos.map((d: any, i: number) => {
+                                const cGb = d.variante?.capacidadGb || 0;
+                                const cLabel = cGb > 0 ? (cGb >= 1024 ? `${cGb / 1024}TB` : `${cGb}GB`) : '';
+                                return (
+                                  <div key={d.id || i} className="text-[11px] text-slate-800 flex items-center justify-between gap-2 border-b border-slate-100 last:border-0 pb-0.5">
+                                    <span className="font-semibold truncate">
+                                      {i + 1}. {d.variante?.modelo?.nombreModelo || 'iPhone'} {d.variante?.color || ''} {cLabel ? `(${cLabel})` : ''}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-slate-500 shrink-0">
+                                      Bs {Number(d.costoBs || 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : disp ? (
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 flex items-center gap-1">
@@ -279,7 +321,15 @@ export function RecepcionPermutasTable({
 
                       {/* 3. Batería */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
-                        {disp?.porcentajeBateria !== undefined && disp?.porcentajeBateria !== null ? (
+                        {rec.dispositivos && rec.dispositivos.length > 1 ? (
+                          <div className="flex flex-col gap-0.5 items-center">
+                            {rec.dispositivos.map((d: any, i: number) => (
+                              <span key={d.id || i} className="text-[10px] font-mono text-slate-600">
+                                #{i + 1}: {d.porcentajeBateria ? `${d.porcentajeBateria}%` : 'N/A'}
+                              </span>
+                            ))}
+                          </div>
+                        ) : disp?.porcentajeBateria !== undefined && disp?.porcentajeBateria !== null ? (
                           <Badge
                             variant="outline"
                             className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 ${
@@ -300,7 +350,15 @@ export function RecepcionPermutasTable({
 
                       {/* 4. IMEI / Serie */}
                       <td className="py-3 px-4 font-mono text-[11px] whitespace-nowrap">
-                        {disp ? (
+                        {rec.dispositivos && rec.dispositivos.length > 1 ? (
+                          <div className="flex flex-col gap-0.5">
+                            {rec.dispositivos.map((d: any, i: number) => (
+                              <span key={d.id || i} className="text-[10px] text-slate-700 truncate max-w-[170px]" title={d.imei1 || d.numeroSerie}>
+                                #{i + 1}: {d.imei1 || d.numeroSerie}
+                              </span>
+                            ))}
+                          </div>
+                        ) : disp ? (
                           <div className="flex flex-col">
                             <span className="text-slate-900 font-medium">
                               {disp.imei1 || disp.numeroSerie}

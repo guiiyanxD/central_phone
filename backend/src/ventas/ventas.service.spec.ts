@@ -634,6 +634,131 @@ describe('VentasService', () => {
       expect(resultado.montoPermutaBs).toBe(1500);
     });
 
+    it('debe registrar exitosamente una venta con múltiples permutas (permutas: [...]) sumando su valor y creando cada equipo', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido } as any);
+
+      prisma.dispositivo.findUnique
+        .mockResolvedValueOnce({
+          id: 10,
+          sucursalId: 1,
+          estadoInventario: EstadoInventario.DISPONIBLE,
+          costoBs: 4000,
+          variante: { modelo: { nombreModelo: 'iPhone 15' } },
+        } as any)
+        .mockResolvedValueOnce(null) // imei1 primer equipo permuta no existe
+        .mockResolvedValueOnce(null) // serie primer equipo permuta no existe
+        .mockResolvedValueOnce(null) // imei1 segundo equipo permuta no existe
+        .mockResolvedValueOnce(null); // serie segundo equipo permuta no existe
+
+      prisma.dispositivo.updateMany.mockResolvedValue({ count: 1 } as any);
+      prisma.varianteDispositivo.findUnique.mockResolvedValue({
+        id: 2,
+        modelo: { tipo: 'IPHONE', nombreModelo: 'iPhone 12' },
+      } as any);
+
+      prisma.proveedor.findFirst.mockResolvedValue(null);
+      prisma.proveedor.create.mockResolvedValue({ id: 99, nombre: 'Cliente Permuta: Juan Carlos Perez' } as any);
+      prisma.notaIngreso.create.mockResolvedValue({ id: 56, numeroComprobante: 'PERM-POS-654321' } as any);
+      prisma.dispositivo.create
+        .mockResolvedValueOnce({
+          id: 81,
+          imei1: '111111111111111',
+          condicion: 'PERMUTA',
+          costoBs: 1500,
+          precioVentaSugeridoBs: 1725,
+        } as any)
+        .mockResolvedValueOnce({
+          id: 82,
+          imei1: '222222222222222',
+          condicion: 'PERMUTA',
+          costoBs: 1000,
+          precioVentaSugeridoBs: 1150,
+        } as any);
+
+      prisma.venta.create.mockResolvedValue({ id: 101 } as any);
+      prisma.detalleVenta.create.mockResolvedValue({ id: 1 } as any);
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 101,
+        totalVentaBs: 4000,
+        montoPermutaBs: 2500,
+        montoEfectivoBs: 1500,
+        montoDigitalBs: 0,
+        permutaDispositivoId: 81,
+        permutaNotaIngresoId: 56,
+      } as any);
+
+      const resultado = await service.createVenta(usuarioId, sucursalId, {
+        metodoPagoCodigo: 'EFECTIVO',
+        cliente: clienteValido,
+        dispositivos: [{ dispositivoId: 10, precioVentaBs: 4000 }],
+        permutas: [
+          {
+            varianteId: 2,
+            imei1: '111111111111111',
+            porcentajeBateria: 85,
+            valorTomaBs: 1500,
+          },
+          {
+            varianteId: 2,
+            imei1: '222222222222222',
+            porcentajeBateria: 90,
+            valorTomaBs: 1000,
+          },
+        ],
+      });
+
+      expect(prisma.dispositivo.create).toHaveBeenCalledTimes(2);
+      expect(prisma.venta.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            totalVentaBs: 4000,
+            montoPermutaBs: 2500,
+            montoEfectivoBs: 1500,
+            permutaDispositivoId: 81,
+            permutaNotaIngresoId: 56,
+          }),
+        })
+      );
+      expect(resultado.montoPermutaBs).toBe(2500);
+    });
+
+    it('debe rechazar la venta si hay IMEIs duplicados en la lista de permutas', async () => {
+      prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
+      prisma.metodoPago.findUnique.mockResolvedValue({ id: 1, codigo: 'EFECTIVO' } as any);
+      prisma.cliente.findFirst.mockResolvedValue({ id: 1, ...clienteValido } as any);
+      prisma.dispositivo.findUnique.mockResolvedValue({
+        id: 10,
+        sucursalId: 1,
+        estadoInventario: EstadoInventario.DISPONIBLE,
+        costoBs: 4000,
+        variante: { modelo: { nombreModelo: 'iPhone 15' } },
+      } as any);
+
+      await expect(
+        service.createVenta(usuarioId, sucursalId, {
+          metodoPagoCodigo: 'EFECTIVO',
+          cliente: clienteValido,
+          dispositivos: [{ dispositivoId: 10, precioVentaBs: 5000 }],
+          permutas: [
+            {
+              varianteId: 2,
+              imei1: '354928110000001',
+              porcentajeBateria: 85,
+              valorTomaBs: 1500,
+            },
+            {
+              varianteId: 2,
+              imei1: '354928110000001', // Mismo IMEI
+              porcentajeBateria: 90,
+              valorTomaBs: 1000,
+            },
+          ],
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('debe registrar exitosamente un pago MIXTO dividiendo montoEfectivoBs y montoDigitalBs', async () => {
       prisma.cajaDiaria.findFirst.mockResolvedValue({ id: 5, sucursalId: 1, estado: EstadoCaja.ABIERTA } as any);
       prisma.metodoPago.findUnique.mockResolvedValue({ id: 4, codigo: 'MIXTO', nombre: 'Pago Mixto' } as any);
@@ -858,6 +983,35 @@ describe('VentasService', () => {
 
       await expect(
         service.anularVenta(10, 1, { motivo: 'Devolución de cliente' })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe rechazar la anulación si cualquiera de los múltiples teléfonos permutados ya fue vendido', async () => {
+      prisma.venta.findUnique.mockResolvedValue({
+        id: 11,
+        estado: EstadoVenta.COMPLETADA,
+        permutaNotaIngresoId: 35,
+        detalles: [],
+      });
+      prisma.dispositivo.findMany.mockResolvedValue([
+        {
+          id: 51,
+          imei1: '111111111111111',
+          estadoInventario: EstadoInventario.DISPONIBLE,
+          detalleVentas: [],
+          variante: { modelo: { nombreModelo: 'iPhone 15' } },
+        },
+        {
+          id: 52,
+          imei1: '222222222222222',
+          estadoInventario: EstadoInventario.VENDIDO,
+          detalleVentas: [{ id: 88 }],
+          variante: { modelo: { nombreModelo: 'iPhone 15' } },
+        },
+      ]);
+
+      await expect(
+        service.anularVenta(11, 1, { motivo: 'Anulación de prueba' })
       ).rejects.toThrow(BadRequestException);
     });
 

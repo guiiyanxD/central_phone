@@ -70,13 +70,19 @@ export default function PosPage() {
 
   // Permuta (Trade-In) como crédito en checkout
   const [permutaModalOpen, setPermutaModalOpen] = useState(false);
-  const [permutaTradeIn, setPermutaTradeIn] = useState<PermutaTradeInDto | null>(null);
-  const [permutaSummary, setPermutaSummary] = useState<{
-    modeloNombre: string;
-    varianteDetalle: string;
-    imei1: string;
-    valorTomaBs: number;
-  } | null>(null);
+  const [permutaTradeIns, setPermutaTradeIns] = useState<PermutaTradeInDto[]>([]);
+  const [permutaSummaries, setPermutaSummaries] = useState<
+    Array<{
+      modeloNombre: string;
+      varianteDetalle: string;
+      imei1: string;
+      valorTomaBs: number;
+    }>
+  >([]);
+
+  const totalPermutaBs = useMemo(() => {
+    return permutaTradeIns.reduce((sum, p) => sum + (Number(p.valorTomaBs) || 0), 0);
+  }, [permutaTradeIns]);
 
   // Método de pago y checkout
   const [metodoPagoCodigo, setMetodoPagoCodigo] = useState<'EFECTIVO' | 'QR_SIMPLE' | 'TRANSFERENCIA' | 'MIXTO'>('EFECTIVO');
@@ -499,8 +505,8 @@ export default function PosPage() {
     if (cart.length === 0) return;
     if (window.confirm('¿Deseas descartar y vaciar todos los productos del ticket actual?')) {
       setCart([]);
-      setPermutaTradeIn(null);
-      setPermutaSummary(null);
+      setPermutaTradeIns([]);
+      setPermutaSummaries([]);
       setMontoRecibidoBs('');
       setPriceWarning(null);
       setUndoToastVisible(false);
@@ -678,7 +684,7 @@ export default function PosPage() {
       return;
     }
 
-    const montoPermuta = permutaTradeIn?.valorTomaBs || 0;
+    const montoPermuta = totalPermutaBs;
     const saldoACobrar = Math.max(0, totalBs - montoPermuta);
 
     if (
@@ -761,7 +767,8 @@ export default function PosPage() {
             cantidad: i.cantidad,
             precioVentaBs: i.precioUnitarioBs,
           })),
-        permuta: permutaTradeIn || undefined,
+        permutas: permutaTradeIns.length > 0 ? permutaTradeIns : undefined,
+        permuta: permutaTradeIns.length === 1 ? permutaTradeIns[0] : undefined,
         montoEfectivoMixtoBs:
           saldoACobrar > 0 && metodoPagoCodigo === 'MIXTO'
             ? Number(montoEfectivoMixtoBs)
@@ -770,10 +777,14 @@ export default function PosPage() {
 
       const res = await api.ventas.create(payload);
       playSaleSuccessSound();
-      setCompletedSale(res);
+      setCompletedSale({
+        ...res,
+        permutaSummaries,
+        permutaTradeIns,
+      });
       setCart([]);
-      setPermutaTradeIn(null);
-      setPermutaSummary(null);
+      setPermutaTradeIns([]);
+      setPermutaSummaries([]);
       setClienteNombre('');
       setClienteTelefono('');
       setClienteCiNit('');
@@ -927,12 +938,14 @@ export default function PosPage() {
             saleError={saleError}
             isSubmittingSale={isSubmittingSale}
             onProcessCheckout={handleProcessCheckout}
-            permutaTradeIn={permutaTradeIn}
-            permutaSummary={permutaSummary}
+            permutasTradeIn={permutaTradeIns}
+            permutasSummaries={permutaSummaries}
+            permutaTradeIn={permutaTradeIns[0] || null}
+            permutaSummary={permutaSummaries[0] || null}
             onOpenModalPermuta={() => setPermutaModalOpen(true)}
             onRemovePermuta={() => {
-              setPermutaTradeIn(null);
-              setPermutaSummary(null);
+              setPermutaTradeIns([]);
+              setPermutaSummaries([]);
             }}
           />
         </div>
@@ -943,7 +956,7 @@ export default function PosPage() {
         isOpen={modalQrOpen}
         onClose={() => setModalQrOpen(false)}
         configuracion={configuracion}
-        totalBs={Math.max(0, totalBs - (permutaTradeIn?.valorTomaBs || 0))}
+        totalBs={Math.max(0, totalBs - totalPermutaBs)}
         cart={cart}
         clienteNombre={clienteNombre}
         comprobanteRef={comprobanteRef}
@@ -952,8 +965,8 @@ export default function PosPage() {
         montoEfectivoMixtoBs={montoEfectivoMixtoBs}
         saldoQrBs={
           metodoPagoCodigo === 'MIXTO' && typeof montoEfectivoMixtoBs === 'number'
-            ? Math.max(0, Math.max(0, totalBs - (permutaTradeIn?.valorTomaBs || 0)) - montoEfectivoMixtoBs)
-            : Math.max(0, totalBs - (permutaTradeIn?.valorTomaBs || 0))
+            ? Math.max(0, Math.max(0, totalBs - totalPermutaBs) - montoEfectivoMixtoBs)
+            : Math.max(0, totalBs - totalPermutaBs)
         }
         isSubmittingSale={isSubmittingSale}
         onConfirmCheckout={handleProcessCheckout}
@@ -964,11 +977,16 @@ export default function PosPage() {
         isOpen={permutaModalOpen}
         onClose={() => setPermutaModalOpen(false)}
         totalBs={totalBs}
-        initialPermuta={permutaTradeIn}
+        initialPermutas={permutaTradeIns}
+        initialPermuta={permutaTradeIns[0] || null}
         modelos={modelos}
+        onApplyPermutas={(permutas, summaries) => {
+          setPermutaTradeIns(permutas);
+          setPermutaSummaries(summaries);
+        }}
         onApplyPermuta={(permuta, summary) => {
-          setPermutaTradeIn(permuta);
-          setPermutaSummary(summary);
+          setPermutaTradeIns([permuta]);
+          setPermutaSummaries([summary]);
         }}
       />
 

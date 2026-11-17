@@ -186,6 +186,56 @@ describe('ModalDetalleVenta', () => {
     expect(screen.getByText(/5500\.00/)).toBeDefined();
   });
 
+  it('debe visualizar la lista de múltiples iPhones recibidos en permuta', () => {
+    const mockVentaMultiPermuta = {
+      ...mockVentaNormal,
+      id: 105,
+      totalVentaBs: 10000,
+      montoPermutaBs: 4500,
+      permutaNotaIngreso: {
+        dispositivos: [
+          {
+            id: 81,
+            imei1: '111111111111111',
+            porcentajeBateria: 85,
+            costoBs: 2500,
+            variante: {
+              color: 'Titanio',
+              capacidadGb: 256,
+              modelo: { nombreModelo: 'iPhone 15 Pro' },
+            },
+          },
+          {
+            id: 82,
+            imei1: '222222222222222',
+            porcentajeBateria: 90,
+            costoBs: 2000,
+            variante: {
+              color: 'Azul',
+              capacidadGb: 128,
+              modelo: { nombreModelo: 'iPhone 14' },
+            },
+          },
+        ],
+      },
+    };
+
+    render(
+      <ModalDetalleVenta
+        isOpen={true}
+        onClose={vi.fn()}
+        venta={mockVentaMultiPermuta}
+        isAdmin={false}
+      />
+    );
+
+    expect(screen.getByText(/Teléfonos Recibidos en Permuta \(2 Equipos\)/i)).toBeDefined();
+    expect(screen.getAllByText(/iPhone 15 Pro/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('111111111111111')).toBeDefined();
+    expect(screen.getByText(/iPhone 14/i)).toBeDefined();
+    expect(screen.getByText('222222222222222')).toBeDefined();
+  });
+
   it('debe invocar printReceipt al hacer click en Imprimir Ticket Térmico', () => {
     render(
       <ModalDetalleVenta
